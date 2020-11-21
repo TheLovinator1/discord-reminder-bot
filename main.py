@@ -1,8 +1,9 @@
+import datetime
 import logging
 import os
+import traceback
 
 import dateparser
-import dhooks
 import discord
 import pytz
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
@@ -23,11 +24,28 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 @bot.event
+async def on_error(event):
+    embed = discord.Embed(title=":x: Event Error", colour=0xE74C3C)  # Red
+    embed.add_field(name="Event", value=event)
+    embed.description = "```py\n%s\n```" % traceback.format_exc()
+    embed.timestamp = datetime.datetime.utcnow()
+    await bot.AppInfo.owner.send(embed=embed)
+
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        print(error)
+        return
+    await ctx.send(error)
+
+
+@bot.event
 async def on_ready():
     print(f"Logged in as {bot.user.name} ({bot.user.id})")
 
 
-@bot.command(aliases=["reminder"])
+@bot.command(aliases=["reminder", "remindme", "at"])
 async def remind(ctx, message_date: str, message_reason: str):
     print("remind - ---------------------")
     print(f"remind - Message: {ctx.message}")
@@ -53,27 +71,28 @@ async def remind(ctx, message_date: str, message_reason: str):
         send_to_discord,
         run_date=remove_timezone_from_date,
         kwargs={
-            "webhook_url": webhook_url,
+            "channel_id": ctx.channel.id,
             "message": message_reason,
+            "author_id": ctx.message.author.id,
         },
     )
     print(f"remind - Id: {job.id}, Name: {job.name}, kwargs: {job.kwargs}")
-    message = f"I will notify you at `{remove_timezone_from_date}` with the message `{message_reason}`."
+    message = f"Hello {ctx.message.author.name}, will notify you at:\n**{remove_timezone_from_date}**\nWith message:\n**{message_reason}**."
     print(f"remind - Message we sent back to user in Discord: {message}")
     await ctx.send(message)
 
 
-async def send_to_discord(webhook_url, message):
-    print(f"send_to_discord - Webhook url: {webhook_url}")
+async def send_to_discord(channel_id, message, author_id):
+    print(f"send_to_discord - Channel ID: {channel_id}")
+    print(f"send_to_discord - Author ID: {author_id}")
     print(f"send_to_discord - Message: {message}")
-    hook = dhooks.Webhook(webhook_url)
-    hook.send(message)
+    channel = bot.get_channel(int(channel_id))
+    await channel.send(f"<@{author_id}>\n{message}")
 
 
 if __name__ == "__main__":
     # Enviroment variables
     load_dotenv(verbose=True)
-    webhook_url = os.getenv("WEBHOOK_URL")  # TODO: Read this directly from the server
     sqlite_location = os.getenv("SQLITE_LOCATION", default="/jobs.sqlite")
     config_timezone = os.getenv("TIMEZONE", default="Europe/Stockholm")
     bot_token = os.getenv("BOT_TOKEN")
