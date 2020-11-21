@@ -9,7 +9,6 @@ black = "*"
 [packages]
 "discord.py" = "*"
 dateparser = "*"
-dhooks = "*"
 apscheduler = "*"
 sqlalchemy = "*"
 python-dotenv = "*"
