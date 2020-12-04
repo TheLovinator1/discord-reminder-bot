@@ -77,7 +77,7 @@ async def remind(ctx, message_date: str, message_reason: str):
         },
     )
     print(f"remind - Id: {job.id}, Name: {job.name}, kwargs: {job.kwargs}")
-    message = f"Hello {ctx.message.author.name}, will notify you at:\n**{remove_timezone_from_date}**\nWith message:\n**{message_reason}**."
+    message = f"Hello {ctx.message.author.name}, I will notify you at:\n**{remove_timezone_from_date}**\nWith message:\n**{message_reason}**."
     print(f"remind - Message we sent back to user in Discord: {message}")
     await ctx.send(message)
 
