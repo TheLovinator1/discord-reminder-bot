@@ -1,7 +1,5 @@
-import datetime
 import logging
 import os
-import traceback
 
 import dateparser
 import discord
@@ -25,11 +23,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 @bot.event
 async def on_error(event):
-    embed = discord.Embed(title=":x: Event Error", colour=0xE74C3C)  # Red
-    embed.add_field(name="Event", value=event)
-    embed.description = "```py\n%s\n```" % traceback.format_exc()
-    embed.timestamp = datetime.datetime.utcnow()
-    await bot.AppInfo.owner.send(embed=embed)
+    logging.error(f"{event}")
 
 
 @bot.event
@@ -42,13 +36,12 @@ async def on_command_error(ctx, error):
 
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user.name} ({bot.user.id})")
+    logging.info(f"Logged in as {bot.user.name} ({bot.user.id})")
 
 
 @bot.command(aliases=["reminder", "remindme", "at"])
 async def remind(ctx, message_date: str, message_reason: str):
-    print("remind - ---------------------")
-    print(f"remind - Message: {ctx.message}")
+    logging.info(f"New Discord message: {ctx.message}")
 
     parsed_date = dateparser.parse(
         f"{message_date}",
@@ -59,13 +52,13 @@ async def remind(ctx, message_date: str, message_reason: str):
         "%Y-%m-%d %H:%M:%S"
     )
 
-    print(f"remind - Date from command: {message_date}")
-    print(f"remind - Reason from command: {message_reason}")
-    print(f"remind - Parsed Date: {parsed_date}")
-    print(f"remind - Converted date: {convert_date_to_our_timezone}")
-    print(f"remind - Date without timezone: {remove_timezone_from_date}")
-    print(f"remind - Channel ID: {ctx.channel.id}")
-    print(f"remind - Channel name: {ctx.channel.name}")
+    logging.debug(f"Date from command: {message_date}")
+    logging.debug(f"Reason from command: {message_reason}")
+    logging.debug(f"Parsed date: {parsed_date}")
+    logging.debug(f"Converted date: {convert_date_to_our_timezone}")
+    logging.debug(f"Date without timezone: {remove_timezone_from_date}")
+    logging.debug(f"Discord channel ID: {ctx.channel.id}")
+    logging.debug(f"Discord channel name: {ctx.channel.name}")
 
     job = scheduler.add_job(
         send_to_discord,
@@ -76,17 +69,16 @@ async def remind(ctx, message_date: str, message_reason: str):
             "author_id": ctx.message.author.id,
         },
     )
-    print(f"remind - Id: {job.id}, Name: {job.name}, kwargs: {job.kwargs}")
-    message = f"Hello {ctx.message.author.name}, I will notify you at:\n**{remove_timezone_from_date}**\nWith " \
-              f"message:\n**{message_reason}**. "
-    print(f"remind - Message we sent back to user in Discord: {message}")
+    logging.debug(f"Job id: '{job.id}', name: '{job.name}' and kwargs: '{job.kwargs}'")
+    message = f"Hello {ctx.message.author.name}, I will notify you at:\n" \
+              f"**{remove_timezone_from_date}**\n" \
+              f"With message:\n**{message_reason}**. "
+    logging.debug(f"Message we sent back to user in Discord:\n"
+                  f"{message}")
     await ctx.send(message)
 
 
 async def send_to_discord(channel_id, message, author_id):
-    print(f"send_to_discord - Channel ID: {channel_id}")
-    print(f"send_to_discord - Author ID: {author_id}")
-    print(f"send_to_discord - Message: {message}")
     channel = bot.get_channel(int(channel_id))
     await channel.send(f"<@{author_id}>\n{message}")
 
