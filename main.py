@@ -46,7 +46,8 @@ async def remind(ctx, message_date: str, message_reason: str):
         f"{message_date}",
         settings={"PREFER_DATES_FROM": "future"},
     )
-    convert_date_to_our_timezone = parsed_date.astimezone(timezone(config_timezone))
+    convert_date_to_our_timezone = parsed_date.astimezone(
+        timezone(config_timezone))
     remove_timezone_from_date = convert_date_to_our_timezone.strftime(
         "%Y-%m-%d %H:%M:%S"
     )
@@ -68,13 +69,14 @@ async def remind(ctx, message_date: str, message_reason: str):
             "author_id": ctx.message.author.id,
         },
     )
-    logging.debug(f"Job id: '{job.id}', name: '{job.name}' and kwargs: '{job.kwargs}'")
+    logging.debug(
+        f"Job id: '{job.id}', name: '{job.name}' and kwargs: '{job.kwargs}'")
     message = (
         f"Hello {ctx.message.author.name}, I will notify you at:\n"
         f"**{remove_timezone_from_date}**\n"
         f"With message:\n**{message_reason}**. "
     )
-    logging.debug(f"Message we sent back to user in Discord:\n" f"{message}")
+    logging.debug(f"Message we sent back to user in Discord:\n {message}")
     await ctx.send(message)
 
 
@@ -94,12 +96,15 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.getLevelName(log_level))
 
     logging.info(
-        f"\nsqlite_location = {sqlite_location}\nconfig_timezone = {config_timezone}\n"
-        f"bot_token = {bot_token}\nlog_level = {log_level}"
+        f"\nsqlite_location = {sqlite_location}\n"
+        f"config_timezone = {config_timezone}\n"
+        f"bot_token = {bot_token}\n"
+        f"log_level = {log_level}"
     )
 
     # Advanced Python Scheduler
-    jobstores = {"default": SQLAlchemyJobStore(url=f"sqlite://{sqlite_location}")}
+    jobstores = {"default": SQLAlchemyJobStore(
+        url=f"sqlite://{sqlite_location}")}
     job_defaults = {"coalesce": True}
     scheduler = AsyncIOScheduler(
         jobstores=jobstores,

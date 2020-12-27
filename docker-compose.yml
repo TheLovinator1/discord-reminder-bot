@@ -1,8 +1,7 @@
 version: "3"
 services:
   discord-reminder-bot:
-    #image: thelovinator/discord-reminder-bot
-    build: .
+    image: thelovinator/discord-reminder-bot
     env_file:
       - .env
     container_name: discord-reminder-bot
@@ -11,7 +10,7 @@ services:
       - TIMEZONE=${TIMEZONE}
       - LOG_LEVEL=${LOG_LEVEL}
       - SQLITE_LOCATION=/data/jobs.sqlite
-    # restart: unless-stopped
+    restart: unless-stopped
     volumes:
       - data_folder:/home/botuser/data/
 volumes:
