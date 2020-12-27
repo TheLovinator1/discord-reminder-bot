@@ -18,7 +18,6 @@ bot = commands.Bot(
     description="Reminder bot for Discord by TheLovinator#9276",
     intents=intents,
 )
-logging.basicConfig(level=logging.DEBUG)
 
 
 @bot.event
@@ -70,11 +69,12 @@ async def remind(ctx, message_date: str, message_reason: str):
         },
     )
     logging.debug(f"Job id: '{job.id}', name: '{job.name}' and kwargs: '{job.kwargs}'")
-    message = f"Hello {ctx.message.author.name}, I will notify you at:\n" \
-              f"**{remove_timezone_from_date}**\n" \
-              f"With message:\n**{message_reason}**. "
-    logging.debug(f"Message we sent back to user in Discord:\n"
-                  f"{message}")
+    message = (
+        f"Hello {ctx.message.author.name}, I will notify you at:\n"
+        f"**{remove_timezone_from_date}**\n"
+        f"With message:\n**{message_reason}**. "
+    )
+    logging.debug(f"Message we sent back to user in Discord:\n" f"{message}")
     await ctx.send(message)
 
 
@@ -90,6 +90,13 @@ if __name__ == "__main__":
     config_timezone = os.getenv("TIMEZONE", default="Europe/Stockholm")
     bot_token = os.getenv("BOT_TOKEN")
     log_level = os.getenv(key="LOG_LEVEL", default="INFO")
+
+    logging.basicConfig(level=logging.getLevelName(log_level))
+
+    logging.info(
+        f"\nsqlite_location = {sqlite_location}\nconfig_timezone = {config_timezone}\n"
+        f"bot_token = {bot_token}\nlog_level = {log_level}"
+    )
 
     # Advanced Python Scheduler
     jobstores = {"default": SQLAlchemyJobStore(url=f"sqlite://{sqlite_location}")}
