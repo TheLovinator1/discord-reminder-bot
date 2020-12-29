@@ -74,7 +74,7 @@ async def remind(ctx, message_date: str, message_reason: str):
     message = (
         f"Hello {ctx.message.author.name}, I will notify you at:\n"
         f"**{remove_timezone_from_date}**\n"
-        f"With message:\n**{message_reason}**. "
+        f"With the message:\n**{message_reason}**. "
     )
     logging.debug(f"Message we sent back to user in Discord:\n {message}")
     await ctx.send(message)
