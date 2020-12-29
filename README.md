@@ -17,11 +17,7 @@ Discord bot that allows you to set reminders.
 
 You have two choices, install directly on your computer or using [Docker](https://registry.hub.docker.com/r/thelovinator/discord-reminder-bot).
 
-[hub.docker.com/r//thelovinator/discord-reminder-bot](https://registry.hub.docker.com/r/thelovinator/discord-reminder-bot)
-
-[docker-compose.yml](docker-compose.yml)
-
-[Dockerfile](Dockerfile)
+[Docker Hub](https://registry.hub.docker.com/r/thelovinator/discord-reminder-bot) | [docker-compose.yml](docker-compose.yml) | [Dockerfile](Dockerfile)
 
 ### Install directly on your computer
 
