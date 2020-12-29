@@ -133,3 +133,6 @@ dmypy.json
 
 # SQLite
 *.sqlite
+
+# Idea
+.idea/
