@@ -10,14 +10,14 @@ Discord bot that allows you to set reminders.
 
 !remind <message_date> <message_reason>
 
-message_date can be anything that is time or date. For example:
+message_date can be anything that is a date or time. For example:
 
 * `in 2 days`
 * `August 14, 2021 EST`,
 * `tomorrow`
 * `1 เดือนตุลาคม 2025, 1:00 AM`
 
-message_reason is the message the bot will send time
+message_reason is the message the bot will send at that time.
 
 ## Environment Variables
 
@@ -30,7 +30,7 @@ message_reason is the message the bot will send time
 
 You have two choices, [install directly on your computer](#Install-directly-on-your-computer) or using [Docker](#docker-compose-with-env-file).
 
-[Docker Hub](https://registry.hub.docker.com/r/thelovinator/discord-reminder-bot) | [docker-compose.yml](docker-compose.yml) | [Dockerfile](Dockerfile)
+[Docker Hub](https://hub.docker.com/r/thelovinator/discord-reminder-bot) | [docker-compose.yml](docker-compose.yml) | [Dockerfile](Dockerfile)
 
 ### Install directly on your computer
 
@@ -76,7 +76,7 @@ You have two choices, [install directly on your computer](#Install-directly-on-y
 
 ### docker-compose with .env file
 
-More information on [Docker Hub](https://hub.docker.com/repository/docker/thelovinator/discord-reminder-bot)
+More information on [Docker Hub](https://hub.docker.com/r/thelovinator/discord-reminder-bot)
 
 ```yaml
 version: "3"
