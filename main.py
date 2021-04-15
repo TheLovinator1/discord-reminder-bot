@@ -46,8 +46,7 @@ async def remind(ctx, message_date: str, message_reason: str):
         f"{message_date}",
         settings={"PREFER_DATES_FROM": "future"},
     )
-    convert_date_to_our_timezone = parsed_date.astimezone(
-        timezone(config_timezone))
+    convert_date_to_our_timezone = parsed_date.astimezone(timezone(config_timezone))
     remove_timezone_from_date = convert_date_to_our_timezone.strftime(
         "%Y-%m-%d %H:%M:%S"
     )
@@ -69,8 +68,7 @@ async def remind(ctx, message_date: str, message_reason: str):
             "author_id": ctx.message.author.id,
         },
     )
-    logging.debug(
-        f"Job id: '{job.id}', name: '{job.name}' and kwargs: '{job.kwargs}'")
+    logging.debug(f"Job id: '{job.id}', name: '{job.name}' and kwargs: '{job.kwargs}'")
     message = (
         f"Hello {ctx.message.author.name}, I will notify you at:\n"
         f"**{remove_timezone_from_date}**\n"
@@ -103,8 +101,7 @@ if __name__ == "__main__":
     )
 
     # Advanced Python Scheduler
-    jobstores = {"default": SQLAlchemyJobStore(
-        url=f"sqlite://{sqlite_location}")}
+    jobstores = {"default": SQLAlchemyJobStore(url=f"sqlite://{sqlite_location}")}
     job_defaults = {"coalesce": True}
     scheduler = AsyncIOScheduler(
         jobstores=jobstores,
