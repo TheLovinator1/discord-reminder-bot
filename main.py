@@ -1,6 +1,5 @@
 import logging
 import os
-
 import dateparser
 import discord
 import pytz
@@ -8,7 +7,6 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord.ext import commands
 from dotenv import load_dotenv
-from pytz import timezone
 
 intents = discord.Intents.default()
 intents.members = True
@@ -44,17 +42,16 @@ async def remind(ctx, message_date: str, message_reason: str):
 
     parsed_date = dateparser.parse(
         f"{message_date}",
-        settings={"PREFER_DATES_FROM": "future"},
+        settings={
+            "PREFER_DATES_FROM": "future",
+            "TO_TIMEZONE": f"{config_timezone}",
+        },
     )
-    convert_date_to_our_timezone = parsed_date.astimezone(timezone(config_timezone))
-    remove_timezone_from_date = convert_date_to_our_timezone.strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
+    remove_timezone_from_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
 
     logging.debug(f"Date from command: {message_date}")
     logging.debug(f"Reason from command: {message_reason}")
     logging.debug(f"Parsed date: {parsed_date}")
-    logging.debug(f"Converted date: {convert_date_to_our_timezone}")
     logging.debug(f"Date without timezone: {remove_timezone_from_date}")
     logging.debug(f"Discord channel ID: {ctx.channel.id}")
     logging.debug(f"Discord channel name: {ctx.channel.name}")
@@ -84,7 +81,6 @@ async def send_to_discord(channel_id, message, author_id):
 
 
 if __name__ == "__main__":
-    # Environment variables
     load_dotenv(verbose=True)
     sqlite_location = os.getenv("SQLITE_LOCATION", default="/jobs.sqlite")
     config_timezone = os.getenv("TIMEZONE", default="Europe/Stockholm")
