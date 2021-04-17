@@ -40,12 +40,18 @@ async def on_ready():
 
 @bot.command()
 async def reminders(ctx):
-    msg = ""
+    embed = discord.Embed(
+        colour=discord.Colour.random(),
+        title="discord-reminder-bot by TheLovinator#9276",
+        description=f"Reminders for {ctx.guild.name}",
+        url="https://github.com/TheLovinator1/discord-reminder-bot",
+    )
     jobs = scheduler.get_jobs()
     for job in jobs:
         channel_id = job.kwargs.get("channel_id")
         for channel in ctx.guild.channels:
             if channel.id == channel_id:
+
                 message = job.kwargs.get("message")
 
                 trigger_time = job.trigger.run_date
@@ -66,10 +72,16 @@ async def reminders(ctx):
                 if minutes != 0:
                     the_final_countdown += f"{minutes} minutes"
 
-                msg += f'{message} at {trigger_time.strftime("%Y-%m-%d %H:%M:%S")} (in {the_final_countdown})\n'
-    if not msg:
+                embed.add_field(
+                    name=f"{message}",
+                    value=f"{trigger_time.strftime('%Y-%m-%d %H:%M')} (in {the_final_countdown})",
+                    inline=False,
+                )
+    if len(embed) == 0:
         msg = f"{ctx.guild.name} has no reminders."
-    await ctx.send(msg)
+        await ctx.send(msg)
+    else:
+        await ctx.send(embed=embed)
 
 
 @bot.command(aliases=["reminder", "remindme", "at"])
