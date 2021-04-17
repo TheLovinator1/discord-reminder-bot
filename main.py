@@ -39,7 +39,7 @@ async def on_ready():
 
 
 @bot.command()
-async def jobs(ctx):
+async def reminders(ctx):
     msg = ""
     jobs = scheduler.get_jobs()
     for job in jobs:
@@ -68,7 +68,7 @@ async def jobs(ctx):
 
                 msg += f'{message} at {trigger_time.strftime("%Y-%m-%d %H:%M:%S")} (in {the_final_countdown})\n'
     if not msg:
-        msg = "This server has no reminders."
+        msg = f"{ctx.guild.name} has no reminders."
     await ctx.send(msg)
 
 
