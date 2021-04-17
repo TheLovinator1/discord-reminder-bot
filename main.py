@@ -1,5 +1,7 @@
+import datetime
 import logging
 import os
+
 import dateparser
 import discord
 import pytz
@@ -34,6 +36,40 @@ async def on_command_error(ctx, error):
 @bot.event
 async def on_ready():
     logging.info(f"Logged in as {bot.user.name} ({bot.user.id})")
+
+
+@bot.command()
+async def jobs(ctx):
+    msg = ""
+    jobs = scheduler.get_jobs()
+    for job in jobs:
+        channel_id = job.kwargs.get("channel_id")
+        for channel in ctx.guild.channels:
+            if channel.id == channel_id:
+                message = job.kwargs.get("message")
+
+                trigger_time = job.trigger.run_date
+                countdown = trigger_time - datetime.datetime.now(
+                    tz=pytz.timezone(config_timezone)
+                )
+                days, hours, minutes = (
+                    countdown.days,
+                    countdown.seconds // 3600,
+                    countdown.seconds // 60 % 60,
+                )
+
+                the_final_countdown = ""
+                if days != 0:
+                    the_final_countdown += f"{days} days, "
+                if hours != 0:
+                    the_final_countdown += f"{hours} hours, "
+                if minutes != 0:
+                    the_final_countdown += f"{minutes} minutes"
+
+                msg += f'{message} at {trigger_time.strftime("%Y-%m-%d %H:%M:%S")} (in {the_final_countdown})\n'
+    if not msg:
+        msg = "This server has no reminders."
+    await ctx.send(msg)
 
 
 @bot.command(aliases=["reminder", "remindme", "at"])
