@@ -79,7 +79,7 @@ async def reminders(ctx):
                     value=f"{trigger_time.strftime('%Y-%m-%d %H:%M')} (in {the_final_countdown})",
                     inline=False,
                 )
-    if len(embed) == 0:
+    if len(embed) <= 76:
         msg = f"{ctx.guild.name} has no reminders."
         await ctx.send(msg)
     else:
