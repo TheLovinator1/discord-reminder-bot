@@ -49,6 +49,7 @@ async def reminders(ctx):
     jobs = scheduler.get_jobs()
     for job in jobs:
         channel_id = job.kwargs.get("channel_id")
+        channel_name = bot.get_channel(int(channel_id))
         for channel in ctx.guild.channels:
             if channel.id == channel_id:
 
@@ -75,7 +76,7 @@ async def reminders(ctx):
                 )
 
                 embed.add_field(
-                    name=f"{message}",
+                    name=f"{message} in #{channel_name}",
                     value=f"{trigger_time.strftime('%Y-%m-%d %H:%M')} (in {the_final_countdown})",
                     inline=False,
                 )
