@@ -64,13 +64,15 @@ async def reminders(ctx):
                     countdown.seconds // 60 % 60,
                 )
 
-                the_final_countdown = ""
-                if days != 0:
-                    the_final_countdown += f"{days} days, "
-                if hours != 0:
-                    the_final_countdown += f"{hours} hours, "
-                if minutes != 0:
-                    the_final_countdown += f"{minutes} minutes"
+                the_final_countdown = ", ".join(
+                    f"{x} {y}{'s'*(x!=1)}"
+                    for x, y in (
+                        (days, "day"),
+                        (hours, "hour"),
+                        (minutes, "minute"),
+                    )
+                    if x
+                )
 
                 embed.add_field(
                     name=f"{message}",
