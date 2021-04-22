@@ -4,6 +4,7 @@ async-timeout==3.0.1
 attrs==20.3.0
 chardet==4.0.0
 dateparser==1.0.0
+discord-py-slash-command==1.1.2
 discord.py==1.7.1
 greenlet==1.0.0
 idna==3.1
@@ -13,7 +14,7 @@ python-dotenv==0.17.0
 pytz==2021.1
 regex==2021.4.4
 six==1.15.0
-SQLAlchemy==1.4.8
+SQLAlchemy==1.4.10
 typing-extensions==3.7.4.3
 tzlocal==2.1
 yarl==1.6.3

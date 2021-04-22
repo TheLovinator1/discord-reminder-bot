@@ -8,16 +8,16 @@ import pytz
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord.ext import commands
+from discord_slash import SlashCommand
+from discord_slash.utils.manage_commands import create_option
 from dotenv import load_dotenv
-
-intents = discord.Intents.default()
-intents.members = True
 
 bot = commands.Bot(
     command_prefix="!",
     description="Reminder bot for Discord by TheLovinator#9276",
-    intents=intents,
+    intents=discord.Intents.all(),
 )
+slash = SlashCommand(bot, sync_commands=True)
 
 
 @bot.event
@@ -38,8 +38,11 @@ async def on_ready():
     logging.info(f"Logged in as {bot.user.name} ({bot.user.id})")
 
 
-@bot.command()
-async def reminders(ctx):
+@slash.slash(
+    name="reminders",
+    description="Show reminders.",
+)
+async def do_reminders(ctx):
     embed = discord.Embed(
         colour=discord.Colour.random(),
         title="discord-reminder-bot by TheLovinator#9276",
@@ -87,8 +90,25 @@ async def reminders(ctx):
         await ctx.send(embed=embed)
 
 
-@bot.command(aliases=["reminder", "remindme", "at"])
-async def remind(ctx, message_date: str, message_reason: str):
+@slash.slash(
+    name="remind",
+    description="Set a reminder.",
+    options=[
+        create_option(
+            name="message_reason",
+            description="The message I should send when I notify you.",
+            option_type=3,  # String
+            required=True,
+        ),
+        create_option(
+            name="message_date",
+            description="The time or date I should write in this channel.",
+            option_type=3,  # String
+            required=True,
+        ),
+    ],
+)
+async def do_remind(ctx, message_date: str, message_reason: str):
     logging.info(f"New Discord message: {ctx.message}")
 
     parsed_date = dateparser.parse(
@@ -111,14 +131,14 @@ async def remind(ctx, message_date: str, message_reason: str):
         send_to_discord,
         run_date=remove_timezone_from_date,
         kwargs={
-            "channel_id": ctx.channel.id,
+            "channel_id": ctx.channel_id,
             "message": message_reason,
-            "author_id": ctx.message.author.id,
+            "author_id": ctx.author_id,
         },
     )
     logging.debug(f"Job id: '{job.id}', name: '{job.name}' and kwargs: '{job.kwargs}'")
     message = (
-        f"Hello {ctx.message.author.name}, I will notify you at:\n"
+        f"Hello {ctx.author.display_name}, I will notify you at:\n"
         f"**{remove_timezone_from_date}**\n"
         f"With the message:\n**{message_reason}**. "
     )
