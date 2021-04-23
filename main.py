@@ -4,6 +4,7 @@ import os
 
 import dateparser
 import discord
+from discord_slash.model import SlashCommandOptionType
 import pytz
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -97,13 +98,13 @@ async def do_reminders(ctx):
         create_option(
             name="message_reason",
             description="The message I should send when I notify you.",
-            option_type=3,  # String
+            option_type=SlashCommandOptionType.STRING,
             required=True,
         ),
         create_option(
             name="message_date",
             description="The time or date I should write in this channel.",
-            option_type=3,  # String
+            option_type=SlashCommandOptionType.STRING,
             required=True,
         ),
     ],
