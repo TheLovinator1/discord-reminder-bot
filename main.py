@@ -14,6 +14,8 @@ from discord_slash.model import SlashCommandOptionType
 from discord_slash.utils.manage_commands import create_option
 from dotenv import load_dotenv
 
+# guild_ids = [341001473661992962, 98905546077241344]
+
 bot = commands.Bot(
     command_prefix="!",
     description="Reminder bot for Discord by TheLovinator#9276",
@@ -177,21 +179,29 @@ async def remind_remove(ctx: SlashContext, remind_id: str):
     channel_id = job.kwargs.get("channel_id")
     channel_name = bot.get_channel(int(channel_id))
     message = job.kwargs.get("message")
-    trigger_time = job.trigger.run_date
 
     try:
         scheduler.remove_job(remind_id)
     except JobLookupError as e:
         await ctx.send(e)
 
-    await ctx.send(
-        (
+    try:
+        trigger_time = job.trigger.run_date
+        msg = (
             f"**Removed** {remind_id}.\n"
             f"**Time**: {trigger_time.strftime('%Y-%m-%d %H:%M')} (in {countdown(remind_id)})\n"
             f"**Channel**: #{channel_name}\n"
             f"**Message**: {message}"
         )
-    )
+    except AttributeError:
+        msg = (
+            f"**Removed** {remind_id}.\n"
+            f"**Time**: Cronjob\n"
+            f"**Channel**: #{channel_name}\n"
+            f"**Message**: {message}"
+        )
+
+    await ctx.send(msg)
 
 
 @slash.subcommand(
@@ -217,13 +227,19 @@ async def remind_list(ctx: SlashContext):
         for channel in ctx.guild.channels:
             if channel.id == channel_id:
                 message = job.kwargs.get("message")
-
-                trigger_time = job.trigger.run_date
-                embed.add_field(
-                    name=f"{message} in #{channel_name}",
-                    value=f"{trigger_time.strftime('%Y-%m-%d %H:%M')} (in {countdown(job.id)})\nID: {job.id}",
-                    inline=False,
-                )
+                try:
+                    trigger_time = job.trigger.run_date
+                    embed.add_field(
+                        name=f"{message} in #{channel_name}",
+                        value=f"{trigger_time.strftime('%Y-%m-%d %H:%M')} (in {countdown(job.id)})\nID: {job.id}",
+                        inline=False,
+                    )
+                except AttributeError:
+                    embed.add_field(
+                        name=f"{message} in #{channel_name}",
+                        value=f"Cronjob\nID: {job.id}",
+                        inline=False,
+                    )
 
     # The empty embed has 76 characters
     if len(embed) <= 76:
@@ -277,6 +293,157 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
         f"**{run_date}** (in {countdown(reminder.id)})\n"
         f"With the message:\n**{message_reason}**."
     )
+
+    await ctx.send(message)
+
+
+@slash.subcommand(
+    base="remind",
+    name="cron",
+    description="Triggers when current time matches all specified time constraints, similarly to the UNIX cron.",
+    options=[
+        create_option(
+            name="message_reason",
+            description="The message I should send when I notify you.",
+            option_type=SlashCommandOptionType.STRING,
+            required=True,
+        ),
+        create_option(
+            name="year",
+            description="4-digit year",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="month",
+            description="month (1-12)",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="day",
+            description="day of month (1-31)",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="week",
+            description="ISO week (1-53)",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="day_of_week",
+            description="number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun)",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="hour",
+            description="hour (0-23)",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="minute",
+            description="minute (0-59)",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="second",
+            description="second (0-59)",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="start_date",
+            description="earliest possible date/time to trigger on (inclusive)",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="end_date",
+            description="latest possible date/time to trigger on (inclusive)",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="timezone",
+            description="time zone to use for the date/time calculations (defaults to scheduler timezone)",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="jitter",
+            description="delay the job execution by jitter seconds at most",
+            option_type=SlashCommandOptionType.INTEGER,
+            required=False,
+        ),
+    ],
+    # guild_ids=guild_ids,
+)
+async def remind_cron(
+    ctx: SlashContext,
+    message_reason: str,
+    year=None,
+    month=None,
+    day=None,
+    week=None,
+    day_of_week=None,
+    hour=None,
+    minute=None,
+    second=None,
+    start_date=None,
+    end_date=None,
+    timezone=None,
+    jitter=None,
+):
+    reminder = scheduler.add_job(
+        send_to_discord,
+        "cron",
+        year=year,
+        month=month,
+        day=day,
+        week=week,
+        day_of_week=day_of_week,
+        hour=hour,
+        minute=minute,
+        second=second,
+        start_date=start_date,
+        end_date=end_date,
+        timezone=timezone,
+        jitter=jitter,
+        kwargs={
+            "channel_id": ctx.channel_id,
+            "message": message_reason,
+            "author_id": ctx.author_id,
+        },
+    )
+
+    message = (
+        f"Hello {ctx.author.display_name}, first run in {countdown(reminder.id)}\n"
+        f"With the message:\n**{message_reason}**."
+        f"**Arguments**:\n"
+    )
+
+    options = [
+        year,
+        month,
+        day,
+        week,
+        day_of_week,
+        hour,
+        minute,
+        second,
+        start_date,
+        end_date,
+        timezone,
+        jitter,
+    ]
+    for option in options:
+        if not None:
+            message += f"**{option}**: {option}\n"
 
     await ctx.send(message)
 
