@@ -23,7 +23,7 @@ bot = commands.Bot(
 slash = SlashCommand(bot, sync_commands=True)
 
 
-def countdown(remind_id: str) -> str:
+def calculate_countdown(remind_id: str) -> str:
     job = scheduler.get_job(remind_id)
 
     # Get_job() returns None when it can't find a job with that id.
@@ -110,7 +110,7 @@ async def remind_modify(
         return
 
     message = job.kwargs.get("message")
-    the_final_countdown_old = countdown(job.id)
+    the_final_countdown_old = calculate_countdown(job.id)
 
     channel_name = bot.get_channel(int(job.kwargs.get("channel_id")))
     msg = f"**Modified** {remind_id} in #{channel_name}\n"
@@ -146,7 +146,7 @@ async def remind_modify(
             await ctx.send(f"No job by the id of {remind_id} was found")
 
         remove_timezone_from_date_old = job.trigger.run_date.strftime("%Y-%m-%d %H:%M")
-        the_final_countdown_new = countdown(remind_id)
+        the_final_countdown_new = calculate_countdown(remind_id)
         msg += (
             f"**Old date**: {remove_timezone_from_date_old} (in {the_final_countdown_old})\n"
             f"**New date**: {remove_timezone_from_date} (in {the_final_countdown_new})"
@@ -180,14 +180,14 @@ async def remind_remove(ctx: SlashContext, remind_id: str):
 
     try:
         scheduler.remove_job(remind_id)
-    except JobLookupError as e:
+    except Exception as e:
         await ctx.send(e)
 
     try:
         trigger_time = job.trigger.run_date
         msg = (
             f"**Removed** {remind_id}.\n"
-            f"**Time**: {trigger_time.strftime('%Y-%m-%d %H:%M')} (in {countdown(remind_id)})\n"
+            f"**Time**: {trigger_time.strftime('%Y-%m-%d %H:%M')} (in {calculate_countdown(remind_id)})\n"
             f"**Channel**: #{channel_name}\n"
             f"**Message**: {message}"
         )
@@ -198,6 +198,8 @@ async def remind_remove(ctx: SlashContext, remind_id: str):
             f"**Channel**: #{channel_name}\n"
             f"**Message**: {message}"
         )
+    except Exception as e:
+        await ctx.send(e)
 
     await ctx.send(msg)
 
@@ -229,7 +231,7 @@ async def remind_list(ctx: SlashContext):
                     trigger_time = job.trigger.run_date
                     embed.add_field(
                         name=f"{message} in #{channel_name}",
-                        value=f"{trigger_time.strftime('%Y-%m-%d %H:%M')} (in {countdown(job.id)})\nID: {job.id}",
+                        value=f"{trigger_time.strftime('%Y-%m-%d %H:%M')} (in {calculate_countdown(job.id)})\nID: {job.id}",
                         inline=False,
                     )
                 except AttributeError:
@@ -245,6 +247,86 @@ async def remind_list(ctx: SlashContext):
         await ctx.send(msg)
     else:
         await ctx.send(embed=embed)
+
+
+@slash.subcommand(
+    base="remind",
+    name="pause",
+    description="Pause reminder. For cron or interval.",
+)
+async def remind_pause(ctx: SlashContext, remind_id: str):
+    job = scheduler.get_job(remind_id)
+    if job is None:
+        await ctx.send(f"No reminder with that ID ({remind_id}).")
+        return
+
+    channel_id = job.kwargs.get("channel_id")
+    channel_name = bot.get_channel(int(channel_id))
+    message = job.kwargs.get("message")
+
+    try:
+        scheduler.pause_job(remind_id)
+    except Exception as e:
+        await ctx.send(e)
+    try:
+        trigger_time = job.trigger.run_date
+        msg = (
+            f"**Paused** {remind_id}.\n"
+            f"**Time**: {trigger_time.strftime('%Y-%m-%d %H:%M')} (in {calculate_countdown(remind_id)})\n"
+            f"**Channel**: #{channel_name}\n"
+            f"**Message**: {message}"
+        )
+    except AttributeError:
+        msg = (
+            f"**Paused** {remind_id}.\n"
+            f"**Time**: Cronjob\n"
+            f"**Channel**: #{channel_name}\n"
+            f"**Message**: {message}"
+        )
+    except Exception as e:
+        await ctx.send(e)
+
+    await ctx.send(msg)
+
+
+@slash.subcommand(
+    base="remind",
+    name="resume",
+    description="Resume paused reminder. For cron or interval.",
+)
+async def remind_resume(ctx: SlashContext, remind_id: str):
+    job = scheduler.get_job(remind_id)
+    if job is None:
+        await ctx.send(f"No reminder with that ID ({remind_id}).")
+        return
+
+    channel_id = job.kwargs.get("channel_id")
+    channel_name = bot.get_channel(int(channel_id))
+    message = job.kwargs.get("message")
+
+    try:
+        scheduler.resume_job(remind_id)
+    except Exception as e:
+        await ctx.send(e)
+    try:
+        trigger_time = job.trigger.run_date
+        msg = (
+            f"**Resumed** {remind_id}.\n"
+            f"**Time**: {trigger_time.strftime('%Y-%m-%d %H:%M')} (in {calculate_countdown(remind_id)})\n"
+            f"**Channel**: #{channel_name}\n"
+            f"**Message**: {message}"
+        )
+    except AttributeError:
+        msg = (
+            f"**Resumed** {remind_id}.\n"
+            f"**Time**: Cronjob\n"
+            f"**Channel**: #{channel_name}\n"
+            f"**Message**: {message}"
+        )
+    except Exception as e:
+        await ctx.send(e)
+
+    await ctx.send(msg)
 
 
 @slash.subcommand(
@@ -289,7 +371,7 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
 
     message = (
         f"Hello {ctx.author.display_name}, I will notify you at:\n"
-        f"**{run_date}** (in {countdown(reminder.id)})\n"
+        f"**{run_date}** (in {calculate_countdown(reminder.id)})\n"
         f"With the message:\n**{message_reason}**."
     )
 
