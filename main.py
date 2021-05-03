@@ -256,13 +256,14 @@ async def remind_list(ctx: SlashContext):
     options=[
         create_option(
             name="message_reason",
-            description="The message I should send when I notify you.",
+            description="The message I'm going to send you.",
             option_type=SlashCommandOptionType.STRING,
             required=True,
         ),
+        # TODO: Add support for dateparser.calendars.jalali and dateparser.calendars.hijri
         create_option(
             name="message_date",
-            description="The time or date I should write in this channel.",
+            description="Time and/or date when you want to get reminded. Works only with the Gregorian calendar.",
             option_type=SlashCommandOptionType.STRING,
             required=True,
         ),
@@ -304,25 +305,25 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
     options=[
         create_option(
             name="message_reason",
-            description="The message I should send when I notify you.",
+            description="The message I'm going to send you.",
             option_type=SlashCommandOptionType.STRING,
             required=True,
         ),
         create_option(
             name="year",
-            description="4-digit year",
+            description="4-digit year. (Example: 2042)",
             option_type=SlashCommandOptionType.STRING,
             required=False,
         ),
         create_option(
             name="month",
-            description="month (1-12)",
+            description="Month (1-12)",
             option_type=SlashCommandOptionType.STRING,
             required=False,
         ),
         create_option(
             name="day",
-            description="day of month (1-31)",
+            description="Day of month (1-31)",
             option_type=SlashCommandOptionType.STRING,
             required=False,
         ),
@@ -334,19 +335,19 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
         ),
         create_option(
             name="day_of_week",
-            description="number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun)",
+            description="Number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun). The first weekday is monday.",
             option_type=SlashCommandOptionType.STRING,
             required=False,
         ),
         create_option(
             name="hour",
-            description="hour (0-23)",
+            description="Hour (0-23)",
             option_type=SlashCommandOptionType.STRING,
             required=False,
         ),
         create_option(
             name="minute",
-            description="minute (0-59)",
+            description="Minute (0-59)",
             option_type=SlashCommandOptionType.STRING,
             required=False,
         ),
@@ -358,25 +359,25 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
         ),
         create_option(
             name="start_date",
-            description="earliest possible date/time to trigger on (inclusive)",
+            description="Earliest possible date/time to trigger on (inclusive)",
             option_type=SlashCommandOptionType.STRING,
             required=False,
         ),
         create_option(
             name="end_date",
-            description="latest possible date/time to trigger on (inclusive)",
+            description="Latest possible date/time to trigger on (inclusive)",
             option_type=SlashCommandOptionType.STRING,
             required=False,
         ),
         create_option(
             name="timezone",
-            description="time zone to use for the date/time calculations (defaults to scheduler timezone)",
+            description="Time zone to use for the date/time calculations (defaults to scheduler timezone)",
             option_type=SlashCommandOptionType.STRING,
             required=False,
         ),
         create_option(
             name="jitter",
-            description="delay the job execution by jitter seconds at most",
+            description="Delay the job execution by x seconds at most. Adds a random component to the execution time.",
             option_type=SlashCommandOptionType.INTEGER,
             required=False,
         ),
