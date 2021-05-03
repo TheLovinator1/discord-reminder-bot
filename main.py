@@ -14,8 +14,6 @@ from discord_slash.model import SlashCommandOptionType
 from discord_slash.utils.manage_commands import create_option
 from dotenv import load_dotenv
 
-# guild_ids = [341001473661992962, 98905546077241344]
-
 bot = commands.Bot(
     command_prefix="!",
     description="Reminder bot for Discord by TheLovinator#9276",
@@ -353,19 +351,19 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
         ),
         create_option(
             name="second",
-            description="second (0-59)",
+            description="Second (0-59)",
             option_type=SlashCommandOptionType.STRING,
             required=False,
         ),
         create_option(
             name="start_date",
-            description="Earliest possible date/time to trigger on (inclusive)",
+            description="Earliest possible time to trigger on, in the ISO 8601 format. (Example: 2010-10-10 09:30:00)",
             option_type=SlashCommandOptionType.STRING,
             required=False,
         ),
         create_option(
             name="end_date",
-            description="Latest possible date/time to trigger on (inclusive)",
+            description="Latest possible time to trigger on, in the ISO 8601 format. (Example: 2010-10-10 09:30:00)",
             option_type=SlashCommandOptionType.STRING,
             required=False,
         ),
@@ -382,7 +380,6 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
             required=False,
         ),
     ],
-    # guild_ids=guild_ids,
 )
 async def remind_cron(
     ctx: SlashContext,
@@ -400,7 +397,7 @@ async def remind_cron(
     timezone=None,
     jitter=None,
 ):
-    reminder = scheduler.add_job(
+    scheduler.add_job(
         send_to_discord,
         "cron",
         year=year,
@@ -422,29 +419,119 @@ async def remind_cron(
         },
     )
 
+    # TODO: Add arguments
     message = (
-        f"Hello {ctx.author.display_name}, first run in {countdown(reminder.id)}\n"
+        f"Hello {ctx.author.display_name}, first run in [TODO: Fix this]\n"
         f"With the message:\n**{message_reason}**."
-        f"**Arguments**:\n"
     )
 
-    options = [
-        year,
-        month,
-        day,
-        week,
-        day_of_week,
-        hour,
-        minute,
-        second,
-        start_date,
-        end_date,
-        timezone,
-        jitter,
-    ]
-    for option in options:
-        if not None:
-            message += f"**{option}**: {option}\n"
+    await ctx.send(message)
+
+
+@slash.subcommand(
+    base="remind",
+    name="interval",
+    description="Schedules messages to be run periodically, on selected intervals.",
+    options=[
+        create_option(
+            name="message_reason",
+            description="The message I'm going to send you.",
+            option_type=SlashCommandOptionType.STRING,
+            required=True,
+        ),
+        create_option(
+            name="weeks",
+            description="Number of weeks to wait",
+            option_type=SlashCommandOptionType.INTEGER,
+            required=False,
+        ),
+        create_option(
+            name="days",
+            description="Number of days to wait",
+            option_type=SlashCommandOptionType.INTEGER,
+            required=False,
+        ),
+        create_option(
+            name="hours",
+            description="Number of hours to wait",
+            option_type=SlashCommandOptionType.INTEGER,
+            required=False,
+        ),
+        create_option(
+            name="minutes",
+            description="Number of minutes to wait",
+            option_type=SlashCommandOptionType.INTEGER,
+            required=False,
+        ),
+        create_option(
+            name="seconds",
+            description="Number of seconds to wait.",
+            option_type=SlashCommandOptionType.INTEGER,
+            required=False,
+        ),
+        create_option(
+            name="start_date",
+            description="When to start, in the ISO 8601 format. (Example: 2010-10-10 09:30:00)",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="end_date",
+            description="When to stop, in the ISO 8601 format. (Example: 2014-06-15 11:00:00)",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="timezone",
+            description="Time zone to use for the date/time calculations",
+            option_type=SlashCommandOptionType.STRING,
+            required=False,
+        ),
+        create_option(
+            name="jitter",
+            description="Delay the job execution by x seconds at most. Adds a random component to the execution time.",
+            option_type=SlashCommandOptionType.INTEGER,
+            required=False,
+        ),
+    ],
+)
+async def remind_interval(
+    ctx: SlashContext,
+    message_reason: str,
+    weeks=0,
+    days=0,
+    hours=0,
+    minutes=0,
+    seconds=0,
+    start_date=None,
+    end_date=None,
+    timezone=None,
+    jitter=None,
+):
+    scheduler.add_job(
+        send_to_discord,
+        "interval",
+        weeks=weeks,
+        days=days,
+        hours=hours,
+        minutes=minutes,
+        seconds=seconds,
+        start_date=start_date,
+        end_date=end_date,
+        timezone=timezone,
+        jitter=jitter,
+        kwargs={
+            "channel_id": ctx.channel_id,
+            "message": message_reason,
+            "author_id": ctx.author_id,
+        },
+    )
+
+    # TODO: Add arguments
+    message = (
+        f"Hello {ctx.author.display_name}, first run in [TODO: Fix this]\n"
+        f"With the message:\n**{message_reason}**."
+    )
 
     await ctx.send(message)
 
