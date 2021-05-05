@@ -204,14 +204,9 @@ async def remind_remove(ctx: SlashContext, remind_id: str):
     await ctx.send(msg)
 
 
-@slash.subcommand(
-    base="remind",
-    name="list",
-    description="Show reminders.",
-)
-async def remind_list(ctx: SlashContext):
-
-    # We use a embed to list the reminders.
+def make_list(ctx):
+    jobs_dict = {}
+    job_number = 0
     embed = discord.Embed(
         colour=discord.Colour.random(),
         title="discord-reminder-bot by TheLovinator#9276",
@@ -222,31 +217,42 @@ async def remind_list(ctx: SlashContext):
     for job in jobs:
         channel_id = job.kwargs.get("channel_id")
         channel_name = bot.get_channel(int(channel_id))
-
         # Only add reminders from channels in server we run "/reminder list" in
         for channel in ctx.guild.channels:
             if channel.id == channel_id:
+                job_number += 1
+                jobs_dict[job_number] = job.id
                 message = job.kwargs.get("message")
                 try:
                     trigger_time = job.trigger.run_date
                     embed.add_field(
-                        name=f"{message} in #{channel_name}",
-                        value=f"{trigger_time.strftime('%Y-%m-%d %H:%M')} (in {calculate_countdown(job.id)})\nID: {job.id}",
+                        name=f"{job_number}) {message} in #{channel_name}",
+                        value=f"{trigger_time.strftime('%Y-%m-%d %H:%M')} (in {calculate_countdown(job.id)})",
                         inline=False,
                     )
                 except AttributeError:
                     embed.add_field(
-                        name=f"{message} in #{channel_name}",
-                        value=f"Cronjob\nID: {job.id}",
+                        name=f"{job_number}) {message} in #{channel_name}",
+                        value="Cronjob or interval",  # TODO: Add countdown
                         inline=False,
                     )
+    return embed, jobs_dict
+
+
+@slash.subcommand(
+    base="remind",
+    name="list",
+    description="Show reminders.",
+)
+async def remind_list(ctx: SlashContext):
+    list_embed, jobs_dict = make_list(ctx)
+    print("remind_list: " + jobs_dict)
 
     # The empty embed has 76 characters
-    if len(embed) <= 76:
-        msg = f"{ctx.guild.name} has no reminders."
-        await ctx.send(msg)
+    if len(list_embed) <= 76:
+        await ctx.send(f"{ctx.guild.name} has no reminders.")
     else:
-        await ctx.send(embed=embed)
+        await ctx.send(embed=list_embed)
 
 
 @slash.subcommand(
@@ -502,6 +508,7 @@ async def remind_cron(
     )
 
     # TODO: Add arguments
+    # TODO: Fix countdown
     message = (
         f"Hello {ctx.author.display_name}, first run in [TODO: Fix this]\n"
         f"With the message:\n**{message_reason}**."
