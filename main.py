@@ -5,7 +5,6 @@ import os
 import dateparser
 import discord
 import pytz
-from apscheduler.jobstores.base import JobLookupError
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.date import DateTrigger
@@ -14,7 +13,7 @@ from discord.ext import commands
 from discord_slash import SlashCommand, SlashContext
 from discord_slash.error import IncorrectFormat, RequestFailure
 from discord_slash.model import SlashCommandOptionType
-from discord_slash.utils.manage_commands import create_option
+from discord_slash.utils.manage_commands import create_choice, create_option
 from dotenv import load_dotenv
 
 bot = commands.Bot(
@@ -89,82 +88,126 @@ async def on_ready():
 @slash.subcommand(
     base="remind",
     name="modify",
-    description="Modify a reminder.",
+    description="Modify a reminder. Does not work with cron or interval.",
     options=[
         create_option(
-            name="remind_id",
-            description="ID for reminder we should modify. ID can be found with /remind list",
+            name="time_or_message",
+            description="Choose between modifying the time or the message.",
             option_type=SlashCommandOptionType.STRING,
             required=True,
-        ),
-        create_option(
-            name="new_message_reason",
-            description="New message.",
-            option_type=SlashCommandOptionType.STRING,
-            required=False,
-        ),
-        create_option(
-            name="new_message_date",
-            description="New date.",
-            option_type=SlashCommandOptionType.STRING,
-            required=False,
+            choices=[
+                create_choice(name="Date", value="date"),
+                create_choice(name="Message", value="message"),
+            ],
         ),
     ],
 )
 async def remind_modify(
-    ctx: SlashContext, remind_id: str, new_message_reason=None, new_message_date=None
+    ctx: SlashContext,
+    time_or_message: str,
 ):
-    job = scheduler.get_job(remind_id)
+    list_embed, jobs_dict = make_list(ctx, skip_cron_or_interval=True)
 
-    # Get_job() returns None when it can't find a job with that id.
-    if job is None:
-        await ctx.send(f"No reminder with that ID ({remind_id}).")
-        return
+    # Modify first message we send to the user
+    if time_or_message == "date":
+        first_message = "the date"
+    else:
+        first_message = "the message"
 
-    message = job.kwargs.get("message")
-    the_final_countdown_old = calc_countdown(job.id)
-
-    channel_name = bot.get_channel(int(job.kwargs.get("channel_id")))
-    msg = f"**Modified** {remind_id} in #{channel_name}\n"
-    if new_message_reason:
-        try:
-            scheduler.modify_job(
-                remind_id,
-                kwargs={
-                    "channel_id": job.kwargs.get("channel_id"),
-                    "message": new_message_reason,
-                    "author_id": job.kwargs.get("author_id"),
-                },
-            )
-        except JobLookupError as e:
-            await ctx.send(e)
-        msg += f"**Old message**: {message}\n**New message**: {new_message_reason}\n"
-
-    if new_message_date:
-        parsed_date = dateparser.parse(
-            f"{new_message_date}",
-            settings={
-                "PREFER_DATES_FROM": "future",
-                "TO_TIMEZONE": f"{config_timezone}",
-            },
+    # The empty embed has 76 characters
+    if len(list_embed) <= 76:
+        await ctx.send(f"{ctx.guild.name} has no reminders.")
+    else:
+        await ctx.send(embed=list_embed)
+        await ctx.channel.send(
+            f"Type the corresponding number to the reminder were you wish to change {first_message}. "
+            "Does not work with cron or interval. Type Exit to exit."
         )
 
-        remove_timezone_from_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
+        # Only check for response from the original user and in the correct channel
+        def check(m):
+            return m.author == ctx.author and m.channel == ctx.channel
+
         try:
-            job = scheduler.reschedule_job(
-                remind_id, run_date=remove_timezone_from_date
-            )
-        except JobLookupError:
-            await ctx.send(f"No job by the id of {remind_id} was found")
+            response_message = await bot.wait_for("message", check=check, timeout=60)
+        except TimeoutError:
+            return await ctx.channel.send("Timed out, try again.")
+        if response_message.clean_content == "Exit":
+            return await ctx.channel.send("Exited.")
 
-        remove_timezone_from_date_old = job.trigger.run_date.strftime("%Y-%m-%d %H:%M")
-        the_final_countdown_new = calc_countdown(remind_id)
-        msg += (
-            f"**Old date**: {remove_timezone_from_date_old} (in {the_final_countdown_old})\n"
-            f"**New date**: {remove_timezone_from_date} (in {the_final_countdown_new})"
-        )
+        for num, job_from_dict in jobs_dict.items():
+            if int(response_message.clean_content) == num:
 
-    await ctx.send(msg)
+                job = scheduler.get_job(job_from_dict)
+
+                # Get_job() returns None when it can't find a job with that id.
+                if job is None:
+                    await ctx.send(f"No reminder with that ID ({job_from_dict}).")
+                    return
+
+                message = job.kwargs.get("message")
+                the_final_countdown_old = calc_countdown(job.id)
+
+                channel_name = bot.get_channel(int(job.kwargs.get("channel_id")))
+                msg = f"**Modified** {job_from_dict} in #{channel_name}\n"
+                if time_or_message == "message":
+                    await ctx.channel.send("Type the new message. Type Exit to exit.")
+                    try:
+                        response_new_message = await bot.wait_for(
+                            "message", check=check, timeout=60
+                        )
+                    except TimeoutError:
+                        return await ctx.channel.send("Timed out, try again.")
+                    if response_new_message.clean_content == "Exit":
+                        return await ctx.channel.send("Exited.")
+
+                    scheduler.modify_job(
+                        job_from_dict,
+                        kwargs={
+                            "channel_id": job.kwargs.get("channel_id"),
+                            "message": f"{response_new_message.clean_content}",
+                            "author_id": job.kwargs.get("author_id"),
+                        },
+                    )
+                    msg += f"**Old message**: {message}\n**New message**: {response_new_message.clean_content}\n"
+
+                else:
+                    await ctx.channel.send("Type the new date. Type Exit to exit.")
+                    try:
+                        response_new_date = await bot.wait_for(
+                            "message", check=check, timeout=60
+                        )
+                    except TimeoutError:
+                        return await ctx.channel.send("Timed out, try again.")
+                    if response_new_date.clean_content == "Exit":
+                        return await ctx.channel.send("Exited.")
+
+                    parsed_date = dateparser.parse(
+                        f"{response_new_date.clean_content}",
+                        settings={
+                            "PREFER_DATES_FROM": "future",
+                            "TO_TIMEZONE": f"{config_timezone}",
+                        },
+                    )
+
+                    remove_timezone_from_date = parsed_date.strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
+
+                    job = scheduler.reschedule_job(
+                        job_from_dict, run_date=remove_timezone_from_date
+                    )
+
+                    remove_timezone_from_date_old = job.trigger.run_date.strftime(
+                        "%Y-%m-%d %H:%M"
+                    )
+                    the_final_countdown_new = calc_countdown(job_from_dict)
+                    msg += (
+                        f"**Old date**: {remove_timezone_from_date_old} (in {the_final_countdown_old})\n"
+                        f"**New date**: {remove_timezone_from_date} (in {the_final_countdown_new})"
+                    )
+
+                await ctx.send(msg)
 
 
 @slash.subcommand(
@@ -184,6 +227,7 @@ async def remind_remove(ctx: SlashContext):
             "Type the corresponding number to the reminder you wish to remove. Type Exit to exit."
         )
 
+        # Only check for response from the original user and in the correct channel
         def check(m):
             return m.author == ctx.author and m.channel == ctx.channel
 
@@ -224,15 +268,12 @@ async def remind_remove(ctx: SlashContext):
                     f"**Time**: {trigger_value}"
                 )
 
-                try:
-                    scheduler.remove_job(job_from_dict)
-                except Exception as e:
-                    await ctx.channel.send(e)
+                scheduler.remove_job(job_from_dict)
 
                 await ctx.channel.send(msg)
 
 
-def make_list(ctx, skip_datetriggers=False):
+def make_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
     jobs_dict = {}
     job_number = 0
     embed = discord.Embed(
@@ -259,6 +300,8 @@ def make_list(ctx, skip_datetriggers=False):
                         continue
                 else:
                     trigger_time = job.next_run_time
+                    if skip_cron_or_interval:
+                        continue
 
                 # Paused reminders returns None
                 if trigger_time is None:
@@ -306,18 +349,19 @@ async def remind_pause(ctx: SlashContext):
             "Type the corresponding number to the reminder you wish to pause. Type Exit to exit."
         )
 
+        # Only check for response from the original user and in the correct channel
         def check(m):
             return m.author == ctx.author and m.channel == ctx.channel
 
         try:
-            response_message = await bot.wait_for("message", check=check, timeout=60)
+            response_reminder = await bot.wait_for("message", check=check, timeout=60)
         except TimeoutError:
             return await ctx.channel.send("Timed out, try again.")
-        if response_message.clean_content == "Exit":
+        if response_reminder.clean_content == "Exit":
             return await ctx.channel.send("Exited.")
 
         for num, job_from_dict in jobs_dict.items():
-            if int(response_message.clean_content) == num:
+            if int(response_reminder.clean_content) == num:
                 job = scheduler.get_job(job_from_dict)
                 channel_id = job.kwargs.get("channel_id")
                 channel_name = bot.get_channel(int(channel_id))
@@ -332,7 +376,7 @@ async def remind_pause(ctx: SlashContext):
                 # Paused reminders returns None
                 if trigger_time is None:
                     return await ctx.channel.send(
-                        f"{response_message.clean_content} | {message} in #{channel_name} is already paused."
+                        f"{response_reminder.clean_content} | {message} in #{channel_name} is already paused."
                     )
                 else:
                     trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job.id)})'
@@ -342,11 +386,7 @@ async def remind_pause(ctx: SlashContext):
                     f"**Time**: {trigger_value}"
                 )
 
-                try:
-                    print("Paused")
-                    scheduler.pause_job(job_from_dict)
-                except Exception as e:
-                    await ctx.channel.send(e)
+                scheduler.pause_job(job_from_dict)
 
                 await ctx.channel.send(msg)
 
@@ -368,6 +408,7 @@ async def remind_resume(ctx: SlashContext):
             "Type the corresponding number to the reminder you wish to pause. Type Exit to exit."
         )
 
+        # Only check for response from the original user and in the correct channel
         def check(m):
             return m.author == ctx.author and m.channel == ctx.channel
 
@@ -375,7 +416,7 @@ async def remind_resume(ctx: SlashContext):
             response_message = await bot.wait_for("message", check=check, timeout=60)
         except TimeoutError:
             return await ctx.channel.send("Timed out, try again.")
-        if response_message == "Exit":
+        if response_message.clean_content == "Exit":
             return await ctx.channel.send("Exited.")
 
         for num, job_from_dict in jobs_dict.items():
