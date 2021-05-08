@@ -737,7 +737,7 @@ async def remind_interval(
 
     # TODO: Add arguments
     message = (
-        f"Hello {ctx.author.display_name}, first run in {calc_countdown(job.id)})\n"
+        f"Hello {ctx.author.display_name}, first run in {calc_countdown(job.id)}\n"
         f"With the message:\n**{message_reason}**."
     )
 
