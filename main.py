@@ -309,8 +309,11 @@ def make_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
                 else:
                     trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job.id)})'
 
+                field_name = f"{job_number}) {message} in #{channel_name}"
+                field_name = field_name[:254] + (field_name[254:] and "..")
+
                 embed.add_field(
-                    name=f"{job_number}) {message} in #{channel_name}",
+                    name=field_name,
                     value=f"{trigger_value}",
                     inline=False,
                 )
