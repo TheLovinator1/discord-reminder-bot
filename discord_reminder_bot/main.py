@@ -190,7 +190,7 @@ async def remind_modify(
                         },
                     )
 
-                    remove_timezone_from_date = parsed_date.strftime(
+                    remove_timezone_from_date = parsed_date.strftime(  # type: ignore
                         "%Y-%m-%d %H:%M:%S"
                     )
 
@@ -492,7 +492,7 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
         },
     )
 
-    run_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
+    run_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")  # type: ignore
     reminder = scheduler.add_job(
         send_to_discord,
         run_date=run_date,

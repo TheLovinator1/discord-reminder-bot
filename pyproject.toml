@@ -16,6 +16,9 @@ SQLAlchemy = "^1.4.22"
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
 black = {version = "^21.7b0", allow-prereleases = true}
+flake8 = "^3.9.2"
+mypy = "^0.910"
+types-pytz = "^2021.1.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
