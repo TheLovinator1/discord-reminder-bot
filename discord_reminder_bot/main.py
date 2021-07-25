@@ -1,12 +1,9 @@
 import datetime
 import logging
-import os
 
 import dateparser
 import discord
 import pytz
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.date import DateTrigger
 from discord.errors import NotFound
 from discord.ext import commands
@@ -14,7 +11,14 @@ from discord_slash import SlashCommand, SlashContext
 from discord_slash.error import IncorrectFormat, RequestFailure
 from discord_slash.model import SlashCommandOptionType
 from discord_slash.utils.manage_commands import create_choice, create_option
-from dotenv import load_dotenv
+
+from discord_reminder_bot.settings import (
+    bot_token,
+    config_timezone,
+    log_level,
+    scheduler,
+    sqlite_location,
+)
 
 bot = commands.Bot(
     command_prefix="!",
@@ -25,9 +29,7 @@ bot = commands.Bot(
 slash = SlashCommand(bot, sync_commands=True)
 
 
-def calc_countdown(remind_id: str) -> str:
-    job = scheduler.get_job(remind_id)
-
+def calc_countdown(job) -> str:
     # Get_job() returns None when it can't find a job with that id.
     if type(job.trigger) is DateTrigger:
         trigger_time = job.trigger.run_date
@@ -146,7 +148,7 @@ async def remind_modify(
                     return
 
                 message = job.kwargs.get("message")
-                the_final_countdown_old = calc_countdown(job.id)
+                the_final_countdown_old = calc_countdown(job)
 
                 channel_name = bot.get_channel(int(job.kwargs.get("channel_id")))
                 msg = f"**Modified** {job_from_dict} in #{channel_name}\n"
@@ -190,7 +192,7 @@ async def remind_modify(
                         },
                     )
 
-                    remove_timezone_from_date = parsed_date.strftime(  # type: ignore
+                    remove_timezone_from_date = parsed_date.strftime(
                         "%Y-%m-%d %H:%M:%S"
                     )
 
@@ -261,7 +263,7 @@ async def remind_remove(ctx: SlashContext):
                 if trigger_time is None:
                     trigger_value = "Paused - can be resumed with '/remind resume'"
                 else:
-                    trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job.id)})'
+                    trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
 
                 msg = (
                     f"**Removed** {message} in #{channel_name}.\n"
@@ -307,7 +309,7 @@ def make_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
                 if trigger_time is None:
                     trigger_value = "Paused - can be resumed with '/remind resume'"
                 else:
-                    trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job.id)})'
+                    trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
 
                 # Max lenght is 256
                 field_name = f"{job_number}) {message} in #{channel_name}"
@@ -387,7 +389,7 @@ async def remind_pause(ctx: SlashContext):
                         f"{response_reminder.clean_content} | {message} in #{channel_name} is already paused."
                     )
                 else:
-                    trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job.id)})'
+                    trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
 
                 msg = (
                     f"**Paused** {message} in #{channel_name}.\n"
@@ -453,7 +455,7 @@ async def remind_resume(ctx: SlashContext):
                 if trigger_time is None:
                     trigger_value = "Paused - can be resumed with '/remind resume'"
                 else:
-                    trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job.id)})'
+                    trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
 
                 msg = (
                     f"**Resumed** {message} in #{channel_name}.\n"
@@ -492,7 +494,7 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
         },
     )
 
-    run_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")  # type: ignore
+    run_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
     reminder = scheduler.add_job(
         send_to_discord,
         run_date=run_date,
@@ -505,7 +507,7 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
 
     message = (
         f"Hello {ctx.author.display_name}, I will notify you at:\n"
-        f"**{run_date}** (in {calc_countdown(reminder.id)})\n"
+        f"**{run_date}** (in {calc_countdown(reminder)})\n"
         f"With the message:\n**{message_reason}**."
     )
 
@@ -637,7 +639,7 @@ async def remind_cron(
 
     # TODO: Add arguments
     message = (
-        f"Hello {ctx.author.display_name}, first run in {calc_countdown(job.id)}\n"
+        f"Hello {ctx.author.display_name}, first run in {calc_countdown(job)}\n"
         f"With the message:\n**{message_reason}**."
     )
 
@@ -745,7 +747,7 @@ async def remind_interval(
 
     # TODO: Add arguments
     message = (
-        f"Hello {ctx.author.display_name}, first run in {calc_countdown(job.id)}\n"
+        f"Hello {ctx.author.display_name}, first run in {calc_countdown(job)}\n"
         f"With the message:\n**{message_reason}**."
     )
 
@@ -758,28 +760,12 @@ async def send_to_discord(channel_id, message, author_id):
 
 
 if __name__ == "__main__":
-    load_dotenv(verbose=True)
-    sqlite_location = os.getenv("SQLITE_LOCATION", default="/jobs.sqlite")
-    config_timezone = os.getenv("TIMEZONE", default="Europe/Stockholm")
-    bot_token = os.getenv("BOT_TOKEN")
-    log_level = os.getenv(key="LOG_LEVEL", default="INFO")
-
     logging.basicConfig(level=logging.getLevelName(log_level))
-
     logging.info(
         f"\nsqlite_location = {sqlite_location}\n"
         f"config_timezone = {config_timezone}\n"
         f"bot_token = {bot_token}\n"
         f"log_level = {log_level}"
-    )
-
-    # Advanced Python Scheduler
-    jobstores = {"default": SQLAlchemyJobStore(url=f"sqlite://{sqlite_location}")}
-    job_defaults = {"coalesce": True}
-    scheduler = AsyncIOScheduler(
-        jobstores=jobstores,
-        timezone=pytz.timezone(config_timezone),
-        job_defaults=job_defaults,
     )
 
     scheduler.start()
