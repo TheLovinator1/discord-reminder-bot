@@ -1,3 +1,12 @@
+"""
+This file loads settings from environment. You can also use the .env file.
+
+You need to fill out bot_token and config_timezone.
+bot_token is from https://discord.com/developers/applications
+config_timezone is TZ database name. https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+sqlite_location is where the database should be saved, default is /jobs.sqlite
+log_level can be CRITICAL, ERROR, WARNING, INFO or DEBUG, default is INFO.
+"""
 import os
 
 import pytz

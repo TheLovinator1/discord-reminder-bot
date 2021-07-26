@@ -1,3 +1,8 @@
+"""Discord bot that allows you to set reminders.
+
+Created by Joakim Hellsén <tlovinator@gmail.com>
+https://github.com/TheLovinator1/discord-reminder-bot
+"""
 import datetime
 import logging
 
@@ -23,19 +28,29 @@ from discord_reminder_bot.settings import (
 bot = commands.Bot(
     command_prefix="!",
     description="Reminder bot for Discord by TheLovinator#9276",
-    intents=discord.Intents.all(),  # TODO: Find the actual intents we need.
+    intents=discord.Intents.all()  # TODO: Find the actual intents we need.
     # https://discordpy.readthedocs.io/en/latest/api.html#discord.Intents
 )
 slash = SlashCommand(bot, sync_commands=True)
 
 
 def calc_countdown(job) -> str:
-    # Get_job() returns None when it can't find a job with that id.
+    """Get trigger time from a reminder and calculate how many days, hours and minutes till trigger.
+
+    Days/Minutes will not be included if 0.
+
+    Args:
+        job ([type]): The job. Can be cron, interval or normal. #TODO: Find type
+
+    Returns:
+        str: Returns days, hours and minutes till reminder. Returns "Failed to calculate time" if no job is found.
+    """
     if type(job.trigger) is DateTrigger:
         trigger_time = job.trigger.run_date
     else:
         trigger_time = job.next_run_time
 
+    # Get_job() returns None when it can't find a job with that id.
     if trigger_time is None:
         return "Failed to calculate time"
 
@@ -60,23 +75,29 @@ def calc_countdown(job) -> str:
 
 
 @bot.event
-async def on_slash_command_error(ctx, ex):
+async def on_slash_command_error(ctx: SlashContext, ex: Exception):
+    """Send message to Discord when slash command fails.
+
+    Args:
+        ctx (SlashContext): Context. The meta data about the slash command.
+        ex (Exception): Exception that raised.
+
+    https://discord-py-slash-command.readthedocs.io/en/latest/discord_slash.error.html
+    """
     logging.error(
         f'Error occurred during the execution of "/{ctx.name} {ctx.subcommand_name}" by {ctx.author}: {ex}'
     )
     if ex == RequestFailure:
-        message = (f"Request to Discord API failed: {ex}",)
+        message = f"Request to Discord API failed: {ex}"
     elif ex == IncorrectFormat:
-        message = (f"Incorrect format: {ex}",)
+        message = f"Incorrect format: {ex}"
     elif ex == NotFound:
-        message = (
-            f"404 Not Found - I couldn't find the interaction or it took me longer than 3 seconds to respond: {ex}",
-        )
+        message = f"I couldn't find the interaction or it took me longer than 3 seconds to respond: {ex}"
     else:
         message = f"Error occurred during the execution of '/{ctx.name} {ctx.subcommand_name}': {ex}"
 
     await ctx.send(
-        message + "\nIf this persists, please make an issue on "
+        f"{message}\nIf this persists, please make an issue on "
         "[the GitHub repo](https://github.com/TheLovinator1/discord-reminder-bot/issues) or contact TheLovinator#9276",
         hidden=True,
     )
@@ -84,6 +105,7 @@ async def on_slash_command_error(ctx, ex):
 
 @bot.event
 async def on_ready():
+    """Log our bots username on start."""
     logging.info(f"Logged in as {bot.user.name}")
 
 
@@ -104,10 +126,16 @@ async def on_ready():
         ),
     ],
 )
-async def remind_modify(
-    ctx: SlashContext,
-    time_or_message: str,
-):
+async def command_modify(ctx: SlashContext, time_or_message: str):
+    """Modify a reminder. You can change time or message.
+
+    Args:
+        ctx (SlashContext): Context. The meta data about the slash command.
+        time_or_message (str): Choose between modifying the message or time.
+
+    Returns:
+        [type]: Send message to Discord.
+    """
     list_embed, jobs_dict = make_list(ctx, skip_cron_or_interval=True)
 
     # Modify first message we send to the user
@@ -212,12 +240,16 @@ async def remind_modify(
                 await ctx.send(msg)
 
 
-@slash.subcommand(
-    base="remind",
-    name="remove",
-    description="Remove a reminder.",
-)
+@slash.subcommand(base="remind", name="remove", description="Remove a reminder.")
 async def remind_remove(ctx: SlashContext):
+    """Select reminider from list that you want to remove.
+
+    Args:
+        ctx (SlashContext): Context. The meta data about the slash command.
+
+    Returns:
+        [type]: Send message to Discord.
+    """
     list_embed, jobs_dict = make_list(ctx)
 
     # The empty embed has 76 characters
@@ -276,6 +308,17 @@ async def remind_remove(ctx: SlashContext):
 
 
 def make_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
+    """Create a list of reminders.
+
+    Args:
+        ctx (SlashContext): Context. The meta data about the slash command.
+        skip_datetriggers (bool, optional): Only show cron jobs and interval reminders. Defaults to False.
+        skip_cron_or_interval (bool, optional): Only show normal reminders. Defaults to False.
+
+    Returns:
+        embed: Embed is the list of reminders that we send to Discord.
+        jobs_dict: Dictionary that contains placement in list and job id.
+    """
     jobs_dict = {}
     job_number = 0
     embed = discord.Embed(
@@ -333,6 +376,11 @@ def make_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
     description="Show reminders.",
 )
 async def remind_list(ctx: SlashContext):
+    """Send a list of reminders to Discord.
+
+    Args:
+        ctx (SlashContext): Context. The meta data about the slash command.
+    """
     list_embed, jobs_dict = make_list(ctx)
 
     # The empty embed has 76 characters
@@ -348,6 +396,14 @@ async def remind_list(ctx: SlashContext):
     description="Pause reminder. For cron or interval.",
 )
 async def remind_pause(ctx: SlashContext):
+    """Get a list of reminders that you can pause.
+
+    Args:
+        ctx (SlashContext): Context. The meta data about the slash command.
+
+    Returns:
+        [type]: Sends message to Discord.
+    """
     list_embed, jobs_dict = make_list(ctx, skip_datetriggers=True)
 
     # The empty embed has 76 characters
@@ -407,6 +463,14 @@ async def remind_pause(ctx: SlashContext):
     description="Resume paused reminder. For cron or interval.",
 )
 async def remind_resume(ctx: SlashContext):
+    """Send a list of reminders to pause to Discord.
+
+    Args:
+        ctx (SlashContext): Context. The meta data about the slash command.
+
+    Returns:
+        [type]: Sends message to Discord.
+    """
     list_embed, jobs_dict = make_list(ctx, skip_datetriggers=True)
 
     # The empty embed has 76 characters
@@ -486,6 +550,13 @@ async def remind_resume(ctx: SlashContext):
     ],
 )
 async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
+    """Add a new reminder. You can add a date and message.
+
+    Args:
+        ctx (SlashContext): Context. The meta data about the slash command.
+        message_date (str): The date or time that will get parsed.
+        message_reason (str): The message the bot should write when the reminder is triggered.
+    """
     parsed_date = dateparser.parse(
         f"{message_date}",
         settings={
@@ -602,19 +673,42 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
 async def remind_cron(
     ctx: SlashContext,
     message_reason: str,
-    year=None,
-    month=None,
-    day=None,
-    week=None,
-    day_of_week=None,
-    hour=None,
-    minute=None,
-    second=None,
-    start_date=None,
-    end_date=None,
-    timezone=None,
-    jitter=None,
+    year: int = None,
+    month: int = None,
+    day: int = None,
+    week: int = None,
+    day_of_week: str = None,
+    hour: int = None,
+    minute: int = None,
+    second: int = None,
+    start_date: str = None,
+    end_date: str = None,
+    timezone: str = None,
+    jitter: int = None,
 ):
+    """Create new cron job. Works like UNIX cron.
+
+    https://en.wikipedia.org/wiki/Cron
+    Args that are None will be defaulted to *.
+
+    Args:
+        ctx (SlashContext): Context. The meta data about the slash command.
+        message_reason (str): The message the bot should send everytime cron job triggers.
+        year (int, optional): 4-digit year. Defaults to None.
+        month (int, optional): Month (1-12). Defaults to None.
+        day (int, optional): Day of month (1-31). Defaults to None.
+        week (int, optional): ISO week (1-53). Defaults to None.
+        day_of_week (str, optional): Number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun). Defaults to None.
+        hour (int, optional): Hour (0-23). Defaults to None.
+        minute (int, optional): Minute (0-59). Defaults to None.
+        second (int, optional): Second (0-59). Defaults to None.
+        start_date (str, optional): Earliest possible date/time to trigger on (inclusive). Defaults to None.
+        end_date (str, optional): Latest possible date/time to trigger on (inclusive). Defaults to None.
+        timezone (str, optional): Time zone to use for the date/time calculations Defaults to scheduler timezone.
+        jitter (int, optional): Delay the job execution by jitter seconds at most. Defaults to None.
+
+        https://apscheduler.readthedocs.io/en/stable/modules/triggers/cron.html#module-apscheduler.triggers.cron
+    """
     job = scheduler.add_job(
         send_to_discord,
         "cron",
@@ -642,7 +736,6 @@ async def remind_cron(
         f"Hello {ctx.author.display_name}, first run in {calc_countdown(job)}\n"
         f"With the message:\n**{message_reason}**."
     )
-
     await ctx.send(message)
 
 
@@ -716,16 +809,31 @@ async def remind_cron(
 async def remind_interval(
     ctx: SlashContext,
     message_reason: str,
-    weeks=0,
-    days=0,
-    hours=0,
-    minutes=0,
-    seconds=0,
-    start_date=None,
-    end_date=None,
-    timezone=None,
-    jitter=None,
+    weeks: int = 0,
+    days: int = 0,
+    hours: int = 0,
+    minutes: int = 0,
+    seconds: int = 0,
+    start_date: str = None,
+    end_date: str = None,
+    timezone: str = None,
+    jitter: int = None,
 ):
+    """Create new reminder that triggers based on a interval.
+
+    Args:
+        ctx (SlashContext): Context. The meta data about the slash command.
+        message_reason (str): The message we should write when triggered.
+        weeks (int, optional): Number of weeks to wait. Defaults to 0.
+        days (int, optional): Number of days to wait. Defaults to 0.
+        hours (int, optional): Number of hours to wait. Defaults to 0.
+        minutes (int, optional): Number of minutes to wait. Defaults to 0.
+        seconds (int, optional): Number of seconds to wait. Defaults to 0.
+        start_date (str, optional): Starting point for the interval calculation. Defaults to None.
+        end_date (str, optional): Latest possible date/time to trigger on. Defaults to None.
+        timezone (str, optional): Time zone to use for the date/time calculations. Defaults to None.
+        jitter (int, optional): Delay the job execution by jitter seconds at most. Defaults to None.
+    """
     job = scheduler.add_job(
         send_to_discord,
         "interval",
@@ -754,7 +862,15 @@ async def remind_interval(
     await ctx.send(message)
 
 
-async def send_to_discord(channel_id, message, author_id):
+async def send_to_discord(channel_id: int, message: str, author_id: int):
+    """Send a message to Discord.
+
+    Args:
+        channel_id (int): The Discord channel ID.
+        message (str): The message.
+        author_id (int): User we should ping.
+    """
+    # TODO: Check if channel exists.
     channel = bot.get_channel(int(channel_id))
     await channel.send(f"<@{author_id}>\n{message}")
 
