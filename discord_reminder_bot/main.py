@@ -242,7 +242,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
 
 @slash.subcommand(base="remind", name="remove", description="Remove a reminder.")
 async def remind_remove(ctx: SlashContext):
-    """Select reminider from list that you want to remove.
+    """Select reminder from list that you want to remove.
 
     Args:
         ctx (SlashContext): Context. The meta data about the slash command.
@@ -354,11 +354,11 @@ def make_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
                 else:
                     trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
 
-                # Max lenght is 256
+                # Max length is 256
                 field_name = f"{job_number}) {message} in #{channel_name}"
                 field_name = field_name[:253] + (field_name[253:] and "...")
 
-                # Max lenght is 1024
+                # Max length is 1024
                 field_value = f"{trigger_value}"
                 field_value = field_value[:1021] + (field_value[1021:] and "...")
 
