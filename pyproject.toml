@@ -1,8 +1,24 @@
 [tool.poetry]
 name = "discord-reminder-bot"
 version = "0.1.0"
-description = ""
+description = "Discord bot that allows you to set date, cron and interval reminders."
 authors = ["Joakim Hellsén <tlovinator@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/TheLovinator1/discord-reminder-bot"
+repository = "https://github.com/TheLovinator1/discord-reminder-bot"
+keywords = [
+    "bot",
+    "discord",
+    "discord-reminder-bot",
+    "discord-py-slash-command",
+]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/TheLovinator1/discord-reminder-bot/issues"
+
+[tool.poetry.scripts]
+bot = "discord_reminder_bot.main:start"
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -15,7 +31,7 @@ SQLAlchemy = "^1.4.22"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
-black = {version = "^21.7b0", allow-prereleases = true}
+black = { version = "^21.7b0", allow-prereleases = true }
 flake8 = "^3.9.2"
 mypy = "^0.910"
 types-pytz = "^2021.1.0"
@@ -24,3 +40,18 @@ pydocstyle = "^6.1.1"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 119
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | migrations
+)/
+'''

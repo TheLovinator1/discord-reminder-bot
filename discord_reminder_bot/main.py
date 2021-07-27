@@ -875,7 +875,8 @@ async def send_to_discord(channel_id: int, message: str, author_id: int):
     await channel.send(f"<@{author_id}>\n{message}")
 
 
-if __name__ == "__main__":
+def start():
+    """Start scheduler and log in to Discord."""
     logging.basicConfig(level=logging.getLevelName(log_level))
     logging.info(
         f"\nsqlite_location = {sqlite_location}\n"
@@ -886,3 +887,7 @@ if __name__ == "__main__":
 
     scheduler.start()
     bot.run(bot_token)
+
+
+if __name__ == "__main__":
+    start()
