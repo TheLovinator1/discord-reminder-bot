@@ -2,6 +2,10 @@
 
 Discord bot that allows you to set date, cron and interval reminders.
 
+![/remind add message_reason: Remember to feed the cat! message_date: 2 November 2025 14:00 CET](/Bot.png)
+
+<sup>Theme is [DiscordNight by KillYoy](https://github.com/KillYoy/DiscordNight)<sup>
+
 ## Usage
 
 Type /remind in a Discord server where this bot exists to get a list of slash commands you can use.
