@@ -1,11 +1,12 @@
 # Discord-reminder-bot
 
-Discord bot that allows you to set date, cron and interval reminders.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/TheLovinator1/discord-reminder-bot/master/Bot.png" title="/remind add message_reason: Remember to feed the cat! message_date: 2 November 2025 14:00 CET"/>
+</p>
+<p align="center"><sup>Theme is [DiscordNight by KillYoy](https://github.com/KillYoy/DiscordNight)<sup></p>
 
-![/remind add message_reason: Remember to feed the cat! message_date: 2 November 2025 14:00 CET](/Bot.png)
-
-<sup>Theme is [DiscordNight by KillYoy](https://github.com/KillYoy/DiscordNight)<sup>
-
+ A discord bot that allows you to set date, cron, and interval reminders.
+ 
 ## Usage
 
 Type /remind in a Discord server where this bot exists to get a list of slash commands you can use.
@@ -15,7 +16,7 @@ Type /remind in a Discord server where this bot exists to get a list of slash co
 * `BOT_TOKEN` - Discord bot token ([Where to get one](https://discord.com/developers/applications))
 * `TIMEZONE` - Your time zone. You want the TZ database name. ([List of time zones](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)). Defaults to `Europe/Stockholm`
 * `SQLITE_LOCATION` - (Optional) Where to store the database. Defaults to `/jobs.sqlite`
-* `LOG_LEVEL` - Can be CRITICAL, ERROR, WARNING, INFO or DEBUG. Defaults to `INFO`
+* `LOG_LEVEL` - Can be CRITICAL, ERROR, WARNING, INFO, or DEBUG. Defaults to `INFO`
 
 ## Installation
 
@@ -25,7 +26,7 @@ You have two choices, [install directly on your computer](#Install-directly-on-y
 
 * Install latest version of [git](https://git-scm.com/), [Python](https://www.python.org/) and [Poetry](https://python-poetry.org/docs/#installation).
 * Download project from GitHub and change directory into it.
-* Open terminal in repository folder.
+* Open terminal in the repository folder.
 * Install requirements:
   * `poetry install`
 * Rename .env.example to .env and fill it out.
