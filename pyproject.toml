@@ -8,10 +8,10 @@ readme = "README.md"
 homepage = "https://github.com/TheLovinator1/discord-reminder-bot"
 repository = "https://github.com/TheLovinator1/discord-reminder-bot"
 keywords = [
-    "bot",
-    "discord",
-    "discord-reminder-bot",
-    "discord-py-slash-command",
+  "bot",
+  "discord",
+  "discord-reminder-bot",
+  "discord-py-slash-command",
 ]
 
 [tool.poetry.urls]
