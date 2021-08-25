@@ -56,7 +56,7 @@ def calc_countdown(job) -> str:
         countdown.seconds // 3600,
         countdown.seconds // 60 % 60,
     )
-    the_final_countdown = ", ".join(
+    return ", ".join(
         f"{x} {y}{'s'*(x!=1)}"
         for x, y in (
             (days, "day"),
@@ -65,7 +65,6 @@ def calc_countdown(job) -> str:
         )
         if x
     )
-    return the_final_countdown
 
 
 @bot.event
