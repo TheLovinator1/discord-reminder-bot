@@ -36,6 +36,7 @@ flake8 = "^3.9.2"
 mypy = "^0.910"
 types-pytz = "^2021.1.0"
 pydocstyle = "^6.1.1"
+types-dateparser = "^1.0.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
