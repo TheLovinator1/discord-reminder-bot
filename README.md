@@ -3,7 +3,7 @@
 <p align="center">
   <img src="https://raw.githubusercontent.com/TheLovinator1/discord-reminder-bot/master/Bot.png" title="/remind add message_reason: Remember to feed the cat! message_date: 2 November 2025 14:00 CET"/>
 </p>
-<p align="center"><sup>Theme is [DiscordNight by KillYoy](https://github.com/KillYoy/DiscordNight)<sup></p>
+<p align="center"><sup>Theme is https://github.com/KillYoy/DiscordNight<sup></p>
 
  A discord bot that allows you to set date, cron, and interval reminders.
  
