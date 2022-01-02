@@ -23,20 +23,19 @@ bot = "discord_reminder_bot.main:start"
 [tool.poetry.dependencies]
 python = "^3.9"
 "discord.py" = "^1.7.3"
-python-dotenv = "^0.18.0"
-discord-py-slash-command = "^2.3.2"
-APScheduler = "^3.7.0"
-dateparser = "^1.0.0"
-SQLAlchemy = "^1.4.22"
+python-dotenv = "^0.19.2"
+discord-py-slash-command = "^3.0.3"
+APScheduler = "^3.8.1"
+dateparser = "^1.1.0"
+SQLAlchemy = "^1.4.29"
 
 [tool.poetry.dev-dependencies]
-pytest = "^5.2"
-black = { version = "^21.7b0", allow-prereleases = true }
-flake8 = "^3.9.2"
-mypy = "^0.910"
-types-pytz = "^2021.1.0"
-pydocstyle = "^6.1.1"
-types-dateparser = "^1.0.1"
+pytest = "^6.2.5"
+black = {version = "^21.12b0", allow-prereleases = true}
+flake8 = "^4.0.1"
+mypy = "^0.930"
+types-pytz = "^2021.3.3"
+types-dateparser = "^1.0.10"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -44,15 +43,3 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 119
-exclude = '''
-/(
-    \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-  | migrations
-)/
-'''
