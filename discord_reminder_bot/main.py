@@ -1,8 +1,3 @@
-"""Discord bot that allows you to set reminders.
-
-Created by Joakim Hellsén <tlovinator@gmail.com>
-https://github.com/TheLovinator1/discord-reminder-bot
-"""
 import datetime
 import logging
 
