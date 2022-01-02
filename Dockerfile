@@ -1,8 +1,4 @@
-# We need gcc and build-essential to install our requirements but we 
-# don't need them when run the bot so we can selectively copy artifacts
-# from this stage (compile-image) to second one (runtime-image), leaving 
-# behind everything we don't need in the final build. 
-FROM python:3.9-slim AS compile-image
+FROM python:3.9-slim
 
 # We don't want apt-get to interact with us,
 # and we want the default answers to be used for all questions.
@@ -19,8 +15,7 @@ ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
 # Update packages and install needed packages to build our requirements.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends build-essential gcc git curl
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential gcc git curl
 
 # Create user so we don't run as root.
 RUN useradd --create-home botuser
