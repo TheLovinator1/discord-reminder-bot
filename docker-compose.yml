@@ -2,6 +2,7 @@ version: "3"
 services:
   discord-reminder-bot:
     image: thelovinator/discord-reminder-bot
+    build: .
     env_file:
       - .env
     container_name: discord-reminder-bot
