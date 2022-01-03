@@ -31,10 +31,7 @@ def calc_countdown(job) -> str:
     Returns:
         str: Returns days, hours and minutes till reminder. Returns "Failed to calculate time" if no job is found.
     """
-    if type(job.trigger) is DateTrigger:
-        trigger_time = job.trigger.run_date
-    else:
-        trigger_time = job.next_run_time
+    trigger_time = job.trigger.run_date if type(job.trigger) is DateTrigger else job.next_run_time
 
     # Get_job() returns None when it can't find a job with that id.
     if trigger_time is None:
@@ -121,11 +118,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
     """
     list_embed, jobs_dict = make_list(ctx, skip_cron_or_interval=True)
 
-    # Modify first message we send to the user
-    if time_or_message == "date":
-        first_message = "the date"
-    else:
-        first_message = "the message"
+    first_message = "the date" if time_or_message == "date" else "the message"
 
     # The empty embed has 76 characters
     if len(list_embed) <= 76:
