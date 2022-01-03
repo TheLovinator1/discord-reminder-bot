@@ -80,8 +80,8 @@ async def on_slash_command_error(ctx: SlashContext, ex: Exception):
         message = f"Error occurred during the execution of '/{ctx.name} {ctx.subcommand_name}': {ex}"
 
     await ctx.send(
-        f"{message}\nIf this persists, please make an issue on "
-        "[the GitHub repo](https://github.com/TheLovinator1/discord-reminder-bot/issues) or contact TheLovinator#9276",
+        f"{message}\nIf this persists, please make an issue on the"
+        "[GitHub repo](https://github.com/TheLovinator1/discord-reminder-bot/issues) or contact TheLovinator#9276",
         hidden=True,
     )
 
