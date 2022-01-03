@@ -15,10 +15,7 @@ from discord_slash.utils.manage_commands import create_choice, create_option
 from discord_reminder_bot.settings import bot_token, config_timezone, log_level, scheduler, sqlite_location
 
 bot = commands.Bot(
-    command_prefix="!",
-    description="Reminder bot for Discord by TheLovinator#9276",
-    intents=discord.Intents.all()  # TODO: Find the actual intents we need.
-    # https://discordpy.readthedocs.io/en/latest/api.html#discord.Intents
+    command_prefix="!", description="Reminder bot for Discord by TheLovinator#9276", intents=discord.Intents.all()
 )
 slash = SlashCommand(bot, sync_commands=True)
 
@@ -499,7 +496,6 @@ async def remind_resume(ctx: SlashContext):
             option_type=SlashCommandOptionType.STRING,
             required=True,
         ),
-        # TODO: Add support for dateparser.calendars.jalali and dateparser.calendars.hijri
         create_option(
             name="message_date",
             description="Time and/or date when you want to get reminded. Works only with the Gregorian calendar.",
