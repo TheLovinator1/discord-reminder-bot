@@ -495,15 +495,24 @@ async def remind_resume(ctx: SlashContext):
             option_type=SlashCommandOptionType.STRING,
             required=True,
         ),
+        create_option(
+            name="different_channel",
+            description="Send the message to a different channel.",
+            option_type=SlashCommandOptionType.CHANNEL,
+            required=False,
+        ),
     ],
 )
-async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
+async def remind_add(
+    ctx: SlashContext, message_date: str, message_reason: str, different_channel: discord.TextChannel = None
+):
     """Add a new reminder. You can add a date and message.
 
     Args:
         ctx (SlashContext): Context. The meta data about the slash command.
         message_date (str): The date or time that will get parsed.
         message_reason (str): The message the bot should write when the reminder is triggered.
+        different_channel (str): The channel the reminder should be sent to.
     """
     parsed_date = dateparser.parse(
         f"{message_date}",
@@ -512,20 +521,23 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
             "TO_TIMEZONE": f"{config_timezone}",
         },
     )
+
+    channel_id = different_channel.id if different_channel else ctx.channel.id
+
     # FIXME: Fix mypy error
     run_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")  # type: ignore[union-attr]
     reminder = scheduler.add_job(
         send_to_discord,
         run_date=run_date,
         kwargs={
-            "channel_id": ctx.channel_id,
+            "channel_id": channel_id,
             "message": message_reason,
             "author_id": ctx.author_id,
         },
     )
 
     message = (
-        f"Hello {ctx.author.display_name}, I will notify you at:\n"
+        f"Hello {ctx.author.display_name}, I will notify you in <#{channel_id}> at:\n"
         f"**{run_date}** (in {calc_countdown(reminder)})\n"
         f"With the message:\n**{message_reason}**."
     )
@@ -616,6 +628,12 @@ async def remind_add(ctx: SlashContext, message_date: str, message_reason: str):
             option_type=SlashCommandOptionType.INTEGER,
             required=False,
         ),
+        create_option(
+            name="different_channel",
+            description="Send the messages to a different channel.",
+            option_type=SlashCommandOptionType.CHANNEL,
+            required=False,
+        ),
     ],
 )
 async def remind_cron(
@@ -633,6 +651,7 @@ async def remind_cron(
     end_date: str = None,
     timezone: str = None,
     jitter: int = None,
+    different_channel: discord.TextChannel = None,
 ):
     """Create new cron job. Works like UNIX cron.
 
@@ -657,6 +676,9 @@ async def remind_cron(
 
         https://apscheduler.readthedocs.io/en/stable/modules/triggers/cron.html#module-apscheduler.triggers.cron
     """
+
+    channel_id = different_channel.id if different_channel else ctx.channel.id
+
     job = scheduler.add_job(
         send_to_discord,
         "cron",
@@ -673,7 +695,7 @@ async def remind_cron(
         timezone=timezone,
         jitter=jitter,
         kwargs={
-            "channel_id": ctx.channel_id,
+            "channel_id": channel_id,
             "message": message_reason,
             "author_id": ctx.author_id,
         },
@@ -681,8 +703,8 @@ async def remind_cron(
 
     # TODO: Add arguments
     message = (
-        f"Hello {ctx.author.display_name}, first run in {calc_countdown(job)}\n"
-        f"With the message:\n**{message_reason}**."
+        f"Hello {ctx.author.display_name}, I will send messages to <#{channel_id}>.\n"
+        f"First run in {calc_countdown(job)} with the message:\n**{message_reason}**."
     )
     await ctx.send(message)
 
@@ -752,6 +774,12 @@ async def remind_cron(
             option_type=SlashCommandOptionType.INTEGER,
             required=False,
         ),
+        create_option(
+            name="different_channel",
+            description="Send the messages to a different channel.",
+            option_type=SlashCommandOptionType.CHANNEL,
+            required=False,
+        ),
     ],
 )
 async def remind_interval(
@@ -766,6 +794,7 @@ async def remind_interval(
     end_date: str = None,
     timezone: str = None,
     jitter: int = None,
+    different_channel: discord.TextChannel = None,
 ):
     """Create new reminder that triggers based on a interval.
 
@@ -782,6 +811,9 @@ async def remind_interval(
         timezone (str, optional): Time zone to use for the date/time calculations. Defaults to None.
         jitter (int, optional): Delay the job execution by jitter seconds at most. Defaults to None.
     """
+
+    channel_id = different_channel.id if different_channel else ctx.channel.id
+
     job = scheduler.add_job(
         send_to_discord,
         "interval",
@@ -795,7 +827,7 @@ async def remind_interval(
         timezone=timezone,
         jitter=jitter,
         kwargs={
-            "channel_id": ctx.channel_id,
+            "channel_id": channel_id,
             "message": message_reason,
             "author_id": ctx.author_id,
         },
@@ -803,8 +835,8 @@ async def remind_interval(
 
     # TODO: Add arguments
     message = (
-        f"Hello {ctx.author.display_name}, first run in {calc_countdown(job)}\n"
-        f"With the message:\n**{message_reason}**."
+        f"Hello {ctx.author.display_name}, I will send messages to <#{channel_id}>.\n"
+        f"First run in {calc_countdown(job)} with the message:\n**{message_reason}**."
     )
 
     await ctx.send(message)
