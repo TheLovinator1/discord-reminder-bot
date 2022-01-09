@@ -14,7 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updating types-dateparser (1.0.10 -> 1.0.12)
   - Updating types-pytz (2021.3.3 -> 2021.3.4)
 
-## [0.2.0] - 2021-07-23
+### Fixed
+
+- Date in CHANGELOG.md is now correct.
+
+## [0.2.0] - 2022-01-09
 
 ### Added
 
