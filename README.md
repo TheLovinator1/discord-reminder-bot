@@ -9,7 +9,7 @@ A discord bot that allows you to set a date, [cron](https://en.wikipedia.org/wik
 
 ## Usage
 
-Type /remind in a Discord server where this bot exists to get a list of slash commands you can use.
+Type `/remind` in a Discord server where this bot exists to get a list of slash commands you can use.
 
 ## Installation
 
@@ -36,16 +36,17 @@ You have two choices, [install directly on your computer](#Install-directly-on-y
     - Windows 10: Click the View Tab in File Explorer and click the box next to File name extensions.
     - Windows 11: Click View -> Show -> File name extensions.
 - Open a terminal in the repository folder.
-  - Windows 10: Shift + right-click in the folder and select `Open PowerShell window here`.'
-  - Windows 11: Shift + right-click in the folder and select `Open in Windows Terminal`.'
+  - Windows 10: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and select `Open PowerShell window here`
+  - Windows 11: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and select `Open in Windows Terminal`
 - Install requirements:
   - `poetry install`
     - (You may have to restart your terminal if it can't find the `poetry` command)
 - Start the bot with:
   - `poetry run bot`
-    - You can stop the bot with ctrl + c.
+    - You can stop the bot with <kbd>Ctrl</kbd> + <kbd>c</kbd>.
 
 Note: You will need to run `poetry install` again if poetry.lock has been modified.
+
 Note: It can take up to one hour for the slash commands to be visible in the Discord server.
 
 ### Docker
@@ -58,11 +59,11 @@ Docker Hub: [thelovinator/discord-reminder-bot](https://hub.docker.com/r/thelovi
     - Windows 10: Click the View Tab in File Explorer and click the box next to File name extensions.
     - Windows 11: Click View -> Show -> File name extensions.
 - Open a terminal in the extras folder.
-  - Windows 10: Shift + right-click in the folder and select `Open PowerShell window here`
-  - Windows 11: Shift + right-click in the folder and select `Open in Windows Terminal`
+  - Windows 10: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and select `Open PowerShell window here`
+  - Windows 11: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and select `Open in Windows Terminal`
 - Run the Docker Compose file:
   - `docker-compose up`
-    - You can stop the bot with ctrl + c.
+    - You can stop the bot with <kbd>Ctrl</kbd> + <kbd>c</kbd>.
     - If you want to run the bot in the background, you can run `docker-compose up -d`.
 
 ## Help
