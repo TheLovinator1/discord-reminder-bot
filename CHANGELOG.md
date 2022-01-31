@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
+- Added more information to .env.example
+- Rewrote install instructions and added how you create a Discord bot token to the README.md.
+- `build: .` is now removed from docker-compose.yml as it broke `docker-compose up`
+- `version: 3` is now removed from the docker-compose.yml as it is not needed anymore.
+- `.env.example` is now located in extras and root folder.
 - Updated dependencies:
   - Updating pluggy (0.13.1 -> 1.0.0)
   - Updating types-dateparser (1.0.10 -> 1.0.13)
