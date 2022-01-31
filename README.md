@@ -38,7 +38,7 @@ You have two choices, [install directly on your computer](#Install-directly-on-y
     - Windows: You have to add `\AppData\Roaming\Python\Scripts` to your PATH for Poetry to work.
 - Download project from GitHub with git or download the [ZIP](https://github.com/TheLovinator1/discord-reminder-bot/archive/refs/heads/master.zip).
   - If you want to update the bot, you can run `git pull` in the project folder or download the ZIP again.
-- Rename .env.example to .env and open it in a text editor.
+- Rename .env.example to .env and open it in a text editor (e.g., VSCode, Notepad++, Notepad). (The .env file in the root folder, not the extras folder.)
   - If you can't see the file extension:
     - Windows 10: Click the View Tab in File Explorer and click the box next to File name extensions.
     - Windows 11: Click View -> Show -> File name extensions.
@@ -47,8 +47,8 @@ You have two choices, [install directly on your computer](#Install-directly-on-y
   - Windows 11: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and Show more options and `Open PowerShell window here`
 - Install requirements:
   - `poetry install`
-    - (You may have to restart your terminal if it can't find the `poetry` command)
-- Start the bot with:
+    - (You may have to restart your terminal if it can't find the `poetry` command. Also double check that it's in your PATH.)
+- Start the bot:
   - `poetry run bot`
     - You can stop the bot with <kbd>Ctrl</kbd> + <kbd>c</kbd>.
 
@@ -60,8 +60,8 @@ Note: It can take up to one hour for the slash commands to be visible in the Dis
 
 Docker Hub: [thelovinator/discord-reminder-bot](https://hub.docker.com/r/thelovinator/discord-reminder-bot)
 
-- Install latest version of [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/install/).
-- Rename .env.example to .env and open it in a text editor.
+- Change directory to the extras folder.
+- Rename .env.example to .env and open it in a text editor (e.g., VSCode, Notepad++, Notepad). (The .env file in the extras folder, not in the root folder.)
   - If you can't see the file extension:
     - Windows 10: Click the View Tab in File Explorer and click the box next to File name extensions.
     - Windows 11: Click View -> Show -> File name extensions.
