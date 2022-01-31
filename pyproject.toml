@@ -27,7 +27,7 @@ python-dotenv = "^0.19.2"
 discord-py-slash-command = "^3.0.3"
 APScheduler = "^3.8.1"
 dateparser = "^1.1.0"
-SQLAlchemy = "^1.4.29"
+SQLAlchemy = "^1.4.31"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"

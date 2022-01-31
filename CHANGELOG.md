@@ -11,8 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated dependencies:
   - Updating pluggy (0.13.1 -> 1.0.0)
-  - Updating types-dateparser (1.0.10 -> 1.0.12)
+  - Updating types-dateparser (1.0.10 -> 1.0.13)
   - Updating types-pytz (2021.3.3 -> 2021.3.4)
+  - Updating multidict (5.2.0 -> 6.0.2)
+  - Updating pyparsing (3.0.6 -> 3.0.7)
+  - Updating regex (2021.11.10 -> 2022.1.18)
+  - Updating sqlalchemy (1.4.29 -> 1.4.31)
 
 ### Fixed
 
