@@ -12,10 +12,18 @@ from discord_slash.error import IncorrectFormat, RequestFailure
 from discord_slash.model import SlashCommandOptionType
 from discord_slash.utils.manage_commands import create_choice, create_option
 
-from discord_reminder_bot.settings import bot_token, config_timezone, log_level, scheduler, sqlite_location
+from discord_reminder_bot.settings import (
+    bot_token,
+    config_timezone,
+    log_level,
+    scheduler,
+    sqlite_location,
+)
 
 bot = commands.Bot(
-    command_prefix="!", description="Reminder bot for Discord by TheLovinator#9276", intents=discord.Intents.all()
+    command_prefix="!",
+    description="Reminder bot for Discord by TheLovinator#9276",
+    intents=discord.Intents.all(),
 )
 slash = SlashCommand(bot, sync_commands=True)
 
@@ -504,7 +512,10 @@ async def remind_resume(ctx: SlashContext):
     ],
 )
 async def remind_add(
-    ctx: SlashContext, message_date: str, message_reason: str, different_channel: discord.TextChannel = None
+    ctx: SlashContext,
+    message_date: str,
+    message_reason: str,
+    different_channel: discord.TextChannel = None,
 ):
     """Add a new reminder. You can add a date and message.
 
