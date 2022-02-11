@@ -30,7 +30,7 @@ dateparser = "^1.1.0"
 SQLAlchemy = "^1.4.31"
 
 [tool.poetry.dev-dependencies]
-pytest = "^6.2.5"
+pytest = "^7.0.1"
 black = {version = "^21.12b0", allow-prereleases = true}
 flake8 = "^4.0.1"
 mypy = "^0.931"
