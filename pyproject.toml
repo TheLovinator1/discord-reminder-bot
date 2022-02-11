@@ -31,7 +31,7 @@ SQLAlchemy = "^1.4.31"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.0.1"
-black = {version = "^21.12b0", allow-prereleases = true}
+black = {version = "^22.1", allow-prereleases = true}
 flake8 = "^4.0.1"
 mypy = "^0.931"
 types-pytz = "^2021.3.3"
