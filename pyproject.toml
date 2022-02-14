@@ -34,7 +34,7 @@ pytest = "^7.0.1"
 black = {version = "^22.1", allow-prereleases = true}
 flake8 = "^4.0.1"
 mypy = "^0.931"
-types-pytz = "^2021.3.3"
+types-pytz = "^2021.3.5"
 types-dateparser = "^1.0.14"
 
 [build-system]
