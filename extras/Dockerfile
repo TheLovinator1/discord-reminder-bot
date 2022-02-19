@@ -28,10 +28,10 @@ USER botuser
 RUN mkdir -p /home/botuser/data
 
 # Install poetry
-RUN curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+RUN curl -sSL https://install.python-poetry.org | python3 -
 
 # Add poetry to our path
-ENV PATH="/home/botuser/.poetry/bin/:${PATH}"
+ENV PATH="/home/botuser/.local/bin/:${PATH}"
 
 COPY pyproject.toml poetry.lock README.md /home/botuser/
 
