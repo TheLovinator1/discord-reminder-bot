@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "discord-reminder-bot"
-version = "0.2.0"
+version = "0.3.0"
 description = "Discord bot that allows you to set date, cron and interval reminders."
 authors = ["Joakim Hellsén <tlovinator@gmail.com>"]
 license = "GPL-3.0-or-later"

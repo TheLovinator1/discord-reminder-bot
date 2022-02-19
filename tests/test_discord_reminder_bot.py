@@ -14,8 +14,8 @@ from discord_reminder_bot.main import calc_countdown, send_to_discord
 
 
 def test_version():
-    """Check if version is 0.2.0."""
-    assert __version__ == "0.2.0"
+    """Check if version is 0.3.0."""
+    assert __version__ == "0.3.0"
 
 
 class TestClass:
