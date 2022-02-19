@@ -13,7 +13,7 @@ Type `/remind` in a Discord server where this bot exists to get a list of slash 
 
 ## Installation
 
-You have two choices, [install directly on your computer](#Install-directly-on-your-computer) or using [Docker](#docker-compose-with-env-file).
+You have two choices, [install directly on your computer](#Install-directly-on-your-computer) or using [Docker](https://hub.docker.com/r/thelovinator/discord-reminder-bot).
 
 ### Creating a Discord bot token
 
