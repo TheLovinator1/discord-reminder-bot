@@ -27,7 +27,7 @@ python-dotenv = "^0.19.2"
 discord-py-slash-command = "^3.0.3"
 APScheduler = "^3.9.1"
 dateparser = "^1.1.0"
-SQLAlchemy = "^1.4.31"
+SQLAlchemy = "^1.4.32"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
