@@ -142,7 +142,8 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
             "Does not work with cron or interval. Type Exit to exit."
         )
 
-        # Only check for response from the original user and in the correct channel
+        # Only check for response from the original user and in the
+        # correct channel
         def check(m):
             return m.author == ctx.author and m.channel == ctx.channel
 
@@ -247,7 +248,8 @@ async def remind_remove(ctx: SlashContext):
             "Type the corresponding number to the reminder you wish to remove. Type Exit to exit."
         )
 
-        # Only check for response from the original user and in the correct channel
+        # Only check for response from the original user and in the
+        # correct channel
         def check(m):
             return m.author == ctx.author and m.channel == ctx.channel
 
@@ -321,7 +323,8 @@ def make_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
                 jobs_dict[job_number] = job.id
                 message = job.kwargs.get("message")
 
-                # Only normal reminders have trigger.run_date, cron and interval has next_run_time
+                # Only normal reminders have trigger.run_date, cron and
+                # interval has next_run_time
                 if type(job.trigger) is DateTrigger:
                     trigger_time = job.trigger.run_date
                     if skip_datetriggers:
@@ -398,7 +401,8 @@ async def remind_pause(ctx: SlashContext):
             "Type the corresponding number to the reminder you wish to pause. Type Exit to exit."
         )
 
-        # Only check for response from the original user and in the correct channel
+        # Only check for response from the original user and in the
+        # correct channel
         def check(m):
             return m.author == ctx.author and m.channel == ctx.channel
 
@@ -416,7 +420,8 @@ async def remind_pause(ctx: SlashContext):
                 channel_name = bot.get_channel(int(channel_id))
                 message = job.kwargs.get("message")
 
-                # Only normal reminders have trigger.run_date, cron and interval has next_run_time
+                # Only normal reminders have trigger.run_date, cron and
+                # interval has next_run_time
                 if type(job.trigger) is DateTrigger:
                     trigger_time = job.trigger.run_date
                 else:
@@ -462,7 +467,8 @@ async def remind_resume(ctx: SlashContext):
             "Type the corresponding number to the reminder you wish to pause. Type Exit to exit."
         )
 
-        # Only check for response from the original user and in the correct channel
+        # Only check for response from the original user and in the
+        # correct channel
         def check(m):
             return m.author == ctx.author and m.channel == ctx.channel
 
@@ -489,7 +495,8 @@ async def remind_resume(ctx: SlashContext):
                 except Exception as e:
                     await ctx.send(e)
 
-                # Only normal reminders have trigger.run_date, cron and interval has next_run_time
+                # Only normal reminders have trigger.run_date, cron and
+                # interval has next_run_time
                 if type(job.trigger) is DateTrigger:
                     trigger_time = job.trigger.run_date
                 else:
