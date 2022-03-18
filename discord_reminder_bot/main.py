@@ -340,13 +340,9 @@ def make_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
                 field_name = f"{job_number}) {message} in #{channel_name}"
                 field_name = field_name[:253] + (field_name[253:] and "...")
 
-                # Max length is 1024
-                field_value = f"{trigger_value}"
-                field_value = field_value[:1021] + (field_value[1021:] and "...")
-
                 embed.add_field(
                     name=field_name,
-                    value=field_value,
+                    value=trigger_value,
                     inline=False,
                 )
     return embed, jobs_dict
