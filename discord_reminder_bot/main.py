@@ -359,7 +359,7 @@ async def remind_list(ctx: SlashContext):
     Args:
         ctx (SlashContext): Context. The meta data about the slash command.
     """
-    list_embed, jobs_dict = make_list(ctx)
+    list_embed, _ = make_list(ctx)
 
     # The empty embed has 76 characters
     if len(list_embed) <= 76:
