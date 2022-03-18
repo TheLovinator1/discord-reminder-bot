@@ -133,7 +133,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
     """
     list_embed, jobs_dict = make_list(ctx, skip_cron_or_interval=True)
 
-    first_message = "the date" if time_or_message == "date" else "the message"
+    date_or_message = "the date" if time_or_message == "date" else "the message"
 
     # The empty embed has 76 characters
     if len(list_embed) <= 76:
@@ -141,7 +141,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
     else:
         await ctx.send(embed=list_embed)
         await ctx.channel.send(
-            f"Type the corresponding number to the reminder were you wish to change {first_message}. "
+            f"Type the corresponding number to the reminder were you wish to change {date_or_message}. "
             "Does not work with cron or interval. Type Exit to exit."
         )
 
