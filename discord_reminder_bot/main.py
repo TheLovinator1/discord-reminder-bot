@@ -110,7 +110,7 @@ async def on_ready():
     options=[
         create_option(
             name="time_or_message",
-            description="Choose between modifying the time or the message.",
+            description="Choose between modifying the date or the message.",
             option_type=SlashCommandOptionType.STRING,
             required=True,
             choices=[
@@ -460,6 +460,7 @@ async def remind_resume(ctx: SlashContext):
     Returns:
         [type]: Sends message to Discord.
     """
+    # TODO: Reduce the complexity of this function
     list_embed, jobs_dict = make_list(ctx, skip_datetriggers=True)
 
     # The empty embed has 76 characters
@@ -499,8 +500,8 @@ async def remind_resume(ctx: SlashContext):
                 except Exception as e:
                     await ctx.send(e)
 
-                # Only normal reminders have trigger.run_date, cron and
-                # interval has next_run_time
+                # Only normal reminders have trigger.run_date
+                # cron and interval has next_run_time
                 if type(job.trigger) is DateTrigger:
                     trigger_time = job.trigger.run_date
                 else:
@@ -842,11 +843,11 @@ async def remind_interval(
     Args:
         ctx (SlashContext): Context. The meta data about the slash command.
         message_reason (str): The message we should write when triggered.
-        weeks (int, optional): Number of weeks to wait. Defaults to 0.
-        days (int, optional): Number of days to wait. Defaults to 0.
-        hours (int, optional): Number of hours to wait. Defaults to 0.
-        minutes (int, optional): Number of minutes to wait. Defaults to 0.
-        seconds (int, optional): Number of seconds to wait. Defaults to 0.
+        weeks (int, optional): Number of weeks to wait.
+        days (int, optional): Number of days to wait.
+        hours (int, optional): Number of hours to wait.
+        minutes (int, optional): Number of minutes to wait.
+        seconds (int, optional): Number of seconds to wait.
         start_date (str, optional): Starting point for the interval calculation.
         end_date (str, optional): Latest possible date/time to trigger on.
         timezone (str, optional): Time zone to use for the date/time calculations.
