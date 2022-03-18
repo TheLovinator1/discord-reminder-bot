@@ -419,8 +419,8 @@ async def remind_pause(ctx: SlashContext):
                     return await ctx.channel.send(
                         f"{message} in #{channel_name} is already paused."
                     )
-                else:
-                    trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
+
+                trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
 
                 msg = f"**Paused** {message} in #{channel_name}.\n**Time**: {trigger_value}"
 
