@@ -27,6 +27,8 @@ bot = commands.Bot(
 )
 slash = SlashCommand(bot, sync_commands=True)
 
+exit_message = "Exiting..."
+
 
 def calc_countdown(job) -> str:
     """Get trigger time from a reminder and calculate how many days,
@@ -173,7 +175,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
                     await ctx.channel.send("Type the new message. Type Exit to exit.")
                     response_new_message = await bot.wait_for("message", check=check)
                     if response_new_message.clean_content == "Exit":
-                        return await ctx.channel.send("Exited.")
+                        return await ctx.channel.send(exit_message)
 
                     scheduler.modify_job(
                         job_from_dict,
@@ -189,7 +191,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
                     await ctx.channel.send("Type the new date. Type Exit to exit.")
                     response_new_date = await bot.wait_for("message", check=check)
                     if response_new_date.clean_content == "Exit":
-                        return await ctx.channel.send("Exited.")
+                        return await ctx.channel.send(exit_message)
 
                     parsed_date = dateparser.parse(
                         f"{response_new_date.clean_content}",
@@ -246,7 +248,7 @@ async def remind_remove(ctx: SlashContext):
 
         response_message = await bot.wait_for("message", check=check)
         if response_message.clean_content == "Exit":
-            return await ctx.channel.send("Exited.")
+            return await ctx.channel.send(exit_message)
 
         for num, job_from_dict in jobs_dict.items():
             if int(response_message.clean_content) == num:
@@ -396,7 +398,7 @@ async def remind_pause(ctx: SlashContext):
 
         response_reminder = await bot.wait_for("message", check=check)
         if response_reminder.clean_content == "Exit":
-            return await ctx.channel.send("Exited.")
+            return await ctx.channel.send(exit_message)
 
         # Pair a number with the job id
         for num, job_from_dict in jobs_dict.items():
@@ -462,7 +464,7 @@ async def remind_resume(ctx: SlashContext):
 
         response_message = await bot.wait_for("message", check=check)
         if response_message.clean_content == "Exit":
-            return await ctx.channel.send("Exited.")
+            return await ctx.channel.send(exit_message)
 
         for num, job_from_dict in jobs_dict.items():
             if int(response_message.clean_content) == num:
