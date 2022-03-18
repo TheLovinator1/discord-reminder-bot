@@ -29,15 +29,17 @@ slash = SlashCommand(bot, sync_commands=True)
 
 
 def calc_countdown(job) -> str:
-    """Get trigger time from a reminder and calculate how many days, hours and minutes till trigger.
+    """Get trigger time from a reminder and calculate how many days,
+    hours and minutes till trigger.
 
     Days/Minutes will not be included if 0.
 
     Args:
-        job ([type]): The job. Can be cron, interval or normal. #TODO: Find type
+        job ([type]): The job. Can be cron, interval or normal.
 
     Returns:
-        str: Returns days, hours and minutes till reminder. Returns "Failed to calculate time" if no job is found.
+        str: Returns days, hours and minutes till reminder. Returns
+        "Failed to calculate time" if no job is found.
     """
     trigger_time = (
         job.trigger.run_date if type(job.trigger) is DateTrigger else job.next_run_time
@@ -47,7 +49,8 @@ def calc_countdown(job) -> str:
     if trigger_time is None:
         return "Failed to calculate time"
 
-    # Get time and date the job will run and calculate how many days, hours and seconds.
+    # Get time and date the job will run and calculate how many days,
+    # hours and seconds.
     countdown = trigger_time - datetime.datetime.now(tz=pytz.timezone(config_timezone))
 
     days, hours, minutes = (
@@ -97,7 +100,6 @@ async def on_slash_command_error(ctx: SlashContext, ex: Exception):
 
 @bot.event
 async def on_ready():
-    """Log our bots username on start."""
     logging.info(f"Logged in as {bot.user.name}")
 
 
@@ -208,8 +210,9 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
                             "TO_TIMEZONE": f"{config_timezone}",
                         },
                     )
-                    # FIXME: Fix mypy error
-                    remove_timezone_from_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")  # type: ignore[union-attr]
+                    remove_timezone_from_date = parsed_date.strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
 
                     job = scheduler.reschedule_job(
                         job_from_dict, run_date=remove_timezone_from_date
@@ -273,7 +276,8 @@ async def remind_remove(ctx: SlashContext):
                 channel_name = bot.get_channel(int(channel_id))
                 message = job.kwargs.get("message")
 
-                # Only normal reminders have trigger.run_date, cron and interval has next_run_time
+                # Only normal reminders have trigger.run_date, cron and
+                # interval has next_run_time
                 if type(job.trigger) is DateTrigger:
                     trigger_time = job.trigger.run_date
                 else:
@@ -526,7 +530,7 @@ async def remind_resume(ctx: SlashContext):
         ),
         create_option(
             name="message_date",
-            description="Time and/or date when you want to get reminded. Works only with the Gregorian calendar.",
+            description="Time and/or date when you want to get reminded.",
             option_type=SlashCommandOptionType.STRING,
             required=True,
         ),
@@ -562,8 +566,7 @@ async def remind_add(
 
     channel_id = different_channel.id if different_channel else ctx.channel.id
 
-    # FIXME: Fix mypy error
-    run_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")  # type: ignore[union-attr]
+    run_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
     reminder = scheduler.add_job(
         send_to_discord,
         run_date=run_date,
@@ -699,18 +702,18 @@ async def remind_cron(
     Args:
         ctx (SlashContext): Context. The meta data about the slash command.
         message_reason (str): The message the bot should send everytime cron job triggers.
-        year (int, optional): 4-digit year. Defaults to None.
-        month (int, optional): Month (1-12). Defaults to None.
-        day (int, optional): Day of month (1-31). Defaults to None.
-        week (int, optional): ISO week (1-53). Defaults to None.
-        day_of_week (str, optional): Number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun). Defaults to None.
-        hour (int, optional): Hour (0-23). Defaults to None.
-        minute (int, optional): Minute (0-59). Defaults to None.
-        second (int, optional): Second (0-59). Defaults to None.
-        start_date (str, optional): Earliest possible date/time to trigger on (inclusive). Defaults to None.
-        end_date (str, optional): Latest possible date/time to trigger on (inclusive). Defaults to None.
+        year (int, optional): 4-digit year.
+        month (int, optional): Month (1-12).
+        day (int, optional): Day of month (1-31).
+        week (int, optional): ISO week (1-53).
+        day_of_week (str, optional): Number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun).
+        hour (int, optional): Hour (0-23).
+        minute (int, optional): Minute (0-59).
+        second (int, optional): Second (0-59).
+        start_date (str, optional): Earliest possible date/time to trigger on (inclusive).
+        end_date (str, optional): Latest possible date/time to trigger on (inclusive).
         timezone (str, optional): Time zone to use for the date/time calculations Defaults to scheduler timezone.
-        jitter (int, optional): Delay the job execution by jitter seconds at most. Defaults to None.
+        jitter (int, optional): Delay the job execution by jitter seconds at most.
 
         https://apscheduler.readthedocs.io/en/stable/modules/triggers/cron.html#module-apscheduler.triggers.cron
     """
@@ -844,10 +847,10 @@ async def remind_interval(
         hours (int, optional): Number of hours to wait. Defaults to 0.
         minutes (int, optional): Number of minutes to wait. Defaults to 0.
         seconds (int, optional): Number of seconds to wait. Defaults to 0.
-        start_date (str, optional): Starting point for the interval calculation. Defaults to None.
-        end_date (str, optional): Latest possible date/time to trigger on. Defaults to None.
-        timezone (str, optional): Time zone to use for the date/time calculations. Defaults to None.
-        jitter (int, optional): Delay the job execution by jitter seconds at most. Defaults to None.
+        start_date (str, optional): Starting point for the interval calculation.
+        end_date (str, optional): Latest possible date/time to trigger on.
+        timezone (str, optional): Time zone to use for the date/time calculations.
+        jitter (int, optional): Delay the job execution by jitter seconds at most.
     """
 
     channel_id = different_channel.id if different_channel else ctx.channel.id
