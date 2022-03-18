@@ -41,9 +41,10 @@ def calc_countdown(job) -> str:
         str: Returns days, hours and minutes till reminder. Returns
         "Failed to calculate time" if no job is found.
     """
-    trigger_time = (
-        job.trigger.run_date if type(job.trigger) is DateTrigger else job.next_run_time
-    )
+    if type(job.trigger) is DateTrigger:
+        trigger_time = job.trigger.run_date
+    else:
+        trigger_time = job.next_run_time
 
     # Get_job() returns None when it can't find a job with that id.
     if trigger_time is None:
