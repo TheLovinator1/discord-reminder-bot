@@ -286,8 +286,8 @@ def make_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
 
     Args:
         ctx (SlashContext): Context. The meta data about the slash command.
-        skip_datetriggers (bool, optional): Only show cron jobs and interval reminders. Defaults to False.
-        skip_cron_or_interval (bool, optional): Only show normal reminders. Defaults to False.
+        skip_datetriggers (bool, optional): Only show cron jobs and interval reminders.
+        skip_cron_or_interval (bool, optional): Only show normal reminders.
 
     Returns:
         embed: Embed is the list of reminders that we send to Discord.
@@ -305,31 +305,38 @@ def make_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
     for job in jobs:
         channel_id = job.kwargs.get("channel_id")
         channel_name = bot.get_channel(int(channel_id))
-        # Only add reminders from channels in server we run "/reminder list" in
+
+        # Only add reminders from channels in server we run "/reminder
+        # list" in
+        # Check if channel is in server
         for channel in ctx.guild.channels:
             if channel.id == channel_id:
                 job_number += 1
                 jobs_dict[job_number] = job.id
                 message = job.kwargs.get("message")
 
-                # Only normal reminders have trigger.run_date, cron and
-                # interval has next_run_time
                 if type(job.trigger) is DateTrigger:
+                    # Get trigger time for normal reminders
                     trigger_time = job.trigger.run_date
+
+                    # Don't add normal reminders if true
                     if skip_datetriggers:
                         continue
                 else:
+                    # Get trigger time for cron and interval jobs
                     trigger_time = job.next_run_time
+
+                    # Don't add cron and interval reminders if true
                     if skip_cron_or_interval:
                         continue
 
                 # Paused reminders returns None
                 if trigger_time is None:
-                    trigger_value = "Paused - can be resumed with '/remind resume'"
+                    trigger_value = "Paused"
                 else:
                     trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
 
-                # Max length is 256
+                # Truncate message if it's too long
                 field_name = f"{job_number}) {message} in #{channel_name}"
                 field_name = field_name[:253] + (field_name[253:] and "...")
 
@@ -480,7 +487,7 @@ async def remind_resume(ctx: SlashContext):
                     await ctx.send(e)
 
                 # Only normal reminders have trigger.run_date
-                # cron and interval has next_run_time
+                # Cron and interval has next_run_time
                 if type(job.trigger) is DateTrigger:
                     trigger_time = job.trigger.run_date
                 else:
