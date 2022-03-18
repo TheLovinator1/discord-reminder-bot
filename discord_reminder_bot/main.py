@@ -150,10 +150,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
         def check(m):
             return m.author == ctx.author and m.channel == ctx.channel
 
-        try:
-            response_message = await bot.wait_for("message", check=check, timeout=60)
-        except TimeoutError:
-            return await ctx.channel.send("Timed out, try again.")
+        response_message = await bot.wait_for("message", check=check)
         if response_message.clean_content == "Exit":
             return await ctx.channel.send("Exited.")
 
@@ -174,12 +171,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
                 msg = f"**Modified** {job_from_dict} in #{channel_name}\n"
                 if time_or_message == "message":
                     await ctx.channel.send("Type the new message. Type Exit to exit.")
-                    try:
-                        response_new_message = await bot.wait_for(
-                            "message", check=check, timeout=60
-                        )
-                    except TimeoutError:
-                        return await ctx.channel.send("Timed out, try again.")
+                    response_new_message = await bot.wait_for("message", check=check)
                     if response_new_message.clean_content == "Exit":
                         return await ctx.channel.send("Exited.")
 
@@ -195,12 +187,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
 
                 else:
                     await ctx.channel.send("Type the new date. Type Exit to exit.")
-                    try:
-                        response_new_date = await bot.wait_for(
-                            "message", check=check, timeout=60
-                        )
-                    except TimeoutError:
-                        return await ctx.channel.send("Timed out, try again.")
+                    response_new_date = await bot.wait_for("message", check=check)
                     if response_new_date.clean_content == "Exit":
                         return await ctx.channel.send("Exited.")
 
@@ -257,10 +244,7 @@ async def remind_remove(ctx: SlashContext):
         def check(m):
             return m.author == ctx.author and m.channel == ctx.channel
 
-        try:
-            response_message = await bot.wait_for("message", check=check, timeout=60)
-        except TimeoutError:
-            return await ctx.channel.send("Timed out, try again.")
+        response_message = await bot.wait_for("message", check=check)
         if response_message.clean_content == "Exit":
             return await ctx.channel.send("Exited.")
 
@@ -411,10 +395,7 @@ async def remind_pause(ctx: SlashContext):
         def check(m):
             return m.author == ctx.author and m.channel == ctx.channel
 
-        try:
-            response_reminder = await bot.wait_for("message", check=check, timeout=60)
-        except TimeoutError:
-            return await ctx.channel.send("Timed out, try again.")
+        response_reminder = await bot.wait_for("message", check=check)
         if response_reminder.clean_content == "Exit":
             return await ctx.channel.send("Exited.")
 
@@ -478,10 +459,7 @@ async def remind_resume(ctx: SlashContext):
         def check(m):
             return m.author == ctx.author and m.channel == ctx.channel
 
-        try:
-            response_message = await bot.wait_for("message", check=check, timeout=60)
-        except TimeoutError:
-            return await ctx.channel.send("Timed out, try again.")
+        response_message = await bot.wait_for("message", check=check)
         if response_message.clean_content == "Exit":
             return await ctx.channel.send("Exited.")
 
