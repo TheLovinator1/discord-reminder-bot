@@ -362,6 +362,7 @@ async def remind_list(ctx: SlashContext):
     list_embed, _ = make_list(ctx)
 
     # The empty embed has 76 characters
+    # TODO: This is a hack. Fix it.
     if len(list_embed) <= 76:
         await ctx.send(f"{ctx.guild.name} has no reminders.")
     else:
@@ -374,23 +375,18 @@ async def remind_list(ctx: SlashContext):
     description="Pause reminder. For cron or interval.",
 )
 async def remind_pause(ctx: SlashContext):
-    """Get a list of reminders that you can pause.
-
-    Args:
-        ctx (SlashContext): Context. The meta data about the slash command.
-
-    Returns:
-        [type]: Sends message to Discord.
-    """
+    """Get a list of reminders that you can pause."""
     list_embed, jobs_dict = make_list(ctx, skip_datetriggers=True)
 
     # The empty embed has 76 characters
+    # TODO: This is a hack. Fix it.
     if len(list_embed) <= 76:
         await ctx.send(f"{ctx.guild.name} has no reminders.")
     else:
         await ctx.send(embed=list_embed)
         await ctx.channel.send(
-            "Type the corresponding number to the reminder you wish to pause. Type Exit to exit."
+            "Type the corresponding number to the reminder you wish to pause."
+            " Type Exit to exit."
         )
 
         # Only check for response from the original user and in the
@@ -402,24 +398,26 @@ async def remind_pause(ctx: SlashContext):
         if response_reminder.clean_content == "Exit":
             return await ctx.channel.send("Exited.")
 
+        # Pair a number with the job id
         for num, job_from_dict in jobs_dict.items():
+            # Check if the response is a number and if it's in the list
             if int(response_reminder.clean_content) == num:
                 job = scheduler.get_job(job_from_dict)
                 channel_id = job.kwargs.get("channel_id")
                 channel_name = bot.get_channel(int(channel_id))
                 message = job.kwargs.get("message")
 
-                # Only normal reminders have trigger.run_date, cron and
-                # interval has next_run_time
                 if type(job.trigger) is DateTrigger:
+                    # Get trigger time for normal reminders
                     trigger_time = job.trigger.run_date
                 else:
+                    # Get trigger time for cron and interval jobs
                     trigger_time = job.next_run_time
 
-                # Paused reminders returns None
+                # Tell user if he tries to pause a paused reminder
                 if trigger_time is None:
                     return await ctx.channel.send(
-                        f"{response_reminder.clean_content} | {message} in #{channel_name} is already paused."
+                        f"{message} in #{channel_name} is already paused."
                     )
                 else:
                     trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
@@ -427,7 +425,7 @@ async def remind_pause(ctx: SlashContext):
                 msg = f"**Paused** {message} in #{channel_name}.\n**Time**: {trigger_value}"
 
                 scheduler.pause_job(job_from_dict)
-
+                print(f"Paused {job_from_dict} in #{channel_name}")
                 await ctx.channel.send(msg)
 
 
