@@ -43,6 +43,9 @@ def calc_countdown(job) -> str:
         str: Returns days, hours and minutes till reminder. Returns
         "Failed to calculate time" if no job is found.
     """
+    # TODO: This "breaks" when only seconds are left.
+    # If we use (in {calc_countdown(job)}) it will show (in )
+
     if type(job.trigger) is DateTrigger:
         trigger_time = job.trigger.run_date
     else:
@@ -301,6 +304,7 @@ async def send_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
     Returns:
         jobs_dict: Dictionary that contains placement in list and job id.
     """
+    # TODO: This will fail if the embed is bigger than 6000 characters.
     jobs_dict = {}
     job_number = 0
 
