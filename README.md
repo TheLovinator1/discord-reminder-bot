@@ -1,7 +1,7 @@
 # Discord-reminder-bot
 
 <p align="center">
-  <img src="extras/Bot.png" title="/remind add message_reason: Remember to feed the cat! message_date: 2 November 2025 14:00 CET"/>
+  <img src="Bot.png" title="/remind add message_reason: Remember to feed the cat! message_date: 2 November 2025 14:00 CET"/>
 </p>
 <p align="center"><sup>Theme is https://github.com/KillYoy/DiscordNight<sup></p>
 
@@ -29,16 +29,14 @@ You have two choices, [install directly on your computer](#Install-directly-on-y
 ### Install directly on your computer
 
 - Install latest version of needed software:
-  - [git](https://git-scm.com/)
-    - Default installation is fine.
   - [Python](https://www.python.org/)
     - You should use the latest version.
     - You want to add Python to your PATH.
   - [Poetry](https://python-poetry.org/docs/master/#installation)
-    - Windows: You have to add `\AppData\Roaming\Python\Scripts` to your PATH for Poetry to work.
+    - Windows: You have to add `%appdata%\Python\Scripts` to your PATH for Poetry to work.
 - Download project from GitHub with git or download the [ZIP](https://github.com/TheLovinator1/discord-reminder-bot/archive/refs/heads/master.zip).
   - If you want to update the bot, you can run `git pull` in the project folder or download the ZIP again.
-- Rename .env.example to .env and open it in a text editor (e.g., VSCode, Notepad++, Notepad). (The .env file in the root folder, not the extras folder.)
+- Rename .env.example to .env and open it in a text editor (e.g., VSCode, Notepad++, Notepad).
   - If you can't see the file extension:
     - Windows 10: Click the View Tab in File Explorer and click the box next to File name extensions.
     - Windows 11: Click View -> Show -> File name extensions.
@@ -46,10 +44,11 @@ You have two choices, [install directly on your computer](#Install-directly-on-y
   - Windows 10: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and select `Open PowerShell window here`
   - Windows 11: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and Show more options and `Open PowerShell window here`
 - Install requirements:
-  - `poetry install`
-    - (You may have to restart your terminal if it can't find the `poetry` command. Also double check that it's in your PATH.)
+  - Type `poetry install` into the PowerShell window. Make sure you are
+    in the repository folder with the [pyproject.toml](pyproject.toml) file.
+    - You may have to restart your terminal if it can't find the `poetry` command. Also double check that it's in your PATH.
 - Start the bot:
-  - `poetry run bot`
+  - Type `poetry run bot` into the PowerShell window.
     - You can stop the bot with <kbd>Ctrl</kbd> + <kbd>c</kbd>.
 
 Note: You will need to run `poetry install` again if poetry.lock has been modified.
@@ -60,8 +59,7 @@ Note: It can take up to one hour for the slash commands to be visible in the Dis
 
 Docker Hub: [thelovinator/discord-reminder-bot](https://hub.docker.com/r/thelovinator/discord-reminder-bot)
 
-- Change directory to the extras folder.
-- Rename .env.example to .env and open it in a text editor (e.g., VSCode, Notepad++, Notepad). (The .env file in the extras folder, not in the root folder.)
+- Rename .env.example to .env and open it in a text editor (e.g., VSCode, Notepad++, Notepad).
   - If you can't see the file extension:
     - Windows 10: Click the View Tab in File Explorer and click the box next to File name extensions.
     - Windows 11: Click View -> Show -> File name extensions.
@@ -78,3 +76,6 @@ Docker Hub: [thelovinator/discord-reminder-bot](https://hub.docker.com/r/thelovi
 - Email: tlovinator@gmail.com
 - Discord: TheLovinator#9276
 - Steam: [steamcommunity.com/id/TheLovinator/](https://steamcommunity.com/id/TheLovinator/)
+- Send an issue: [discord-reminder-bot/issues](https://github.com/TheLovinator1/discord-reminder-bot/issues)
+- GitHub Discussions:
+  [discord-reminder-bot/discussions](https://github.com/TheLovinator1/discord-reminder-bot/discussions)
