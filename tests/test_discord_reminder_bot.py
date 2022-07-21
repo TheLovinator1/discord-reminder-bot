@@ -55,8 +55,6 @@ class TestClass:
     def test_calc_countdown(self):
         """Check if calc_countdown returns days, hours and minutes."""
         # FIXME: This will break when there is 0 seconds/hours/days left
-        pattern = re.compile(
-            r"\d* (day|days), \d* (hour|hours). \d* (minute|minutes)",
-        )
+        pattern = re.compile(r"\d* (day|days), \d* (hour|hours). \d* (minute|minutes)")
         countdown = calc_countdown(self.job)
         assert pattern.match(countdown)

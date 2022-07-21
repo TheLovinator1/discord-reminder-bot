@@ -12,13 +12,7 @@ from discord_slash.error import IncorrectFormat, RequestFailure
 from discord_slash.model import SlashCommandOptionType
 from discord_slash.utils.manage_commands import create_choice, create_option
 
-from discord_reminder_bot.settings import (
-    bot_token,
-    config_timezone,
-    log_level,
-    scheduler,
-    sqlite_location,
-)
+from discord_reminder_bot.settings import bot_token, config_timezone, log_level, scheduler, sqlite_location
 
 bot = commands.Bot(
     command_prefix="!",
@@ -81,8 +75,7 @@ def calc_countdown(job) -> str:
 @bot.event
 async def on_slash_command_error(ctx: SlashContext, ex: Exception):
     logging.error(
-        "Error occurred during the execution of"
-        f' "/{ctx.name} {ctx.subcommand_name}" by {ctx.author}: {ex}'
+        "Error occurred during the execution of" f' "/{ctx.name} {ctx.subcommand_name}" by {ctx.author}: {ex}'
     )
     if ex == RequestFailure:
         message = f"Request to Discord API failed: {ex}"
@@ -179,10 +172,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
                 )
 
                 # TODO: Add timeout
-                response_new_message = await bot.wait_for(
-                    "message",
-                    check=check,
-                )
+                response_new_message = await bot.wait_for("message", check=check)
 
                 if response_new_message.clean_content == "Exit":
                     return await ctx.channel.send(exit_message)
@@ -195,15 +185,10 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
                         "author_id": job.kwargs.get("author_id"),
                     },
                 )
-                msg += (
-                    f"**Old message**: {message}\n"
-                    f"**New message**: {response_new_message.clean_content}\n"
-                )
+                msg += f"**Old message**: {message}\n" f"**New message**: {response_new_message.clean_content}\n"
 
             else:
-                await ctx.channel.send(
-                    "Type the new date. Type Exit to exit.",
-                )
+                await ctx.channel.send("Type the new date. Type Exit to exit.")
 
                 # TODO: Add timeout
                 response_new_date = await bot.wait_for(
@@ -226,10 +211,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
 
                 date_old = job.trigger.run_date.strftime("%Y-%m-%d %H:%M")
                 new_time = calc_countdown(job_from_dict)
-                msg += (
-                    f"**Old date**: {date_old} (in {old_time})\n"
-                    f"**New date**: {date_new} (in {new_time})"
-                )
+                msg += f"**Old date**: {date_old} (in {old_time})\n" f"**New date**: {date_new} (in {new_time})"
 
             await ctx.send(msg)
 
@@ -245,10 +227,7 @@ async def remind_remove(ctx: SlashContext):
 
     jobs_dict = await send_list(ctx)
 
-    await ctx.channel.send(
-        "Type the corresponding number to the reminder you wish to remove."
-        " Type Exit to exit."
-    )
+    await ctx.channel.send("Type the corresponding number to the reminder you wish to remove." " Type Exit to exit.")
 
     # Only check for response from the original user and in the
     # correct channel
@@ -284,10 +263,7 @@ async def remind_remove(ctx: SlashContext):
             else:
                 trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
 
-            msg = (
-                f"**Removed** {message} in #{channel_name}.\n"
-                f"**Time**: {trigger_value}"
-            )
+            msg = f"**Removed** {message} in #{channel_name}.\n" f"**Time**: {trigger_value}"
 
             scheduler.remove_job(job_from_dict)
 
@@ -362,9 +338,7 @@ async def send_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
                 )
 
                 if job_number == 24:
-                    await ctx.send(
-                        "I haven't added support for showing more than 25 reminders yet 🙃"
-                    )
+                    await ctx.send("I haven't added support for showing more than 25 reminders yet 🙃")
                     break
 
     # The empty embed has 76 characters
@@ -395,10 +369,7 @@ async def remind_pause(ctx: SlashContext):
     """Get a list of reminders that you can pause."""
     jobs_dict = await send_list(ctx, skip_datetriggers=True)
 
-    await ctx.channel.send(
-        "Type the corresponding number to the reminder you wish to pause."
-        " Type Exit to exit."
-    )
+    await ctx.channel.send("Type the corresponding number to the reminder you wish to pause." " Type Exit to exit.")
 
     # Only check for response from the original user and in the correct channel
     def check(m):
@@ -427,18 +398,11 @@ async def remind_pause(ctx: SlashContext):
 
             # Tell user if he tries to pause a paused reminder
             if trigger_time is None:
-                return await ctx.channel.send(
-                    f"{message} in #{channel_name} is already paused."
-                )
+                return await ctx.channel.send(f"{message} in #{channel_name} is already paused.")
 
-            trigger_value = (
-                f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
-            )
+            trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
 
-            msg = (
-                f"**Paused** {message} in #{channel_name}.\n"
-                f"**Time**: {trigger_value}"
-            )
+            msg = f"**Paused** {message} in #{channel_name}.\n" f"**Time**: {trigger_value}"
 
             scheduler.pause_job(job_from_dict)
             print(f"Paused {job_from_dict} in #{channel_name}")
@@ -455,10 +419,7 @@ async def remind_resume(ctx: SlashContext):
     # TODO: Reduce the complexity of this function
     jobs_dict = await send_list(ctx, skip_datetriggers=True)
 
-    await ctx.channel.send(
-        "Type the corresponding number to the reminder you wish to pause."
-        " Type Exit to exit."
-    )
+    await ctx.channel.send("Type the corresponding number to the reminder you wish to pause." " Type Exit to exit.")
 
     # Only check for response from the original user and in the correct channel
     def check(m):
@@ -473,9 +434,7 @@ async def remind_resume(ctx: SlashContext):
         if int(response_message.clean_content) == num:
             job = scheduler.get_job(job_from_dict)
             if job is None:
-                await ctx.send(
-                    f"No reminder with that ID ({job_from_dict}).",
-                )
+                await ctx.send(f"No reminder with that ID ({job_from_dict}).")
                 return
 
             channel_id = job.kwargs.get("channel_id")
@@ -500,10 +459,7 @@ async def remind_resume(ctx: SlashContext):
             else:
                 trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
 
-            msg = (
-                f"**Resumed** {message} in #{channel_name}.\n"
-                f"**Time**: {trigger_value}\n"
-            )
+            msg = f"**Resumed** {message} in #{channel_name}.\n" f"**Time**: {trigger_value}\n"
 
             await ctx.send(msg)
 
@@ -696,7 +652,7 @@ async def remind_cron(
     Args that are None will be defaulted to *.
 
     Args:
-        message_reason (str): The message the bot should send everytime cron job triggers.
+        message_reason (str): The message the bot should send every time cron job triggers.
         year (int): 4-digit year.
         month (int): Month (1-12).
         day (int): Day of month (1-31).
