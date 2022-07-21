@@ -34,7 +34,7 @@ def calc_countdown(job) -> str:
         job: The job. Can be cron, interval or normal.
 
     Returns:
-        str: Returns days, hours and minutes till reminder. Returns
+        Returns days, hours and minutes till reminder. Returns
         "Failed to calculate time" if no job is found.
     """
     # TODO: This "breaks" when only seconds are left.
@@ -121,7 +121,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
     """Modify a reminder. You can change time or message.
 
     Args:
-        time_or_message (str): Choose between modifying the message or time.
+        time_or_message: Choose between modifying the message or time.
     """
     # TODO: Reduce complexity.
 
@@ -274,8 +274,8 @@ async def send_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
     """Create a list of reminders.
 
     Args:
-        skip_datetriggers (bool, optional): Only show cron jobs and interval reminders.
-        skip_cron_or_interval (bool, optional): Only show normal reminders.
+        skip_datetriggers: Only show cron jobs and interval reminders.
+        skip_cron_or_interval: Only show normal reminders.
 
     Returns:
         jobs_dict: Dictionary that contains placement in list and job id.
@@ -498,9 +498,9 @@ async def remind_add(
     """Add a new reminder. You can add a date and message.
 
     Args:
-        message_date (str): The date or time that will get parsed.
-        message_reason (str): The message the bot should write when the reminder is triggered.
-        different_channel (str): The channel the reminder should be sent to.
+        message_date: The date or time that will get parsed.
+        message_reason: The message the bot should write when the reminder is triggered.
+        different_channel: The channel the reminder should be sent to.
     """
     parsed_date = dateparser.parse(
         f"{message_date}",
@@ -652,19 +652,19 @@ async def remind_cron(
     Args that are None will be defaulted to *.
 
     Args:
-        message_reason (str): The message the bot should send every time cron job triggers.
-        year (int): 4-digit year.
-        month (int): Month (1-12).
-        day (int): Day of month (1-31).
-        week (int): ISO week (1-53).
-        day_of_week (str): Number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun).
-        hour (int): Hour (0-23).
-        minute (int): Minute (0-59).
-        second (int): Second (0-59).
-        start_date (str): Earliest possible date/time to trigger on (inclusive).
-        end_date (str): Latest possible date/time to trigger on (inclusive).
-        timezone (str): Time zone to use for the date/time calculations Defaults to scheduler timezone.
-        jitter (int): Delay the job execution by jitter seconds at most.
+        message_reason: The message the bot should send every time cron job triggers.
+        year: 4-digit year.
+        month: Month (1-12).
+        day: Day of month (1-31).
+        week: ISO week (1-53).
+        day_of_week: Number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun).
+        hour: Hour (0-23).
+        minute: Minute (0-59).
+        second: Second (0-59).
+        start_date: Earliest possible date/time to trigger on (inclusive).
+        end_date: Latest possible date/time to trigger on (inclusive).
+        timezone: Time zone to use for the date/time calculations Defaults to scheduler timezone.
+        jitter: Delay the job execution by jitter seconds at most.
 
         https://apscheduler.readthedocs.io/en/stable/modules/triggers/cron.html#module-apscheduler.triggers.cron
     """
@@ -796,16 +796,16 @@ async def remind_interval(
     """Create new reminder that triggers based on a interval.
 
     Args:
-        message_reason (str): The message we should write when triggered.
-        weeks (int): Number of weeks to wait.
-        days (int): Number of days to wait.
-        hours (int): Number of hours to wait.
-        minutes (int): Number of minutes to wait.
-        seconds (int): Number of seconds to wait.
-        start_date (str): Starting point for the interval calculation.
-        end_date (str): Latest possible date/time to trigger on.
-        timezone (str): Time zone to use for the date/time calculations.
-        jitter (int): Delay the job execution by jitter seconds at most.
+        message_reason: The message we should write when triggered.
+        weeks: Number of weeks to wait.
+        days: Number of days to wait.
+        hours: Number of hours to wait.
+        minutes: Number of minutes to wait.
+        seconds: Number of seconds to wait.
+        start_date: Starting point for the interval calculation.
+        end_date: Latest possible date/time to trigger on.
+        timezone: Time zone to use for the date/time calculations.
+        jitter: Delay the job execution by jitter seconds at most.
     """
 
     channel_id = different_channel.id if different_channel else ctx.channel.id
@@ -843,9 +843,9 @@ async def send_to_discord(channel_id: int, message: str, author_id: int):
     """Send a message to Discord.
 
     Args:
-        channel_id (int): The Discord channel ID.
-        message (str): The message.
-        author_id (int): User we should ping.
+        channel_id: The Discord channel ID.
+        message: The message.
+        author_id: User we should ping.
     """
     # TODO: Check if channel exists.
     channel = bot.get_channel(int(channel_id))
