@@ -336,6 +336,22 @@ optional = false
 python-versions = ">=3.7"
 
 [[package]]
+name = "types-dateparser"
+version = "1.1.4"
+description = "Typing stubs for dateparser"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "types-pytz"
+version = "2022.1.2"
+description = "Typing stubs for pytz"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "typing-extensions"
 version = "4.2.0"
 description = "Backported and Experimental Type Hints for Python 3.7+"
@@ -382,7 +398,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "1109977ef40d7ff33e80cc5954455bd913246107a4c4958fbe5da2168d33abef"
+content-hash = "5ac1d970b0812f29bcbd8b52db187375589e837252605a01aa6cabdb7f2f89d9"
 
 [metadata.files]
 aiohttp = [
@@ -743,6 +759,14 @@ sqlalchemy = [
 tomli = [
     {file = "tomli-2.0.1-py3-none-any.whl", hash = "sha256:939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"},
     {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},
+]
+types-dateparser = [
+    {file = "types-dateparser-1.1.4.tar.gz", hash = "sha256:0a4dadb9226ffef0ff52532c27eb7660ba72eea6e4f676a9a8fa90fa8b97d31a"},
+    {file = "types_dateparser-1.1.4-py3-none-any.whl", hash = "sha256:cc4b371ef4176b367c1d43f40bf96f72df89dba79d369d69851dd928209251a0"},
+]
+types-pytz = [
+    {file = "types-pytz-2022.1.2.tar.gz", hash = "sha256:1a8b25c225c5e6bd8468aa9eb45ddd3b337f6716d4072ad0aa4ef1e41478eebc"},
+    {file = "types_pytz-2022.1.2-py3-none-any.whl", hash = "sha256:8aa9fd2af9dee5f5bd7221c6804c9addeafa7ebc0008f544d4ace02b066818a4"},
 ]
 typing-extensions = [
     {file = "typing_extensions-4.2.0-py3-none-any.whl", hash = "sha256:6657594ee297170d19f67d55c05852a874e7eb634f4f753dbd667855e07c1708"},
