@@ -59,7 +59,7 @@ def calc_countdown(job) -> str:
 
     # TODO: Explain this.
     return ", ".join(
-        f"{x} {y}{'s'*(x!=1)}"
+        f"{x} {y}{'s' * (x != 1)}"
         for x, y in (
             (days, "day"),
             (hours, "hour"),
@@ -466,10 +466,10 @@ async def remind_resume(ctx: SlashContext):
     ],
 )
 async def remind_add(
-    ctx: SlashContext,
-    message_date: str,
-    message_reason: str,
-    different_channel: discord.TextChannel = None,
+        ctx: SlashContext,
+        message_date: str,
+        message_reason: str,
+        different_channel: discord.TextChannel = None,
 ):
     """Add a new reminder. You can add a date and message.
 
@@ -605,21 +605,21 @@ async def remind_add(
     ],
 )
 async def remind_cron(
-    ctx: SlashContext,
-    message_reason: str,
-    year: int = None,
-    month: int = None,
-    day: int = None,
-    week: int = None,
-    day_of_week: str = None,
-    hour: int = None,
-    minute: int = None,
-    second: int = None,
-    start_date: str = None,
-    end_date: str = None,
-    timezone: str = None,
-    jitter: int = None,
-    different_channel: discord.TextChannel = None,
+        ctx: SlashContext,
+        message_reason: str,
+        year: int = None,
+        month: int = None,
+        day: int = None,
+        week: int = None,
+        day_of_week: str = None,
+        hour: int = None,
+        minute: int = None,
+        second: int = None,
+        start_date: str = None,
+        end_date: str = None,
+        timezone: str = None,
+        jitter: int = None,
+        different_channel: discord.TextChannel = None,
 ):
     """Create new cron job. Works like UNIX cron.
 
@@ -755,18 +755,18 @@ async def remind_cron(
     ],
 )
 async def remind_interval(
-    ctx: SlashContext,
-    message_reason: str,
-    weeks: int = 0,
-    days: int = 0,
-    hours: int = 0,
-    minutes: int = 0,
-    seconds: int = 0,
-    start_date: str = None,
-    end_date: str = None,
-    timezone: str = None,
-    jitter: int = None,
-    different_channel: discord.TextChannel = None,
+        ctx: SlashContext,
+        message_reason: str,
+        weeks: int = 0,
+        days: int = 0,
+        hours: int = 0,
+        minutes: int = 0,
+        seconds: int = 0,
+        start_date: str = None,
+        end_date: str = None,
+        timezone: str = None,
+        jitter: int = None,
+        different_channel: discord.TextChannel = None,
 ):
     """Create new reminder that triggers based on a interval.
 

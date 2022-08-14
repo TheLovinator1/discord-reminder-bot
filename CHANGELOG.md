@@ -67,4 +67,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/remind resume` now has a list of all reminders instead of needing an ID.
 - `/remind remove` now has a list of all reminders instead of needing an ID.
 - `/remind list` now has a list of all reminders instead of needing an ID.
-- !remind is now /remind. You need to reinvite the bot with the `applications.commands` scope for this to work. It will also take up to an hour for the slash command to be registered.
+- !remind is now /remind. You need to reinvite the bot with the `applications.commands` scope for this to work. It will
+  also take up to an hour for the slash command to be registered.
