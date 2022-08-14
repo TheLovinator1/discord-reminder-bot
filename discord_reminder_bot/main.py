@@ -14,6 +14,7 @@ from discord_reminder_bot.countdown import calculate
 from discord_reminder_bot.settings import bot_token, config_timezone, log_level, scheduler, sqlite_location
 
 bot = commands.Bot(
+    command_prefix="!",
     description="Reminder bot for Discord by TheLovinator#9276",
     intents=discord.Intents.all(),
 )
