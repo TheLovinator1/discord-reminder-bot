@@ -22,7 +22,13 @@ slash = SlashCommand(bot, sync_commands=True)
 
 
 @bot.event
-async def on_slash_command_error(ctx: SlashContext, ex: Exception):
+async def on_slash_command_error(ctx: SlashContext, ex: Exception) -> None:
+    """Handle errors in slash commands.
+
+    Args:
+        ctx: The context of the command. Used to get the server name and what channel the command was sent in.
+        ex: The exception that was raised.
+    """
     logging.error(f"Error occurred during the execution of '/{ctx.name} {ctx.subcommand_name}' by {ctx.author}: {ex}")
     if ex == RequestFailure:
         message = f"Request to Discord API failed: {ex}"
@@ -42,6 +48,7 @@ async def on_slash_command_error(ctx: SlashContext, ex: Exception):
 
 @bot.event
 async def on_ready():
+    """Print when the bot is ready."""
     logging.info(f"Logged in as {bot.user.name}")
 
 
@@ -66,6 +73,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
     """Modify a reminder. You can change time or message.
 
     Args:
+        ctx: Context of the slash command. Contains the guild, author and message and more.
         time_or_message: Choose between modifying the message or time.
     """
     # TODO: Reduce complexity.
@@ -83,9 +91,8 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
         " Does not work with cron or interval. Type Exit to exit."
     )
 
-    # Only check for response from the original user and in the
-    # correct channel
     def check(m):
+        """Check if the message is from the original user and in the correct channel."""
         return m.author == ctx.author and m.channel == ctx.channel
 
     # TODO: Add timeout
@@ -98,7 +105,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
 
             job = scheduler.get_job(job_from_dict)
 
-            # Get_job() returns None when it can't find a job with that id.
+            # Get_job() returns None when it can't find a job with that ID.
             if job is None:
                 await ctx.send(f"No reminder with ID ({job_from_dict}).")
                 return
@@ -159,15 +166,19 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
     description="Remove a reminder",
 )
 async def remind_remove(ctx: SlashContext):
-    """Select reminder from list that you want to remove."""
+    """Select reminder from list that you want to remove.
+
+    Args:
+        ctx: Context of the slash command. Contains the guild, author and message and more.
+    """
     # TODO: Reduce complexity
 
     jobs_dict = await send_list(ctx)
 
     await ctx.channel.send("Type the corresponding number to the reminder you wish to remove. Type Exit to exit.")
 
-    # Only check for response from the original user and in the correct channel
     def check(m):
+        """Check if the message is from the original user and in the correct channel."""
         return m.author == ctx.author and m.channel == ctx.channel
 
     # TODO: Add timeout
@@ -206,15 +217,16 @@ async def remind_remove(ctx: SlashContext):
             await ctx.channel.send(msg)
 
 
-async def send_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
+async def send_list(ctx: SlashContext, skip_datetriggers=False, skip_cron_or_interval=False) -> dict:
     """Create a list of reminders.
 
     Args:
+        ctx: The context of the command. Used to get the server name and what channel the command was sent in.
         skip_datetriggers: Only show cron jobs and interval reminders.
         skip_cron_or_interval: Only show normal reminders.
 
     Returns:
-        jobs_dict: Dictionary that contains placement in list and job id.
+        jobs_dict: Dictionary that contains placement in list and job ID.
     """
     # TODO: This will fail if the embed is bigger than 6000 characters.
     jobs_dict = {}
@@ -232,10 +244,8 @@ async def send_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
         channel_id = job.kwargs.get("channel_id")
         channel_name = bot.get_channel(int(channel_id))
 
-        # Only add reminders from channels in server we run
-        # "/reminder list" in
-
-        # Check if channel is in server
+        # Only add reminders from channels in the server we run "/reminder list" in
+        # Check if channel is in the Discord server, if not, skip it.
         for channel in ctx.guild.channels:
             if channel.id == channel_id:
                 if type(job.trigger) is DateTrigger:
@@ -263,7 +273,7 @@ async def send_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
                 jobs_dict[job_number] = job.id
                 message = job.kwargs.get("message")
 
-                # Truncate message if it's too long
+                # Truncate message if it is too long
                 field_name = f"{job_number}) {message} in #{channel_name}"
                 field_name = field_name[:253] + (field_name[253:] and "...")
 
@@ -288,7 +298,11 @@ async def send_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
 
 @slash.subcommand(base="remind", name="list", description="Show reminders.")
 async def remind_list(ctx: SlashContext):
-    """Send a list of reminders to Discord."""
+    """Send a list of reminders to Discord.
+
+    Args:
+        ctx: Context of the slash command. Contains the guild, author and message and more.
+    """
     await send_list(ctx)
 
 
@@ -299,8 +313,8 @@ async def remind_pause(ctx: SlashContext):
 
     await ctx.channel.send("Type the corresponding number to the reminder you wish to pause. Type Exit to exit.")
 
-    # Only check for response from the original user and in the correct channel
     def check(m):
+        """Check if the message is from the original user and in the correct channel."""
         return m.author == ctx.author and m.channel == ctx.channel
 
     # TODO: Add timeout
@@ -308,9 +322,9 @@ async def remind_pause(ctx: SlashContext):
     if response_reminder.clean_content == "Exit":
         return await ctx.channel.send("Exiting...")
 
-    # Pair a number with the job id
+    # Pair a number with the job ID
     for num, job_from_dict in jobs_dict.items():
-        # Check if the response is a number and if it's in the list
+        # Check if the response is a number and if it is in the list.
         if int(response_reminder.clean_content) == num:
             job = scheduler.get_job(job_from_dict)
             channel_id = job.kwargs.get("channel_id")
@@ -349,8 +363,8 @@ async def remind_resume(ctx: SlashContext):
 
     await ctx.channel.send("Type the corresponding number to the reminder you wish to pause. Type Exit to exit.")
 
-    # Only check for response from the original user and in the correct channel
     def check(m):
+        """Check if the message is from the original user and in the correct channel."""
         return m.author == ctx.author and m.channel == ctx.channel
 
     # TODO: Add timeout
@@ -369,10 +383,7 @@ async def remind_resume(ctx: SlashContext):
             channel_name = bot.get_channel(int(channel_id))
             message = job.kwargs.get("message")
 
-            try:
-                scheduler.resume_job(job_from_dict)
-            except Exception as e:
-                await ctx.send(e)
+            scheduler.resume_job(job_from_dict)
 
             # Only normal reminders have trigger.run_date
             # Cron and interval has next_run_time
@@ -426,7 +437,8 @@ async def remind_add(
     """Add a new reminder. You can add a date and message.
 
     Args:
-        message_date: The date or time that will get parsed.
+        ctx: Context of the slash command. Contains the guild, author and message and more.
+        message_date: The parsed date and time when you want to get reminded.
         message_reason: The message the bot should write when the reminder is triggered.
         different_channel: The channel the reminder should be sent to.
     """
@@ -579,6 +591,7 @@ async def remind_cron(
     Args that are None will be defaulted to *.
 
     Args:
+        ctx: Context of the slash command. Contains the guild, author and message and more.
         message_reason: The message the bot should send every time cron job triggers.
         year: 4-digit year.
         month: Month (1-12).
@@ -592,8 +605,7 @@ async def remind_cron(
         end_date: Latest possible date/time to trigger on (inclusive).
         timezone: Time zone to use for the date/time calculations Defaults to scheduler timezone.
         jitter: Delay the job execution by jitter seconds at most.
-
-        https://apscheduler.readthedocs.io/en/stable/modules/triggers/cron.html#module-apscheduler.triggers.cron
+        different_channel: Send the messages to a different channel.
     """
     channel_id = ctx.channel.id
 
@@ -720,19 +732,21 @@ async def remind_interval(
         jitter: int = None,
         different_channel: discord.TextChannel = None,
 ):
-    """Create new reminder that triggers based on a interval.
+    """Create a new reminder that triggers based on an interval.
 
     Args:
+        ctx: Context of the slash command. Contains the guild, author and message and more.
         message_reason: The message we should write when triggered.
-        weeks: Number of weeks to wait.
-        days: Number of days to wait.
-        hours: Number of hours to wait.
-        minutes: Number of minutes to wait.
-        seconds: Number of seconds to wait.
+        weeks: Amount weeks to wait.
+        days: Amount days to wait.
+        hours: Amount hours to wait.
+        minutes: Amount minutes to wait.
+        seconds: Amount seconds to wait.
         start_date: Starting point for the interval calculation.
         end_date: Latest possible date/time to trigger on.
         timezone: Time zone to use for the date/time calculations.
         jitter: Delay the job execution by jitter seconds at most.
+        different_channel: Send the messages to a different channel.
     """
 
     channel_id = different_channel.id if different_channel else ctx.channel.id
