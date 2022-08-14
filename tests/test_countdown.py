@@ -9,17 +9,11 @@ import pytz
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from discord_reminder_bot import __version__
-from discord_reminder_bot.main import send_to_discord
 from discord_reminder_bot.countdown import calculate
+from discord_reminder_bot.main import send_to_discord
 
 
-def test_version():
-    """Check if version is 0.3.0."""
-    assert __version__ == "0.3.0"
-
-
-class TestClass:
+class TestCountdown:
     """This tests everything.
 
     This sets up sqlite database in memory, changes scheduler timezone
@@ -53,7 +47,7 @@ class TestClass:
         },
     )
 
-    def test_calc_countdown(self):
+    def test_countdown(self):
         """Check if calc_countdown returns days, hours and minutes."""
         # FIXME: This will break when there is 0 seconds/hours/days left
         pattern = re.compile(r"\d* (day|days), \d* (hour|hours). \d* (minute|minutes)")
