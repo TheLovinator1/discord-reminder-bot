@@ -10,7 +10,8 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from discord_reminder_bot import __version__
-from discord_reminder_bot.main import calc_countdown, send_to_discord
+from discord_reminder_bot.main import send_to_discord
+from discord_reminder_bot.countdown import calculate
 
 
 def test_version():
@@ -56,5 +57,5 @@ class TestClass:
         """Check if calc_countdown returns days, hours and minutes."""
         # FIXME: This will break when there is 0 seconds/hours/days left
         pattern = re.compile(r"\d* (day|days), \d* (hour|hours). \d* (minute|minutes)")
-        countdown = calc_countdown(self.job)
+        countdown = calculate(self.job)
         assert pattern.match(countdown)

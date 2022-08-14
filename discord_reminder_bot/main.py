@@ -1,9 +1,7 @@
-import datetime
 import logging
 
 import dateparser
 import discord
-import pytz
 from apscheduler.triggers.date import DateTrigger
 from discord.errors import NotFound
 from discord.ext import commands
@@ -12,6 +10,7 @@ from discord_slash.error import IncorrectFormat, RequestFailure
 from discord_slash.model import SlashCommandOptionType
 from discord_slash.utils.manage_commands import create_choice, create_option
 
+from discord_reminder_bot.countdown import calculate
 from discord_reminder_bot.settings import bot_token, config_timezone, log_level, scheduler, sqlite_location
 
 bot = commands.Bot(
@@ -19,54 +18,6 @@ bot = commands.Bot(
     intents=discord.Intents.all(),
 )
 slash = SlashCommand(bot, sync_commands=True)
-
-
-def calc_countdown(job) -> str:
-    """Get trigger time from a reminder and calculate how many days,
-    hours and minutes till trigger.
-
-    Days/Minutes will not be included if 0.
-
-    Args:
-        job: The job. Can be cron, interval or normal.
-
-    Returns:
-        Returns days, hours and minutes till reminder. Returns
-        "Failed to calculate time" if no job is found.
-    """
-    # TODO: This "breaks" when only seconds are left.
-    # If we use (in {calc_countdown(job)}) it will show (in )
-
-    if type(job.trigger) is DateTrigger:
-        trigger_time = job.trigger.run_date
-    else:
-        trigger_time = job.next_run_time
-
-    # Get_job() returns None when it can't find a job with that id.
-    if trigger_time is None:
-        # TODO: Change this to None and send this text where needed.
-        return "Failed to calculate time"
-
-    # Get time and date the job will run and calculate how many days,
-    # hours and seconds.
-    countdown = trigger_time - datetime.datetime.now(tz=pytz.timezone(config_timezone))
-
-    days, hours, minutes = (
-        countdown.days,
-        countdown.seconds // 3600,
-        countdown.seconds // 60 % 60,
-    )
-
-    # TODO: Explain this.
-    return ", ".join(
-        f"{x} {y}{'s' * (x != 1)}"
-        for x, y in (
-            (days, "day"),
-            (hours, "hour"),
-            (minutes, "minute"),
-        )
-        if x
-    )
 
 
 @bot.event
@@ -152,7 +103,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
                 return
 
             message = job.kwargs.get("message")
-            old_time = calc_countdown(job)
+            old_time = calculate(job)
 
             channel_name = bot.get_channel(int(job.kwargs.get("channel_id")))
             msg = f"**Modified** {job_from_dict} in #{channel_name}\n"
@@ -195,7 +146,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
                 job = scheduler.reschedule_job(job_from_dict, run_date=date_new)
 
                 date_old = job.trigger.run_date.strftime("%Y-%m-%d %H:%M")
-                new_time = calc_countdown(job_from_dict)
+                new_time = calculate(job_from_dict)
                 msg += f"**Old date**: {date_old} (in {old_time})\n**New date**: {date_new} (in {new_time})"
 
             await ctx.send(msg)
@@ -245,7 +196,7 @@ async def remind_remove(ctx: SlashContext):
             if trigger_time is None:
                 trigger_value = "Paused - can be resumed with '/remind resume'"
             else:
-                trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
+                trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calculate(job)})'
 
             msg = f"**Removed** {message} in #{channel_name}.\n**Time**: {trigger_value}"
 
@@ -305,7 +256,7 @@ async def send_list(ctx, skip_datetriggers=False, skip_cron_or_interval=False):
                 if trigger_time is None:
                     trigger_value = "Paused"
                 else:
-                    trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
+                    trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calculate(job)})'
 
                 job_number += 1
                 jobs_dict[job_number] = job.id
@@ -376,7 +327,7 @@ async def remind_pause(ctx: SlashContext):
             if trigger_time is None:
                 return await ctx.channel.send(f"{message} in #{channel_name} is already paused.")
 
-            trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
+            trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calculate(job)})'
 
             msg = f"**Paused** {message} in #{channel_name}.\n**Time**: {trigger_value}"
 
@@ -433,7 +384,7 @@ async def remind_resume(ctx: SlashContext):
             if trigger_time is None:
                 trigger_value = "Paused - can be resumed with '/remind resume'"
             else:
-                trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calc_countdown(job)})'
+                trigger_value = f'{trigger_time.strftime("%Y-%m-%d %H:%M")} (in {calculate(job)})'
 
             msg = f"**Resumed** {message} in #{channel_name}.\n**Time**: {trigger_value}\n"
 
@@ -506,7 +457,7 @@ async def remind_add(
     message = (
         f"Hello {ctx.author.display_name},"
         f" I will notify you in <#{channel_id}> at:\n"
-        f"**{run_date}** (in {calc_countdown(reminder)})\n"
+        f"**{run_date}** (in {calculate(reminder)})\n"
         f"With the message:\n**{message_reason}**."
     )
 
@@ -675,7 +626,7 @@ async def remind_cron(
     message = (
         f"Hello {ctx.author.display_name},"
         f" I will send messages to <#{channel_id}>.\n"
-        f"First run in {calc_countdown(job)} with the message:\n"
+        f"First run in {calculate(job)} with the message:\n"
         f"**{message_reason}**."
     )
     await ctx.send(message)
@@ -807,7 +758,7 @@ async def remind_interval(
     # TODO: Add what arguments we used in the job to the message
     message = (
         f"Hello {ctx.author.display_name}, I will send messages to <#{channel_id}>.\n"
-        f"First run in {calc_countdown(job)} with the message:\n"
+        f"First run in {calculate(job)} with the message:\n"
         f"**{message_reason}**."
     )
 
