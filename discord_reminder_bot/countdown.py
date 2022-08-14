@@ -1,3 +1,6 @@
+"""
+calculate(job) - Calculates how many days, hours and minutes till trigger.
+"""
 import datetime
 
 import pytz
@@ -17,7 +20,7 @@ def calculate(job: Job) -> str:
         job: The job. Can be cron, interval or normal.
 
     Returns:
-        Returns days, hours and minutes till reminder. Returns "Failed to calculate time" if no job is found.
+        Returns days, hours and minutes till the reminder. Returns "Couldn't calculate time" if no job is found.
     """
     # TODO: This "breaks" when only seconds are left.
     # If we use (in {calc_countdown(job)}) it will show (in )
@@ -27,10 +30,10 @@ def calculate(job: Job) -> str:
     else:
         trigger_time = job.next_run_time
 
-    # Get_job() returns None when it can't find a job with that id.
+    # Get_job() returns None when it can't find a job with that ID.
     if trigger_time is None:
         # TODO: Change this to None and send this text where needed.
-        return "Failed to calculate time"
+        return "Couldn't calculate time"
 
     # Get time and date the job will run and calculate how many days,
     # hours and seconds.
