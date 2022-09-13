@@ -40,7 +40,7 @@ WORKDIR /home/botuser
 
 RUN poetry install --no-interaction --no-ansi --no-dev
 
-COPY discord_reminder_bot/main.py discord_reminder_bot/settings.py /home/botuser/discord_reminder_bot/
+COPY discord_reminder_bot/main.py discord_reminder_bot/settings.py discord_reminder_bot/countdown.py /home/botuser/discord_reminder_bot/
 
 VOLUME ["/home/botuser/data/"]
 

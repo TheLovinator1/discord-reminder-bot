@@ -146,7 +146,7 @@ async def command_modify(ctx: SlashContext, time_or_message: str):
                     f"{response_new_date.clean_content}",
                     settings={
                         "PREFER_DATES_FROM": "future",
-                        "TO_TIMEZONE": f"{config_timezone}",
+                        "TIMEZONE": f"{config_timezone}",
                     },
                 )
                 date_new = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
@@ -446,7 +446,7 @@ async def remind_add(
         f"{message_date}",
         settings={
             "PREFER_DATES_FROM": "future",
-            "TO_TIMEZONE": f"{config_timezone}",
+            "TIMEZONE": f"{config_timezone}",
         },
     )
 
