@@ -166,10 +166,10 @@ async def list_command(ctx: interactions.CommandContext):
     ],
 )
 async def command_add(
-        ctx: interactions.CommandContext,
-        message_reason: str,
-        message_date: str,
-        different_channel: interactions.Channel | None = None,
+    ctx: interactions.CommandContext,
+    message_reason: str,
+    message_date: str,
+    different_channel: interactions.Channel | None = None,
 ):
     """Add a new reminder. You can add a date and message.
 
@@ -185,6 +185,7 @@ async def command_add(
         f"{message_date}",
         settings={
             "PREFER_DATES_FROM": "future",
+            "TIMEZONE": f"{config_timezone}",
             "TO_TIMEZONE": f"{config_timezone}",
         },
     )
@@ -311,21 +312,21 @@ async def command_add(
     ],
 )
 async def remind_cron(
-        ctx: interactions.CommandContext,
-        message_reason: str,
-        year: int | None = None,
-        month: int | None = None,
-        day: int | None = None,
-        week: int | None = None,
-        day_of_week: str | None = None,
-        hour: int | None = None,
-        minute: int | None = None,
-        second: int | None = None,
-        start_date: str | None = None,
-        end_date: str | None = None,
-        timezone: str | None = None,
-        jitter: int | None = None,
-        different_channel: interactions.Channel | None = None,
+    ctx: interactions.CommandContext,
+    message_reason: str,
+    year: int | None = None,
+    month: int | None = None,
+    day: int | None = None,
+    week: int | None = None,
+    day_of_week: str | None = None,
+    hour: int | None = None,
+    minute: int | None = None,
+    second: int | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    timezone: str | None = None,
+    jitter: int | None = None,
+    different_channel: interactions.Channel | None = None,
 ):
     """Create new cron job. Works like UNIX cron.
 
@@ -462,18 +463,18 @@ async def remind_cron(
     ],
 )
 async def remind_interval(
-        ctx: interactions.CommandContext,
-        message_reason: str,
-        weeks: int = 0,
-        days: int = 0,
-        hours: int = 0,
-        minutes: int = 0,
-        seconds: int = 0,
-        start_date: str | None = None,
-        end_date: str | None = None,
-        timezone: str | None = None,
-        jitter: int | None = None,
-        different_channel: interactions.Channel | None = None,
+    ctx: interactions.CommandContext,
+    message_reason: str,
+    weeks: int = 0,
+    days: int = 0,
+    hours: int = 0,
+    minutes: int = 0,
+    seconds: int = 0,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    timezone: str | None = None,
+    jitter: int | None = None,
+    different_channel: interactions.Channel | None = None,
 ):
     """Create a new reminder that triggers based on an interval.
 
