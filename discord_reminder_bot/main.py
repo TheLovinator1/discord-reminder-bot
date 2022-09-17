@@ -5,6 +5,7 @@ import dateparser
 import interactions
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.triggers.date import DateTrigger
+from dateparser.conf import SettingValidationError
 from interactions import CommandContext, Embed, Option, OptionType
 from interactions.ext.paginator import Paginator
 from interactions.ext.wait_for import setup
@@ -84,14 +85,19 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
     msg = f"Modified job {job_id}.\n"
     if old_date is not None:
         if new_date:
-            parsed_date = dateparser.parse(
-                f"{new_date}",
-                settings={
-                    "PREFER_DATES_FROM": "future",
-                    "TIMEZONE": f"{config_timezone}",
-                    "TO_TIMEZONE": f"{config_timezone}",
-                },
-            )
+            try:
+                parsed_date = dateparser.parse(
+                    f"{new_date}",
+                    settings={
+                        "PREFER_DATES_FROM": "future",
+                        "TIMEZONE": f"{config_timezone}",
+                        "TO_TIMEZONE": f"{config_timezone}",
+                    },
+                )
+            except SettingValidationError as e:
+                return await ctx.send(f"Timezone is possible wrong?: {e}", ephemeral=True)
+            except ValueError as e:
+                return await ctx.send(f"Failed to parse date. Unknown language: {e}", ephemeral=True)
 
             if not parsed_date:
                 return await ctx.send("Could not parse the date.", ephemeral=True)
@@ -108,16 +114,19 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
     if old_message is not None:
         channel_id = job.kwargs.get("channel_id")
         job_author_id = job.kwargs.get("author_id")
-
-        scheduler.modify_job(
-            job.id,
-            kwargs={
-                "channel_id": channel_id,
-                "message": f"{new_message}",
-                "author_id": job_author_id,
-            },
-        )
-
+        try:
+            scheduler.modify_job(
+                job.id,
+                kwargs={
+                    "channel_id": channel_id,
+                    "message": f"{new_message}",
+                    "author_id": job_author_id,
+                },
+            )
+        except JobLookupError as e:
+            return await ctx.send(
+                f"Failed to modify the job.\nJob ID: {job_id}\nError: {e}"
+            )
         msg += f"**Old message**: {old_message}\n**New message**: {new_message}\n"
 
     return await ctx.send(msg)
@@ -189,18 +198,21 @@ async def command_add(
         message_reason: The message the bot should write when the reminder is triggered.
         different_channel: The channel the reminder should be sent to.
     """
-    parsed_date = dateparser.parse(
-        f"{message_date}",
-        settings={
-            "PREFER_DATES_FROM": "future",
-            "TIMEZONE": f"{config_timezone}",
-            "TO_TIMEZONE": f"{config_timezone}",
-        },
-    )
-
+    try:
+        parsed_date = dateparser.parse(
+            f"{message_date}",
+            settings={
+                "PREFER_DATES_FROM": "future",
+                "TIMEZONE": f"{config_timezone}",
+                "TO_TIMEZONE": f"{config_timezone}",
+            },
+        )
+    except SettingValidationError as e:
+        return await ctx.send(f"Timezone is possible wrong?: {e}", ephemeral=True)
+    except ValueError as e:
+        return await ctx.send(f"Failed to parse date. Unknown language: {e}", ephemeral=True)
     if not parsed_date:
-        await ctx.send("Could not parse the date.")
-        return
+        return await ctx.send("Could not parse the date.")
 
     channel_id = int(ctx.channel_id)
 
@@ -209,15 +221,19 @@ async def command_add(
         channel_id = int(different_channel.id)
 
     run_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
-    reminder = scheduler.add_job(
-        send_to_discord,
-        run_date=run_date,
-        kwargs={
-            "channel_id": channel_id,
-            "message": message_reason,
-            "author_id": ctx.member.id,
-        },
-    )
+    try:
+        reminder = scheduler.add_job(
+            send_to_discord,
+            run_date=run_date,
+            kwargs={
+                "channel_id": channel_id,
+                "message": message_reason,
+                "author_id": ctx.member.id,
+            },
+        )
+    except ValueError as e:
+        await ctx.send(str(e))
+        return
 
     message = (
         f"Hello {ctx.member.name},"
@@ -363,28 +379,31 @@ async def remind_cron(
     # If we should send the message to a different channel
     if different_channel:
         channel_id = int(different_channel.id)
-
-    job = scheduler.add_job(
-        send_to_discord,
-        "cron",
-        year=year,
-        month=month,
-        day=day,
-        week=week,
-        day_of_week=day_of_week,
-        hour=hour,
-        minute=minute,
-        second=second,
-        start_date=start_date,
-        end_date=end_date,
-        timezone=timezone,
-        jitter=jitter,
-        kwargs={
-            "channel_id": channel_id,
-            "message": message_reason,
-            "author_id": ctx.member.id,
-        },
-    )
+    try:
+        job = scheduler.add_job(
+            send_to_discord,
+            "cron",
+            year=year,
+            month=month,
+            day=day,
+            week=week,
+            day_of_week=day_of_week,
+            hour=hour,
+            minute=minute,
+            second=second,
+            start_date=start_date,
+            end_date=end_date,
+            timezone=timezone,
+            jitter=jitter,
+            kwargs={
+                "channel_id": channel_id,
+                "message": message_reason,
+                "author_id": ctx.member.id,
+            },
+        )
+    except ValueError as e:
+        await ctx.send(str(e))
+        return
 
     # TODO: Add what arguments we used in the job to the message
     message = (
@@ -503,25 +522,28 @@ async def remind_interval(
     # If we should send the message to a different channel
     if different_channel:
         channel_id = int(different_channel.id)
-
-    job = scheduler.add_job(
-        send_to_discord,
-        "interval",
-        weeks=weeks,
-        days=days,
-        hours=hours,
-        minutes=minutes,
-        seconds=seconds,
-        start_date=start_date,
-        end_date=end_date,
-        timezone=timezone,
-        jitter=jitter,
-        kwargs={
-            "channel_id": channel_id,
-            "message": message_reason,
-            "author_id": ctx.member.id,
-        },
-    )
+    try:
+        job = scheduler.add_job(
+            send_to_discord,
+            "interval",
+            weeks=weeks,
+            days=days,
+            hours=hours,
+            minutes=minutes,
+            seconds=seconds,
+            start_date=start_date,
+            end_date=end_date,
+            timezone=timezone,
+            jitter=jitter,
+            kwargs={
+                "channel_id": channel_id,
+                "message": message_reason,
+                "author_id": ctx.member.id,
+            },
+        )
+    except ValueError as e:
+        await ctx.send(str(e))
+        return
 
     # TODO: Add what arguments we used in the job to the message
     message = (
