@@ -4,6 +4,7 @@ from typing import List
 import dateparser
 import interactions
 from apscheduler.jobstores.base import JobLookupError
+from apscheduler.triggers.date import DateTrigger
 from interactions import CommandContext, Embed, Option, OptionType
 from interactions.ext.paginator import Paginator
 from interactions.ext.wait_for import setup
@@ -33,19 +34,15 @@ async def base_command(ctx: interactions.CommandContext):
 
 
 @bot.modal("edit_modal")
-async def modal_response_edit(ctx: CommandContext, new_date: str, new_message: str):
+async def modal_response_edit(ctx: CommandContext, *response: str):
     """Edit a reminder.
 
     Args:
         ctx: The context.
-        new_date: The new date.
-        new_message: The new message.
 
     Returns:
         A Discord message with changes.
     """
-    await ctx.defer()
-
     job_id = ctx.message.embeds[0].title
     old_date = None
     old_message = None
@@ -59,6 +56,16 @@ async def modal_response_edit(ctx: CommandContext, new_date: str, new_message: s
 
     if job is None:
         return await ctx.send("Job not found.")
+
+    if not response:
+        return await ctx.send("No changes made.")
+
+    if type(job.trigger) is DateTrigger:
+        new_message = response[0]
+        new_date = response[1]
+    else:
+        new_message = response[0]
+        new_date = None
 
     message_embeds: List[Embed] = ctx.message.embeds
     for embeds in message_embeds:
@@ -75,27 +82,30 @@ async def modal_response_edit(ctx: CommandContext, new_date: str, new_message: s
                 )
 
     msg = f"Modified job {job_id}.\n"
-    if new_date != old_date and old_date is not None:
-        parsed_date = dateparser.parse(
-            f"{new_date}",
-            settings={
-                "PREFER_DATES_FROM": "future",
-                "TIMEZONE": f"{config_timezone}",
-                "TO_TIMEZONE": f"{config_timezone}",
-            },
-        )
+    if old_date is not None:
+        if new_date:
+            parsed_date = dateparser.parse(
+                f"{new_date}",
+                settings={
+                    "PREFER_DATES_FROM": "future",
+                    "TIMEZONE": f"{config_timezone}",
+                    "TO_TIMEZONE": f"{config_timezone}",
+                },
+            )
 
-        if not parsed_date:
-            return await ctx.send("Could not parse the date.", ephemeral=True)
+            if not parsed_date:
+                return await ctx.send("Could not parse the date.", ephemeral=True)
 
-        date_new = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
+            date_new = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
 
-        new_job = scheduler.reschedule_job(job.id, run_date=date_new)
-        new_time = calculate(new_job)
+            new_job = scheduler.reschedule_job(job.id, run_date=date_new)
+            new_time = calculate(new_job)
 
-        msg += f"**Old date**: {old_date}\n**New date**: {date_new} (in {new_time})"
+            msg += (
+                f"**Old date**: {old_date}\n**New date**: {date_new} (in {new_time})\n"
+            )
 
-    if new_message != old_message and old_message is not None:
+    if old_message is not None:
         channel_id = job.kwargs.get("channel_id")
         job_author_id = job.kwargs.get("author_id")
 
@@ -108,7 +118,7 @@ async def modal_response_edit(ctx: CommandContext, new_date: str, new_message: s
             },
         )
 
-        msg += f"**Old message**: {old_message}\n**New message**: {new_message}"
+        msg += f"**Old message**: {old_message}\n**New message**: {new_message}\n"
 
     return await ctx.send(msg)
 
@@ -179,8 +189,6 @@ async def command_add(
         message_reason: The message the bot should write when the reminder is triggered.
         different_channel: The channel the reminder should be sent to.
     """
-    await ctx.defer()
-
     parsed_date = dateparser.parse(
         f"{message_date}",
         settings={
@@ -350,8 +358,6 @@ async def remind_cron(
         jitter: Delay the job execution by jitter seconds at most.
         different_channel: Send the messages to a different channel.
     """
-    await ctx.defer()
-
     channel_id = int(ctx.channel_id)
 
     # If we should send the message to a different channel
@@ -492,8 +498,6 @@ async def remind_interval(
         jitter: Delay the job execution by jitter seconds at most.
         different_channel: Send the messages to a different channel.
     """
-    await ctx.defer()
-
     channel_id = int(ctx.channel_id)
 
     # If we should send the message to a different channel
