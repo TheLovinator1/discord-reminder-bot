@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "discord-reminder-bot"
-version = "0.3.0"
+version = "1.0.0"
 description = "Discord bot that allows you to set date, cron and interval reminders."
 authors = ["Joakim Hellsén <tlovinator@gmail.com>"]
 license = "GPL-3.0-or-later"
@@ -22,19 +22,24 @@ bot = "discord_reminder_bot.main:start"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-"discord.py" = "^1.7.3"
-python-dotenv = "^0.20.0"
-discord-py-slash-command = "^3.0.3"
+python-dotenv = "^0.21.0"
 APScheduler = "^3.9.1"
 dateparser = "^1.1.1"
-SQLAlchemy = "^1.4.32"
+SQLAlchemy = "^1.4.41"
+discord-py-interactions = { git = "https://github.com/interactions-py/library.git", rev = "unstable" }
+interactions-wait-for = "^1.0.6"
+dinteractions-paginator = { git = "https://github.com/interactions-py/paginator.git", rev = "unstable" }
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
 mypy = "^0.971"
 types-dateparser = "^1.1.4"
 types-pytz = "^2022.1.2"
+black = "^22.8.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"

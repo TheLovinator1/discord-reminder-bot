@@ -38,9 +38,9 @@ COPY pyproject.toml poetry.lock README.md /home/botuser/
 # Change directory to where we will run the bot.
 WORKDIR /home/botuser
 
-RUN poetry install --no-interaction --no-ansi --no-dev
+RUN poetry install --no-interaction --no-ansi --only main
 
-COPY discord_reminder_bot/main.py discord_reminder_bot/settings.py discord_reminder_bot/countdown.py /home/botuser/discord_reminder_bot/
+COPY discord_reminder_bot /home/botuser/discord_reminder_bot/
 
 VOLUME ["/home/botuser/data/"]
 

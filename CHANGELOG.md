@@ -1,9 +1,29 @@
 # Changelog
 
-All notable changes to discord-reminder-bot will be documented in this file.
+## [1.0.0] - 2022-09-17
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### Added
+
+- Added tests for checking if timezones are working correctly
+
+### Changed
+
+- Bot is now using [discord-py-interactions](https://github.com/interactions-py/library) instead of
+  [discord-py-slash-command](https://github.com/interactions-py/library/tree/legacy-v3) and [discord.py]
+  (https://github.com/Rapptz/discord.py).
+- `/remind pause`, `/remind resume`, `/remind delete`, and `/remind modify` are now buttons under `/remind list`.
+- `/remind list` uses pagination now.
+- `/remind modify` uses a modal now.
+
+### Fixed
+
+- [Dockerfile](/Dockerfile) was broken, now it is fixed. (Thanks to [FirosStuart](https://github.com/FirosStuart)
+  for the fix)
+- Timezones are now handled correctly. (Thanks to [FirosStuart](https://github.com/FirosStuart))
+
+### Breaking Changes
+
+- You will need the latest version of Poetry to install the dependencies. (Or have Git installed)
 
 ## [0.3.0] - 2022-02-19
 

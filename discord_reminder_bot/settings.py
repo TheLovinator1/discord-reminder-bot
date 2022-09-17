@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv(verbose=True)
 sqlite_location = os.getenv("SQLITE_LOCATION", default="/jobs.sqlite")
-config_timezone = os.getenv("TIMEZONE", default="Europe/Stockholm")
+config_timezone = os.getenv("TIMEZONE", default="UTC")
 bot_token = os.getenv("BOT_TOKEN", default="")
 log_level = os.getenv(key="LOG_LEVEL", default="INFO")
 
