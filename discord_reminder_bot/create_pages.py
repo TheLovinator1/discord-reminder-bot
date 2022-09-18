@@ -122,12 +122,11 @@ def create_pages(ctx) -> list[Page]:
 
 async def callback(self: Paginator, ctx: ComponentContext):
     """Callback for the paginator."""
-    job_id = self.component_ctx.message.embeds[0].title
+    job_id = self.component_ctx.message.embeds[0].title  # type: ignore
     job = scheduler.get_job(job_id)
 
     if job is None:
-        await ctx.send("Job not found.")
-        return
+        return await ctx.send("Job not found.", ephemeral=True)
 
     channel_id = job.kwargs.get("channel_id")
     old_message = job.kwargs.get("message")
@@ -168,23 +167,22 @@ async def callback(self: Paginator, ctx: ComponentContext):
         modal = interactions.Modal(
             title=f"Edit {job_type} reminder.",
             custom_id="edit_modal",
-            components=components,
+            components=components,  # type: ignore
         )
         await ctx.popup(modal)
-        print(ctx.data)
 
     elif ctx.custom_id == "pause":
         await self.end_paginator()
         # TODO: Add unpause button if user paused the wrong job
-        paused_job = scheduler.pause_job(job_id)
-        print(f"Paused job: {paused_job}")
-
+        scheduler.pause_job(job_id)
         await ctx.send(f"Job {job_id} paused.")
+
     elif ctx.custom_id == "unpause":
         await self.end_paginator()
         # TODO: Add pause button if user unpauses the wrong job
         scheduler.resume_job(job_id)
         await ctx.send(f"Job {job_id} unpaused.")
+
     elif ctx.custom_id == "remove":
         await self.end_paginator()
         # TODO: Add recreate button if user removed the wrong job

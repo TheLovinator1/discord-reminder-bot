@@ -8,7 +8,6 @@ from apscheduler.triggers.date import DateTrigger
 from dateparser.conf import SettingValidationError
 from interactions import CommandContext, Embed, Option, OptionType
 from interactions.ext.paginator import Paginator
-from interactions.ext.wait_for import setup
 
 from discord_reminder_bot.countdown import calculate
 from discord_reminder_bot.create_pages import create_pages
@@ -21,9 +20,6 @@ from discord_reminder_bot.settings import (
 )
 
 bot = interactions.Client(token=bot_token)
-
-# Initialize the wait_for extension.
-setup(bot)
 
 
 @bot.command(name="remind")
@@ -44,7 +40,7 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
     Returns:
         A Discord message with changes.
     """
-    job_id = ctx.message.embeds[0].title
+    job_id = ctx.message.embeds[0].title  # type: ignore
     old_date = None
     old_message = None
 
@@ -52,14 +48,15 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
         job = scheduler.get_job(job_id)
     except JobLookupError as e:
         return await ctx.send(
-            f"Failed to get the job after the modal.\nJob ID: {job_id}\nError: {e}"
+            f"Failed to get the job after the modal.\nJob ID: {job_id}\nError: {e}",
+            ephemeral=True,
         )
 
     if job is None:
-        return await ctx.send("Job not found.")
+        return await ctx.send("Job not found.", ephemeral=True)
 
     if not response:
-        return await ctx.send("No changes made.")
+        return await ctx.send("No changes made.", ephemeral=True)
 
     if type(job.trigger) is DateTrigger:
         new_message = response[0]
@@ -68,9 +65,9 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
         new_message = response[0]
         new_date = None
 
-    message_embeds: List[Embed] = ctx.message.embeds
+    message_embeds: List[Embed] = ctx.message.embeds  # type: ignore
     for embeds in message_embeds:
-        for field in embeds.fields:
+        for field in embeds.fields:  # type: ignore
             if field.name == "**Channel:**":
                 continue
             elif field.name == "**Message:**":
@@ -95,9 +92,13 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
                     },
                 )
             except SettingValidationError as e:
-                return await ctx.send(f"Timezone is possible wrong?: {e}", ephemeral=True)
+                return await ctx.send(
+                    f"Timezone is possible wrong?: {e}", ephemeral=True
+                )
             except ValueError as e:
-                return await ctx.send(f"Failed to parse date. Unknown language: {e}", ephemeral=True)
+                return await ctx.send(
+                    f"Failed to parse date. Unknown language: {e}", ephemeral=True
+                )
 
             if not parsed_date:
                 return await ctx.send("Could not parse the date.", ephemeral=True)
@@ -125,7 +126,8 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
             )
         except JobLookupError as e:
             return await ctx.send(
-                f"Failed to modify the job.\nJob ID: {job_id}\nError: {e}"
+                f"Failed to modify the job.\nJob ID: {job_id}\nError: {e}",
+                ephemeral=True,
             )
         msg += f"**Old message**: {old_message}\n**New message**: {new_message}\n"
 
@@ -210,9 +212,11 @@ async def command_add(
     except SettingValidationError as e:
         return await ctx.send(f"Timezone is possible wrong?: {e}", ephemeral=True)
     except ValueError as e:
-        return await ctx.send(f"Failed to parse date. Unknown language: {e}", ephemeral=True)
+        return await ctx.send(
+            f"Failed to parse date. Unknown language: {e}", ephemeral=True
+        )
     if not parsed_date:
-        return await ctx.send("Could not parse the date.")
+        return await ctx.send("Could not parse the date.", ephemeral=True)
 
     channel_id = int(ctx.channel_id)
 
@@ -232,7 +236,7 @@ async def command_add(
             },
         )
     except ValueError as e:
-        await ctx.send(str(e))
+        await ctx.send(str(e), ephemeral=True)
         return
 
     message = (
@@ -402,7 +406,7 @@ async def remind_cron(
             },
         )
     except ValueError as e:
-        await ctx.send(str(e))
+        await ctx.send(str(e), ephemeral=True)
         return
 
     # TODO: Add what arguments we used in the job to the message
@@ -542,7 +546,7 @@ async def remind_interval(
             },
         )
     except ValueError as e:
-        await ctx.send(str(e))
+        await ctx.send(str(e), ephemeral=True)
         return
 
     # TODO: Add what arguments we used in the job to the message
