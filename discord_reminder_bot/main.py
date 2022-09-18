@@ -142,12 +142,15 @@ async def list_command(ctx: interactions.CommandContext):
 
     pages = create_pages(ctx)
     if not pages:
-        await ctx.send("No reminders found.")
-        return
+        return await ctx.send("No reminders found.", ephemeral=True)
 
     if len(pages) == 1:
-        await ctx.send("a")
-        return
+        for page in pages:
+            return await ctx.send(
+                content="I haven't added support for buttons if there is only one reminder, "
+                "so you need to add another one to edit/delete this one 🙃",
+                embeds=page.embeds,
+            )
 
     paginator: Paginator = Paginator(
         client=bot,

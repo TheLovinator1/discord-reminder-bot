@@ -15,7 +15,7 @@ def create_pages(ctx) -> list[Page]:
     """Create pages for the paginator.
 
     Args:
-        ctx (interactions.Context): The context of the command.
+        ctx: The context of the command.
 
     Returns:
         list[Page]: A list of pages.
