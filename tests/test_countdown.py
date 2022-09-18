@@ -3,7 +3,6 @@
 Jobs are stored in memory.
 """
 import re
-from sched import scheduler
 
 import dateparser
 import pytz
@@ -52,6 +51,7 @@ class TestCountdown:
         "00:00",
         settings={
             "PREFER_DATES_FROM": "future",
+            "TIMEZONE": "Europe/Stockholm",
             "TO_TIMEZONE": "Europe/Stockholm",
         },
     )
@@ -70,6 +70,7 @@ class TestCountdown:
         "13:37",
         settings={
             "PREFER_DATES_FROM": "future",
+            "TIMEZONE": "Europe/Stockholm",
             "TO_TIMEZONE": "Europe/Stockholm",
         },
     )
