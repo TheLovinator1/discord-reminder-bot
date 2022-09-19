@@ -190,7 +190,7 @@ readthedocs = ["Sphinx", "enum-tools[sphinx]", "furo", "sphinx-copybutton", "sph
 type = "git"
 url = "https://github.com/interactions-py/library.git"
 reference = "unstable"
-resolved_reference = "b6bac06b9774082a274bca54059edbef51cd7541"
+resolved_reference = "aef1666a47ebc2f3b527a2c15ad3271df41c3c30"
 
 [[package]]
 name = "frozenlist"
