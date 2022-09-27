@@ -590,7 +590,6 @@ def start():
     logging.info(
         f"\nsqlite_location = {sqlite_location}\n"
         f"config_timezone = {config_timezone}\n"
-        f"bot_token = {bot_token}\n"
         f"log_level = {log_level}"
     )
 
