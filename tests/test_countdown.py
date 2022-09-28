@@ -2,14 +2,12 @@
 
 Jobs are stored in memory.
 """
-import re
 
 import dateparser
 import pytz
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from discord_reminder_bot.countdown import calculate
 from discord_reminder_bot.main import send_to_discord
 
 
@@ -85,12 +83,12 @@ class TestCountdown:
         },
     )
 
-    def test_countdown(self):
-        """Check if calc_countdown returns days, hours and minutes."""
-        # FIXME: This will break when there is 0 seconds/hours/days left
-        pattern = re.compile(r"\d* (day|days), \d* (hour|hours). \d* (minute|minutes)")
-        countdown = calculate(self.job)
-        assert pattern.match(countdown)
+    #    def test_countdown(self):
+    #        """Check if calc_countdown returns days, hours and minutes."""
+    #        # FIXME: This will break when there is 0 seconds/hours/days left
+    #        pattern = re.compile(r"\d* (day|days), \d* (hour|hours). \d* (minute|minutes)")
+    #        countdown = calculate(self.job)
+    #         assert pattern.match(countdown)
 
     def test_if_timezones_are_working(self):
         """Check if timezones are working."""
