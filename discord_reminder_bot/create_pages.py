@@ -45,6 +45,7 @@ def create_pages(ctx) -> list[Page]:
                     trigger_text = trigger_value
 
                 message = job.kwargs.get("message")
+                message = (message[:98] + '..') if len(message) > 98 else message
 
                 edit_button = interactions.Button(
                     label="Edit",
