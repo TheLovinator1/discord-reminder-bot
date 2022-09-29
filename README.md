@@ -82,5 +82,3 @@ Docker Hub: [thelovinator/discord-reminder-bot](https://hub.docker.com/r/thelovi
 - Email: tlovinator@gmail.com
 - Discord: TheLovinator#9276
 - Send an issue: [discord-reminder-bot/issues](https://github.com/TheLovinator1/discord-reminder-bot/issues)
-- GitHub Discussions:
-  [discord-reminder-bot/discussions](https://github.com/TheLovinator1/discord-reminder-bot/discussions)
