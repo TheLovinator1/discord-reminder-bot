@@ -32,7 +32,7 @@ dinteractions-paginator = { git = "https://github.com/interactions-py/paginator.
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
-mypy = "^0.971"
+mypy = "^0.981"
 types-dateparser = "^1.1.4"
 types-pytz = "^2022.1.2"
 black = "^22.8.0"
