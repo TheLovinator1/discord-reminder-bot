@@ -6,7 +6,7 @@ import interactions
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.triggers.date import DateTrigger
 from dateparser.conf import SettingValidationError
-from interactions import CommandContext, Embed, Option, OptionType
+from interactions import CommandContext, Embed, Option, OptionType, autodefer
 from interactions.ext.paginator import Paginator
 
 from discord_reminder_bot.countdown import calculate
@@ -31,6 +31,7 @@ async def base_command(ctx: interactions.CommandContext):
 
 
 @bot.modal("edit_modal")
+@autodefer()
 async def modal_response_edit(ctx: CommandContext, *response: str):
     """Edit a reminder.
 
@@ -189,6 +190,7 @@ async def list_command(ctx: interactions.CommandContext):
         ),
     ],
 )
+@autodefer()
 async def command_add(
     ctx: interactions.CommandContext,
     message_reason: str,
@@ -342,6 +344,7 @@ async def command_add(
         ),
     ],
 )
+@autodefer()
 async def remind_cron(
     ctx: interactions.CommandContext,
     message_reason: str,
@@ -494,6 +497,7 @@ async def remind_cron(
         ),
     ],
 )
+@autodefer()
 async def remind_interval(
     ctx: interactions.CommandContext,
     message_reason: str,

@@ -45,7 +45,6 @@ def create_pages(ctx) -> list[Page]:
                     trigger_text = trigger_value
 
                 message = job.kwargs.get("message")
-                message = (message[:95] + '..') if len(message) > 95 else message
 
                 edit_button = interactions.Button(
                     label="Edit",
@@ -108,10 +107,11 @@ def create_pages(ctx) -> list[Page]:
                     components.insert(1, pause_or_unpause_button)
 
                 # Add a page to pages list
+                title = (message[:95] + '..') if len(message) > 95 else message
                 pages.append(
                     Page(
                         embeds=embed,
-                        title=message,
+                        title=title,
                         components=ActionRow(components=components),  # type: ignore
                         callback=callback,
                         position=RowPosition.BOTTOM,
@@ -135,7 +135,6 @@ async def callback(self: Paginator, ctx: ComponentContext):
     components = [
         interactions.TextInput(  # type: ignore
             style=interactions.TextStyleType.PARAGRAPH,
-            placeholder=old_message,
             label="New message",
             custom_id="new_message",
             value=old_message,
@@ -150,7 +149,6 @@ async def callback(self: Paginator, ctx: ComponentContext):
         components.append(
             interactions.TextInput(  # type: ignore
                 style=interactions.TextStyleType.SHORT,
-                placeholder=str(trigger_time),
                 label="New date, Can be human readable or ISO8601",
                 custom_id="new_date",
                 value=str(trigger_time),
