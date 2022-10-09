@@ -137,7 +137,7 @@ resolved_reference = "5fa5c4a1fbcbfc634754822a50941cf4c95a2560"
 
 [[package]]
 name = "discord-py-interactions"
-version = "4.3.2"
+version = "4.3.3"
 description = "Easy, simple, scalable and modular: a Python API wrapper for interactions."
 category = "main"
 optional = false
@@ -157,7 +157,7 @@ readthedocs = ["Sphinx", "enum-tools[sphinx]", "furo", "sphinx-copybutton", "sph
 type = "git"
 url = "https://github.com/interactions-py/library.git"
 reference = "unstable"
-resolved_reference = "c41832b47115f78b15251d34d9bf15dd5c34459c"
+resolved_reference = "51c73dedb58241c1f2673c4b63fab0ce06b44d8d"
 
 [[package]]
 name = "frozenlist"
