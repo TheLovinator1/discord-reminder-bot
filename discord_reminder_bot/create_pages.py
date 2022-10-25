@@ -113,7 +113,7 @@ def create_pages(ctx) -> list[Page]:
                     Page(
                         embeds=embed,
                         title=title,
-                        components=ActionRow(components=components),  # type: ignore
+                        components=ActionRow(components=components),
                         callback=callback,
                         position=RowPosition.BOTTOM,
                     )
@@ -124,7 +124,7 @@ def create_pages(ctx) -> list[Page]:
 
 async def callback(self: Paginator, ctx: ComponentContext):
     """Callback for the paginator."""
-    job_id = self.component_ctx.message.embeds[0].title  # type: ignore
+    job_id = self.component_ctx.message.embeds[0].title
     job = scheduler.get_job(job_id)
 
     if job is None:
@@ -134,7 +134,7 @@ async def callback(self: Paginator, ctx: ComponentContext):
     old_message = job.kwargs.get("message")
 
     components = [
-        interactions.TextInput(  # type: ignore
+        interactions.TextInput(
             style=interactions.TextStyleType.PARAGRAPH,
             label="New message",
             custom_id="new_message",
@@ -148,7 +148,7 @@ async def callback(self: Paginator, ctx: ComponentContext):
         trigger_time = job.trigger.run_date
         job_type = "normal"
         components.append(
-            interactions.TextInput(  # type: ignore
+            interactions.TextInput(
                 style=interactions.TextStyleType.SHORT,
                 label="New date, Can be human readable or ISO8601",
                 custom_id="new_date",
@@ -163,28 +163,24 @@ async def callback(self: Paginator, ctx: ComponentContext):
         job_type = "cron/interval"
 
     if ctx.custom_id == "edit":
-        await self.end_paginator()
         modal = interactions.Modal(
             title=f"Edit {job_type} reminder.",
             custom_id="edit_modal",
-            components=components,  # type: ignore
+            components=components,
         )
         await ctx.popup(modal)
 
     elif ctx.custom_id == "pause":
-        await self.end_paginator()
         # TODO: Add unpause button if user paused the wrong job
         scheduler.pause_job(job_id)
         await ctx.send(f"Job {job_id} paused.")
 
     elif ctx.custom_id == "unpause":
-        await self.end_paginator()
         # TODO: Add pause button if user unpauses the wrong job
         scheduler.resume_job(job_id)
         await ctx.send(f"Job {job_id} unpaused.")
 
     elif ctx.custom_id == "remove":
-        await self.end_paginator()
         # TODO: Add recreate button if user removed the wrong job
         scheduler.remove_job(job_id)
         await ctx.send(
