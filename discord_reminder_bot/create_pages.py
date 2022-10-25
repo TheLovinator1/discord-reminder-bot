@@ -4,14 +4,14 @@ from typing import List
 import interactions
 from apscheduler.job import Job
 from apscheduler.triggers.date import DateTrigger
-from interactions import ActionRow, ComponentContext
+from interactions import ActionRow, CommandContext, ComponentContext
 from interactions.ext.paginator import Page, Paginator, RowPosition
 
 from discord_reminder_bot.countdown import calculate
 from discord_reminder_bot.settings import scheduler
 
 
-def create_pages(ctx) -> list[Page]:
+def create_pages(ctx: CommandContext) -> list[Page]:
     """Create pages for the paginator.
 
     Args:
@@ -106,6 +106,11 @@ def create_pages(ctx) -> list[Page]:
                     else:
                         pause_or_unpause_button = pause_button
                     components.insert(1, pause_or_unpause_button)
+
+                # Only allow 25 pages
+                if len(pages) == 25:
+                    ctx.channel.send("I haven't added support for more than 25 reminders. Pull requests welcome 🙃")
+                    return pages
 
                 # Add a page to pages list
                 title = f"{message[:87]}..." if len(message) > 90 else message
