@@ -45,6 +45,7 @@ def create_pages(ctx) -> list[Page]:
                     trigger_text = trigger_value
 
                 message = job.kwargs.get("message")
+                message = f"{message[:1000]}..." if len(message) > 1010 else message
 
                 edit_button = interactions.Button(
                     label="Edit",
@@ -107,7 +108,7 @@ def create_pages(ctx) -> list[Page]:
                     components.insert(1, pause_or_unpause_button)
 
                 # Add a page to pages list
-                title = (message[:95] + '..') if len(message) > 95 else message
+                title = f"{message[:87]}..." if len(message) > 90 else message
                 pages.append(
                     Page(
                         embeds=embed,
