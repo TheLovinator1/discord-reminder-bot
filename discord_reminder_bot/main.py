@@ -149,7 +149,7 @@ async def list_command(ctx: interactions.CommandContext):
         for page in pages:
             return await ctx.send(
                 content="I haven't added support for buttons if there is only one reminder, "
-                "so you need to add another one to edit/delete this one 🙃",
+                        "so you need to add another one to edit/delete this one 🙃",
                 embeds=page.embeds,
             )
 
@@ -192,10 +192,10 @@ async def list_command(ctx: interactions.CommandContext):
 )
 @autodefer()
 async def command_add(
-    ctx: interactions.CommandContext,
-    message_reason: str,
-    message_date: str,
-    different_channel: interactions.Channel | None = None,
+        ctx: interactions.CommandContext,
+        message_reason: str,
+        message_date: str,
+        different_channel: interactions.Channel | None = None,
 ):
     """Add a new reminder. You can add a date and message.
 
@@ -346,21 +346,21 @@ async def command_add(
 )
 @autodefer()
 async def remind_cron(
-    ctx: interactions.CommandContext,
-    message_reason: str,
-    year: int | None = None,
-    month: int | None = None,
-    day: int | None = None,
-    week: int | None = None,
-    day_of_week: str | None = None,
-    hour: int | None = None,
-    minute: int | None = None,
-    second: int | None = None,
-    start_date: str | None = None,
-    end_date: str | None = None,
-    timezone: str | None = None,
-    jitter: int | None = None,
-    different_channel: interactions.Channel | None = None,
+        ctx: interactions.CommandContext,
+        message_reason: str,
+        year: int | None = None,
+        month: int | None = None,
+        day: int | None = None,
+        week: int | None = None,
+        day_of_week: str | None = None,
+        hour: int | None = None,
+        minute: int | None = None,
+        second: int | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        timezone: str | None = None,
+        jitter: int | None = None,
+        different_channel: interactions.Channel | None = None,
 ):
     """Create new cron job. Works like UNIX cron.
 
@@ -499,18 +499,18 @@ async def remind_cron(
 )
 @autodefer()
 async def remind_interval(
-    ctx: interactions.CommandContext,
-    message_reason: str,
-    weeks: int = 0,
-    days: int = 0,
-    hours: int = 0,
-    minutes: int = 0,
-    seconds: int = 0,
-    start_date: str | None = None,
-    end_date: str | None = None,
-    timezone: str | None = None,
-    jitter: int | None = None,
-    different_channel: interactions.Channel | None = None,
+        ctx: interactions.CommandContext,
+        message_reason: str,
+        weeks: int = 0,
+        days: int = 0,
+        hours: int = 0,
+        minutes: int = 0,
+        seconds: int = 0,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        timezone: str | None = None,
+        jitter: int | None = None,
+        different_channel: interactions.Channel | None = None,
 ):
     """Create a new reminder that triggers based on an interval.
 
