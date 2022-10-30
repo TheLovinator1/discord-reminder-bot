@@ -37,12 +37,25 @@ def calculate(job: Job) -> str:
 
     # Get time and date the job will run and calculate how many days,
     # hours and seconds.
-    countdown = trigger_time - datetime.datetime.now(tz=pytz.timezone(config_timezone))
+    return countdown(trigger_time)
+
+
+def countdown(trigger_time: datetime) -> str:
+    """
+    Calculate days, hours and minutes to a date.
+
+    Args:
+        trigger_time: The date.
+
+    Returns:
+        A string with the days, hours and minutes.
+    """
+    countdown_time = trigger_time - datetime.datetime.now(tz=pytz.timezone(config_timezone))
 
     days, hours, minutes = (
-        countdown.days,
-        countdown.seconds // 3600,
-        countdown.seconds // 60 % 60,
+        countdown_time.days,
+        countdown_time.seconds // 3600,
+        countdown_time.seconds // 60 % 60,
     )
 
     # TODO: Explain this.

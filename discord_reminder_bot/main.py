@@ -74,7 +74,8 @@ def parse_time(date_to_parse: str, timezone: str = config_timezone) -> ParsedTim
         return ParsedTime(err=True, err_msg=f"Timezone is possible wrong?: {e}", date_to_parse=date_to_parse)
     except ValueError as e:
         return ParsedTime(err=True, err_msg=f"Failed to parse date. Unknown language: {e}", date_to_parse=date_to_parse)
-
+    except TypeError as e:
+        return ParsedTime(err=True, err_msg=f"{e}", date_to_parse=date_to_parse)
     if not parsed_date:
         return ParsedTime(err=True, err_msg=f"Could not parse the date.", date_to_parse=date_to_parse)
 
@@ -177,9 +178,52 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
     return await ctx.send(msg)
 
 
+@bot.command(name="parse", description="Parse the time from a string", options=[
+    Option(
+        name="time_to_parse",
+        description="The string you want to parse.",
+        type=OptionType.STRING,
+        required=True,
+    ),
+    Option(
+        name="optional_timezone",
+        description="Optional time zone, for example Europe/Stockholm",
+        type=OptionType.STRING,
+        required=False,
+    ),
+])
+async def parse_command(ctx: interactions.CommandContext, time_to_parse: str, optional_timezone: str | None = None):
+    """
+    Find the date and time from a string.
+    Args:
+        ctx: Context of the slash command. Contains the guild, author and message and more.
+        time_to_parse: The string you want to parse.
+        optional_timezone: Optional time zone, for example Europe/Stockholm.
+    """
+    if optional_timezone:
+        parsed = parse_time(date_to_parse=time_to_parse, timezone=optional_timezone)
+    else:
+        parsed = parse_time(date_to_parse=time_to_parse)
+    if parsed.err:
+        return await ctx.send(parsed.err_msg)
+    parsed_date = parsed.parsed_time
+
+    # Locale’s appropriate date and time representation.
+    locale_time = parsed_date.strftime("%c")
+    run_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
+    return await ctx.send(f"**String**: {time_to_parse}\n"
+                          f"**Parsed date**: {parsed_date}\n"
+                          f"**Formatted**: {run_date}\n"
+                          f"**Locale time**: {locale_time}\n")
+
+
 @base_command.subcommand(name="list", description="List, pause, unpause, and remove reminders.")
 async def list_command(ctx: interactions.CommandContext):
-    """List, pause, unpause, and remove reminders."""
+    """List, pause, unpause, and remove reminders.
+
+    Args:
+        ctx: Context of the slash command. Contains the guild, author and message and more.
+    """
 
     pages = create_pages(ctx)
     if not pages:
