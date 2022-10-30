@@ -8,7 +8,7 @@ import interactions
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.triggers.date import DateTrigger
 from dateparser.conf import SettingValidationError
-from interactions import CommandContext, Embed, Option, OptionType
+from interactions import CommandContext, Embed, Option, OptionType, autodefer
 from interactions.ext.paginator import Paginator
 
 from discord_reminder_bot.countdown import calculate
@@ -178,6 +178,7 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
     return await ctx.send(msg)
 
 
+@autodefer()
 @bot.command(name="parse", description="Parse the time from a string", options=[
     Option(
         name="time_to_parse",
@@ -217,6 +218,7 @@ async def parse_command(ctx: interactions.CommandContext, time_to_parse: str, op
                           f"**Locale time**: {locale_time}\n")
 
 
+@autodefer()
 @base_command.subcommand(name="list", description="List, pause, unpause, and remove reminders.")
 async def list_command(ctx: interactions.CommandContext):
     """List, pause, unpause, and remove reminders.
@@ -250,6 +252,7 @@ async def list_command(ctx: interactions.CommandContext):
     await paginator.run()
 
 
+@autodefer()
 @base_command.subcommand(
     name="add",
     description="Set a reminder.",
@@ -324,6 +327,7 @@ async def command_add(
     await ctx.send(message)
 
 
+@autodefer()
 @base_command.subcommand(
     name="cron",
     description="Triggers when current time matches all specified time constraints, similarly to the UNIX cron.",
@@ -494,6 +498,7 @@ async def remind_cron(
     await ctx.send(message)
 
 
+@autodefer()
 @base_command.subcommand(
     name="interval",
     description="Schedules messages to be run periodically, on selected intervals.",
