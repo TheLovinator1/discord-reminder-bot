@@ -1,4 +1,6 @@
+import dataclasses
 import logging
+from datetime import datetime
 from typing import List
 
 import dateparser
@@ -6,7 +8,7 @@ import interactions
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.triggers.date import DateTrigger
 from dateparser.conf import SettingValidationError
-from interactions import CommandContext, Embed, Option, OptionType, autodefer
+from interactions import CommandContext, Embed, Option, OptionType
 from interactions.ext.paginator import Paginator
 
 from discord_reminder_bot.countdown import calculate
@@ -28,6 +30,55 @@ async def base_command(ctx: interactions.CommandContext):
 
     This is the base command for the reminder bot."""
     pass
+
+
+@dataclasses.dataclass
+class ParsedTime:
+    """
+    This is used when parsing a time or date from a string.
+
+    We use this when adding a job with /reminder add.
+
+    Attributes:
+        date_to_parse: The string we parsed the time from.
+        err: True if an error was raised when parsing the time.
+        err_msg: The error message.
+        parsed_time: The parsed time we got from the string.
+    """
+    date_to_parse: str = None
+    err: bool = False
+    err_msg: str = ""
+    parsed_time: datetime = None
+
+
+def parse_time(date_to_parse: str, timezone: str = config_timezone) -> ParsedTime:
+    """Parse the datetime from a string.
+
+    Args:
+        date_to_parse: The string we want to parse.
+        timezone: The timezone to use when parsing. This will be used when typing things like "22:00".
+
+    Returns:
+        ParsedTime
+    """
+    try:
+        parsed_date = dateparser.parse(
+            f"{date_to_parse}",
+            settings={
+                "PREFER_DATES_FROM": "future",
+                "TIMEZONE": f"{timezone}",
+                "TO_TIMEZONE": f"{timezone}",
+            },
+        )
+    except SettingValidationError as e:
+        return ParsedTime(err=True, err_msg=f"Timezone is possible wrong?: {e}", date_to_parse=date_to_parse)
+    except ValueError as e:
+        return ParsedTime(err=True, err_msg=f"Failed to parse date. Unknown language: {e}", date_to_parse=date_to_parse)
+
+    if not parsed_date:
+        return ParsedTime(err=True, err_msg=f"Could not parse the date.", date_to_parse=date_to_parse)
+
+    return ParsedTime(parsed_time=parsed_date, date_to_parse=date_to_parse)
 
 
 @bot.modal("edit_modal")
@@ -84,34 +135,22 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
     msg = f"Modified job {job_id}.\n"
     if old_date is not None:
         if new_date:
-            try:
-                parsed_date = dateparser.parse(
-                    f"{new_date}",
-                    settings={
-                        "PREFER_DATES_FROM": "future",
-                        "TIMEZONE": f"{config_timezone}",
-                        "TO_TIMEZONE": f"{config_timezone}",
-                    },
-                )
-            except SettingValidationError as e:
-                return await ctx.send(
-                    f"Timezone is possible wrong?: {e}", ephemeral=True
-                )
-            except ValueError as e:
-                return await ctx.send(
-                    f"Failed to parse date. Unknown language: {e}", ephemeral=True
-                )
-
-            if not parsed_date:
-                return await ctx.send("Could not parse the date.", ephemeral=True)
-
+            # Parse the time/date we got from the command.
+            parsed = parse_time(date_to_parse=new_date)
+            if parsed.err:
+                return await ctx.send(parsed.err_msg)
+            parsed_date = parsed.parsed_time
             date_new = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
 
             new_job = scheduler.reschedule_job(job.id, run_date=date_new)
             new_time = calculate(new_job)
 
+            # TODO: old_date and date_new has different precision.
+            # Old date: 2032-09-18 00:07
+            # New date: 2032-09-18 00:07:13
             msg += (
-                f"**Old date**: {old_date}\n**New date**: {date_new} (in {new_time})\n"
+                f"**Old date**: {old_date}\n"
+                f"**New date**: {date_new} (in {new_time})\n"
             )
 
     if old_message is not None:
@@ -205,31 +244,17 @@ async def command_add(
         message_reason: The message the bot should write when the reminder is triggered.
         different_channel: The channel the reminder should be sent to.
     """
-    try:
-        parsed_date = dateparser.parse(
-            f"{message_date}",
-            settings={
-                "PREFER_DATES_FROM": "future",
-                "TIMEZONE": f"{config_timezone}",
-                "TO_TIMEZONE": f"{config_timezone}",
-            },
-        )
-    except SettingValidationError as e:
-        return await ctx.send(f"Timezone is possible wrong?: {e}", ephemeral=True)
-    except ValueError as e:
-        return await ctx.send(
-            f"Failed to parse date. Unknown language: {e}", ephemeral=True
-        )
-    if not parsed_date:
-        return await ctx.send("Could not parse the date.", ephemeral=True)
-
-    channel_id = int(ctx.channel_id)
+    # Parse the time/date we got from the command.
+    parsed = parse_time(date_to_parse=message_date)
+    if parsed.err:
+        return await ctx.send(parsed.err_msg)
+    parsed_date = parsed.parsed_time
+    run_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
 
     # If we should send the message to a different channel
+    channel_id = int(ctx.channel_id)
     if different_channel:
         channel_id = int(different_channel.id)
-
-    run_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
     try:
         reminder = scheduler.add_job(
             send_to_discord,
@@ -497,7 +522,6 @@ async def remind_cron(
         ),
     ],
 )
-@autodefer()
 async def remind_interval(
         ctx: interactions.CommandContext,
         message_reason: str,
