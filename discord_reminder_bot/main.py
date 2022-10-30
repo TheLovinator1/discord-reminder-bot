@@ -31,17 +31,16 @@ async def base_command(ctx: interactions.CommandContext):
 
 
 @bot.modal("edit_modal")
-@autodefer()
 async def modal_response_edit(ctx: CommandContext, *response: str):
-    """Edit a reminder.
+    """This is what gets triggerd when the user clicks the Edit button in /reminder list.
 
     Args:
-        ctx: The context.
+        ctx: Context of the slash command. Contains the guild, author and message and more.
 
     Returns:
         A Discord message with changes.
     """
-    job_id = ctx.message.embeds[0].title  # type: ignore
+    job_id = ctx.message.embeds[0].title
     old_date = None
     old_message = None
 
@@ -49,7 +48,9 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
         job = scheduler.get_job(job_id)
     except JobLookupError as e:
         return await ctx.send(
-            f"Failed to get the job after the modal.\nJob ID: {job_id}\nError: {e}",
+            f"Failed to get the job after the modal.\n"
+            f"Job ID: {job_id}\n"
+            f"Error: {e}",
             ephemeral=True,
         )
 
@@ -66,9 +67,9 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
         new_message = response[0]
         new_date = None
 
-    message_embeds: List[Embed] = ctx.message.embeds  # type: ignore
+    message_embeds: List[Embed] = ctx.message.embeds
     for embeds in message_embeds:
-        for field in embeds.fields:  # type: ignore
+        for field in embeds.fields:
             if field.name == "**Channel:**":
                 continue
             elif field.name == "**Message:**":
@@ -127,7 +128,9 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
             )
         except JobLookupError as e:
             return await ctx.send(
-                f"Failed to modify the job.\nJob ID: {job_id}\nError: {e}",
+                f"Failed to modify the job.\n"
+                f"Job ID: {job_id}\n"
+                f"Error: {e}",
                 ephemeral=True,
             )
         msg += f"**Old message**: {old_message}\n**New message**: {new_message}\n"
@@ -135,9 +138,7 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
     return await ctx.send(msg)
 
 
-@base_command.subcommand(
-    name="list", description="List, pause, unpause, and remove reminders."
-)
+@base_command.subcommand(name="list", description="List, pause, unpause, and remove reminders.")
 async def list_command(ctx: interactions.CommandContext):
     """List, pause, unpause, and remove reminders."""
 
@@ -190,7 +191,6 @@ async def list_command(ctx: interactions.CommandContext):
         ),
     ],
 )
-@autodefer()
 async def command_add(
         ctx: interactions.CommandContext,
         message_reason: str,
@@ -248,7 +248,8 @@ async def command_add(
         f"Hello {ctx.member.name},"
         f" I will notify you in <#{channel_id}> at:\n"
         f"**{run_date}** (in {calculate(reminder)})\n"
-        f"With the message:\n**{message_reason}**."
+        f"With the message:\n"
+        f"**{message_reason}**."
     )
 
     await ctx.send(message)
@@ -344,7 +345,6 @@ async def command_add(
         ),
     ],
 )
-@autodefer()
 async def remind_cron(
         ctx: interactions.CommandContext,
         message_reason: str,
@@ -576,11 +576,11 @@ async def send_to_discord(channel_id: int, message: str, author_id: int):
     """
     # TODO: Check if channel exists.
     # TODO: Send message to webhook if channel is not found.
-    channel = await interactions.get(  # type: ignore
+    channel = await interactions.get(
         bot,
         interactions.Channel,
         object_id=int(channel_id),
-        force=interactions.Force.HTTP,  # type: ignore
+        force=interactions.Force.HTTP,
     )
 
     await channel.send(f"<@{author_id}>\n{message}")
