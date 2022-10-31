@@ -125,9 +125,9 @@ fasttext = ["fasttext"]
 langdetect = ["langdetect"]
 
 [[package]]
-name = "dinteractions-Paginator"
+name = "dinteractions_Paginator"
 version = "2.1.0"
-description = "Official interactions.py paginator"
+description = ""
 category = "main"
 optional = false
 python-versions = "*"
@@ -604,7 +604,7 @@ dateparser = [
     {file = "dateparser-1.1.2-py2.py3-none-any.whl", hash = "sha256:d31659dc806a7d88e2b510b2c74f68b525ae531f145c62a57a99bd616b7f90cf"},
     {file = "dateparser-1.1.2.tar.gz", hash = "sha256:3821bf191f95b2658c4abd91571c09821ce7a2bc179bf6cefd8b4515c3ccf9ef"},
 ]
-dinteractions-Paginator = []
+dinteractions_Paginator = []
 discord-py-interactions = []
 discord-webhook = [
     {file = "discord-webhook-0.17.0.tar.gz", hash = "sha256:bb47e5fc83f73614d7b2a3764b84359b52c96a94aadf3302bc3c067dd21b43cc"},
