@@ -5,9 +5,12 @@ from typing import List
 
 import dateparser
 import interactions
+from apscheduler import events
+from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.triggers.date import DateTrigger
 from dateparser.conf import SettingValidationError
+from discord_webhook import DiscordWebhook
 from interactions import CommandContext, Embed, Option, OptionType, autodefer
 from interactions.ext.paginator import Paginator
 
@@ -19,9 +22,25 @@ from discord_reminder_bot.settings import (
     log_level,
     scheduler,
     sqlite_location,
+    webhook_url
 )
 
 bot = interactions.Client(token=bot_token)
+
+
+def send_webhook(url=webhook_url, message: str = "discord-reminder-bot: Empty message."):
+    """
+    Send a webhook to Discord.
+
+    Args:
+        url: Our webhook url, defaults to the one from settings.
+        message: The message that will be sent to Discord.
+    """
+    if not url:
+        print("ERROR: Tried to send a webhook but you have no webhook url configured.")
+        return
+    webhook = DiscordWebhook(url=url, content=message, rate_limit_retry=True)
+    webhook.execute()
 
 
 @bot.command(name="remind")
@@ -639,6 +658,19 @@ async def remind_interval(
     await ctx.send(message)
 
 
+def my_listener(event):
+    """This gets called when something in APScheduler happens."""
+    if event.code == events.EVENT_JOB_MISSED:
+        # TODO: Is it possible to get the message?
+        scheduled_time = event.scheduled_run_time.strftime("%Y-%m-%d %H:%M:%S")
+        msg = f"Job {event.job_id} was missed! Was scheduled at {scheduled_time}"
+        send_webhook(message=msg)
+
+    if event.exception:
+        send_webhook(f"discord-reminder-bot failed to send message to Discord\n"
+                     f"{event}")
+
+
 async def send_to_discord(channel_id: int, message: str, author_id: int):
     """Send a message to Discord.
 
@@ -647,8 +679,7 @@ async def send_to_discord(channel_id: int, message: str, author_id: int):
         message: The message.
         author_id: User we should ping.
     """
-    # TODO: Check if channel exists.
-    # TODO: Send message to webhook if channel is not found.
+
     channel = await interactions.get(
         bot,
         interactions.Channel,
@@ -669,8 +700,8 @@ def start():
         f"config_timezone = {config_timezone}\n"
         f"log_level = {log_level}"
     )
-
     scheduler.start()
+    scheduler.add_listener(my_listener, EVENT_JOB_MISSED | EVENT_JOB_ERROR)
     bot.start()
 
 
