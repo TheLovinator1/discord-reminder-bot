@@ -294,6 +294,18 @@ async def list_command(ctx: interactions.CommandContext):
             type=OptionType.CHANNEL,
             required=False,
         ),
+        Option(
+            name="send_dm_to_user",
+            description="Send message to a user via DM instead of a channel. Set both_dm_and_channel to send both.",
+            type=OptionType.USER,
+            required=False,
+        ),
+        Option(
+            name="both_dm_and_channel",
+            description="Send both DM and message to the channel, needs send_dm_to_user to be set if you want both.",
+            type=OptionType.BOOLEAN,
+            required=False,
+        ),
     ],
 )
 async def command_add(
@@ -301,6 +313,8 @@ async def command_add(
         message_reason: str,
         message_date: str,
         different_channel: interactions.Channel | None = None,
+        send_dm_to_user: interactions.User | None = None,
+        both_dm_and_channel: bool | None = None,
 ):
     """Add a new reminder. You can add a date and message.
 
@@ -309,6 +323,8 @@ async def command_add(
         message_date: The parsed date and time when you want to get reminded.
         message_reason: The message the bot should write when the reminder is triggered.
         different_channel: The channel the reminder should be sent to.
+        send_dm_to_user: Send the message to the user via DM instead of the channel.
+        both_dm_and_channel: If we should send both a DM and a message to the channel. Works with different_channel.
     """
     # Parse the time/date we got from the command.
     parsed = parse_time(date_to_parse=message_date)
@@ -321,29 +337,64 @@ async def command_add(
     channel_id = int(ctx.channel_id)
     if different_channel:
         channel_id = int(different_channel.id)
+
+    dm_message = ""
+    where_and_when = "You should never see this message. Please report this to the bot owner if you do. :-)"
+    should_send_channel_reminder = True
     try:
-        reminder = scheduler.add_job(
-            send_to_discord,
-            run_date=run_date,
-            kwargs={
-                "channel_id": channel_id,
-                "message": message_reason,
-                "author_id": ctx.member.id,
-            },
-        )
+        if send_dm_to_user:
+            dm_reminder = scheduler.add_job(
+                send_to_user,
+                run_date=run_date,
+                kwargs={
+                    "user_id": int(send_dm_to_user.id),
+                    "guild_id": int(ctx.guild_id),
+                    "message": message_reason,
+                },
+            )
+            dm_message = f"and a DM to {send_dm_to_user.username} "
+            if not both_dm_and_channel:
+                # If we should send the message to the channel too instead of just a DM.
+                should_send_channel_reminder = False
+                where_and_when = (f"I will send a DM to {send_dm_to_user.username} at:\n"
+                                  f"**{run_date}** (in {calculate(dm_reminder)})\n")
+
+        if should_send_channel_reminder:
+            reminder = scheduler.add_job(
+                send_to_discord,
+                run_date=run_date,
+                kwargs={
+                    "channel_id": channel_id,
+                    "message": message_reason,
+                    "author_id": ctx.member.id,
+                },
+            )
+            where_and_when = (f"I will notify you in <#{channel_id}> {dm_message}at:\n"
+                              f"**{run_date}** (in {calculate(reminder)})\n")
+
     except ValueError as e:
         await ctx.send(str(e), ephemeral=True)
         return
 
     message = (
-        f"Hello {ctx.member.name},"
-        f" I will notify you in <#{channel_id}> at:\n"
-        f"**{run_date}** (in {calculate(reminder)})\n"
+        f"Hello {ctx.member.name}, "
+        f"{where_and_when}"
         f"With the message:\n"
         f"**{message_reason}**."
     )
-
     await ctx.send(message)
+
+
+async def send_to_user(user_id: int, guild_id: int, message: str):
+    """Send a message to a user via DM.
+
+    Args:
+        user_id: The user ID to send the message to.
+        guild_id: The guild ID to get the user from.
+        message: The message to send.
+    """
+    member = await interactions.get(bot, interactions.Member, parent_id=guild_id, object_id=user_id, force="http")
+    await member.send(message)
 
 
 @autodefer()
@@ -435,6 +486,18 @@ async def command_add(
             type=OptionType.CHANNEL,
             required=False,
         ),
+        Option(
+            name="send_dm_to_user",
+            description="Send message to a user via DM instead of a channel. Set both_dm_and_channel to send both.",
+            type=OptionType.USER,
+            required=False,
+        ),
+        Option(
+            name="both_dm_and_channel",
+            description="Send both DM and message to the channel, needs send_dm_to_user to be set if you want both.",
+            type=OptionType.BOOLEAN,
+            required=False,
+        ),
     ],
 )
 async def remind_cron(
@@ -453,6 +516,8 @@ async def remind_cron(
         timezone: str | None = None,
         jitter: int | None = None,
         different_channel: interactions.Channel | None = None,
+        send_dm_to_user: interactions.User | None = None,
+        both_dm_and_channel: bool | None = None,
 ):
     """Create new cron job. Works like UNIX cron.
 
@@ -475,43 +540,80 @@ async def remind_cron(
         timezone: Time zone to use for the date/time calculations Defaults to scheduler timezone.
         jitter: Delay the job execution by jitter seconds at most.
         different_channel: Send the messages to a different channel.
+        send_dm_to_user: Send the message to the user via DM instead of the channel.
+        both_dm_and_channel: If we should send both a DM and a message to the channel.
     """
-    channel_id = int(ctx.channel_id)
-
     # If we should send the message to a different channel
+    channel_id = int(ctx.channel_id)
     if different_channel:
         channel_id = int(different_channel.id)
+
+    dm_message = ""
+    where_and_when = "You should never see this message. Please report this to the bot owner if you do. :-)"
+    should_send_channel_reminder = True
     try:
-        job = scheduler.add_job(
-            send_to_discord,
-            "cron",
-            year=year,
-            month=month,
-            day=day,
-            week=week,
-            day_of_week=day_of_week,
-            hour=hour,
-            minute=minute,
-            second=second,
-            start_date=start_date,
-            end_date=end_date,
-            timezone=timezone,
-            jitter=jitter,
-            kwargs={
-                "channel_id": channel_id,
-                "message": message_reason,
-                "author_id": ctx.member.id,
-            },
-        )
+        if send_dm_to_user:
+            dm_reminder = scheduler.add_job(
+                send_to_user,
+                "cron",
+                year=year,
+                month=month,
+                day=day,
+                week=week,
+                day_of_week=day_of_week,
+                hour=hour,
+                minute=minute,
+                second=second,
+                start_date=start_date,
+                end_date=end_date,
+                timezone=timezone,
+                jitter=jitter,
+                kwargs={
+                    "user_id": int(send_dm_to_user.id),
+                    "guild_id": int(ctx.guild_id),
+                    "message": message_reason,
+                },
+            )
+            dm_message = f" and a DM to {send_dm_to_user.username}"
+            if not both_dm_and_channel:
+                # If we should send the message to the channel too instead of just a DM.
+                should_send_channel_reminder = False
+                where_and_when = (f"I will send a DM to {send_dm_to_user.username} at:\n"
+                                  f"First run in {calculate(dm_reminder)} with the message:\n")
+
+        if should_send_channel_reminder:
+            job = scheduler.add_job(
+                send_to_discord,
+                "cron",
+                year=year,
+                month=month,
+                day=day,
+                week=week,
+                day_of_week=day_of_week,
+                hour=hour,
+                minute=minute,
+                second=second,
+                start_date=start_date,
+                end_date=end_date,
+                timezone=timezone,
+                jitter=jitter,
+                kwargs={
+                    "channel_id": channel_id,
+                    "message": message_reason,
+                    "author_id": ctx.member.id,
+                },
+            )
+            where_and_when = (f" I will send messages to <#{channel_id}>{dm_message}.\n"
+                              f"First run in {calculate(job)} with the message:\n")
+
     except ValueError as e:
         await ctx.send(str(e), ephemeral=True)
         return
 
     # TODO: Add what arguments we used in the job to the message
     message = (
-        f"Hello {ctx.member.name},"
-        f" I will send messages to <#{channel_id}>.\n"
-        f"First run in {calculate(job)} with the message:\n"
+        f"Hello {ctx.member.name}, "
+        f"{where_and_when}"
         f"**{message_reason}**."
     )
     await ctx.send(message)
@@ -588,6 +690,18 @@ async def remind_cron(
             type=OptionType.CHANNEL,
             required=False,
         ),
+        Option(
+            name="send_dm_to_user",
+            description="Send message to a user via DM instead of a channel. Set both_dm_and_channel to send both.",
+            type=OptionType.USER,
+            required=False,
+        ),
+        Option(
+            name="both_dm_and_channel",
+            description="Send both DM and message to the channel, needs send_dm_to_user to be set if you want both.",
+            type=OptionType.BOOLEAN,
+            required=False,
+        ),
     ],
 )
 async def remind_interval(
@@ -603,6 +717,8 @@ async def remind_interval(
         timezone: str | None = None,
         jitter: int | None = None,
         different_channel: interactions.Channel | None = None,
+        send_dm_to_user: interactions.User | None = None,
+        both_dm_and_channel: bool | None = None,
 ):
     """Create a new reminder that triggers based on an interval.
 
@@ -619,39 +735,73 @@ async def remind_interval(
         timezone: Time zone to use for the date/time calculations.
         jitter: Delay the job execution by jitter seconds at most.
         different_channel: Send the messages to a different channel.
+        send_dm_to_user: Send the message to the user via DM instead of the channel.
+        both_dm_and_channel: If we should send both a DM and a message to the channel.
     """
-    channel_id = int(ctx.channel_id)
-
     # If we should send the message to a different channel
+    channel_id = int(ctx.channel_id)
     if different_channel:
         channel_id = int(different_channel.id)
+
+    dm_message = ""
+    where_and_when = "You should never see this message. Please report this to the bot owner if you do. :-)"
+    should_send_channel_reminder = True
     try:
-        job = scheduler.add_job(
-            send_to_discord,
-            "interval",
-            weeks=weeks,
-            days=days,
-            hours=hours,
-            minutes=minutes,
-            seconds=seconds,
-            start_date=start_date,
-            end_date=end_date,
-            timezone=timezone,
-            jitter=jitter,
-            kwargs={
-                "channel_id": channel_id,
-                "message": message_reason,
-                "author_id": ctx.member.id,
-            },
-        )
+        if send_dm_to_user:
+            dm_reminder = scheduler.add_job(
+                send_to_user,
+                "interval",
+                weeks=weeks,
+                days=days,
+                hours=hours,
+                minutes=minutes,
+                seconds=seconds,
+                start_date=start_date,
+                end_date=end_date,
+                timezone=timezone,
+                jitter=jitter,
+                kwargs={
+                    "user_id": int(send_dm_to_user.id),
+                    "guild_id": int(ctx.guild_id),
+                    "message": message_reason,
+                },
+            )
+            dm_message = f"and a DM to {send_dm_to_user.username} "
+            if not both_dm_and_channel:
+                # If we should send the message to the channel too instead of just a DM.
+                should_send_channel_reminder = False
+                where_and_when = (f"I will send a DM to {send_dm_to_user.username} at:\n"
+                                  f"First run in {calculate(dm_reminder)} with the message:\n")
+        if should_send_channel_reminder:
+            job = scheduler.add_job(
+                send_to_discord,
+                "interval",
+                weeks=weeks,
+                days=days,
+                hours=hours,
+                minutes=minutes,
+                seconds=seconds,
+                start_date=start_date,
+                end_date=end_date,
+                timezone=timezone,
+                jitter=jitter,
+                kwargs={
+                    "channel_id": channel_id,
+                    "message": message_reason,
+                    "author_id": ctx.member.id,
+                },
+            )
+            where_and_when = (f" I will send messages to <#{channel_id}>{dm_message}.\n"
+                              f"First run in {calculate(job)} with the message:\n")
+
     except ValueError as e:
         await ctx.send(str(e), ephemeral=True)
         return
 
     # TODO: Add what arguments we used in the job to the message
     message = (
-        f"Hello {ctx.member.name}, I will send messages to <#{channel_id}>.\n"
-        f"First run in {calculate(job)} with the message:\n"
+        f"Hello {ctx.member.name}\n"
+        f"{where_and_when}"
         f"**{message_reason}**."
     )
 
