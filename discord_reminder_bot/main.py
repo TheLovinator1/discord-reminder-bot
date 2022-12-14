@@ -45,9 +45,7 @@ def send_webhook(url=webhook_url, message: str = "discord-reminder-bot: Empty me
 
 @bot.command(name="remind")
 async def base_command(ctx: interactions.CommandContext):
-    """This description isn't seen in the UI (yet?)
-
-    This is the base command for the reminder bot."""
+    """This is the base command for the reminder bot."""
     pass
 
 
