@@ -25,10 +25,12 @@ def create_pages(ctx: CommandContext) -> list[Page]:
     jobs: List[Job] = scheduler.get_jobs()
     for job in jobs:
         channel_id = job.kwargs.get("channel_id")
+        guild_id = job.kwargs.get("guild_id")
+
         # Only add reminders from channels in the server we run "/reminder list" in
         # Check if channel is in the Discord server, if not, skip it.
         for channel in ctx.guild.channels:
-            if int(channel.id) == channel_id:
+            if int(channel.id) == channel_id or ctx.guild_id == guild_id:
                 if type(job.trigger) is DateTrigger:
                     # Get trigger time for normal reminders
                     trigger_time = job.trigger.run_date
@@ -106,11 +108,6 @@ def create_pages(ctx: CommandContext) -> list[Page]:
                     else:
                         pause_or_unpause_button = pause_button
                     components.insert(1, pause_or_unpause_button)
-
-                # Only allow 25 pages
-                if len(pages) == 25:
-                    ctx.channel.send("I haven't added support for more than 25 reminders. Pull requests welcome 🙃")
-                    return pages
 
                 # Add a page to pages list
                 title = f"{message[:87]}..." if len(message) > 90 else message

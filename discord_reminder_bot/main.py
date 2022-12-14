@@ -348,7 +348,7 @@ async def command_add(
                 run_date=run_date,
                 kwargs={
                     "user_id": int(send_dm_to_user.id),
-                    "guild_id": int(ctx.guild_id),
+                    "guild_id": ctx.guild_id,
                     "message": message_reason,
                 },
             )
@@ -570,7 +570,7 @@ async def remind_cron(
                 jitter=jitter,
                 kwargs={
                     "user_id": int(send_dm_to_user.id),
-                    "guild_id": int(ctx.guild_id),
+                    "guild_id": ctx.guild_id,
                     "message": message_reason,
                 },
             )
@@ -762,7 +762,7 @@ async def remind_interval(
                 jitter=jitter,
                 kwargs={
                     "user_id": int(send_dm_to_user.id),
-                    "guild_id": int(ctx.guild_id),
+                    "guild_id": ctx.guild_id,
                     "message": message_reason,
                 },
             )
