@@ -1,21 +1,18 @@
-import dataclasses
 import logging
-from datetime import datetime
 from typing import List
 
-import dateparser
 import interactions
 from apscheduler import events
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.triggers.date import DateTrigger
-from dateparser.conf import SettingValidationError
 from discord_webhook import DiscordWebhook
 from interactions import CommandContext, Embed, Option, OptionType, autodefer
 from interactions.ext.paginator import Paginator
 
 from discord_reminder_bot.countdown import calculate
 from discord_reminder_bot.create_pages import create_pages
+from discord_reminder_bot.parse import parse_time
 from discord_reminder_bot.settings import (
     bot_token,
     config_timezone,
@@ -47,56 +44,6 @@ def send_webhook(url=webhook_url, message: str = "discord-reminder-bot: Empty me
 async def base_command(ctx: interactions.CommandContext):
     """This is the base command for the reminder bot."""
     pass
-
-
-@dataclasses.dataclass
-class ParsedTime:
-    """
-    This is used when parsing a time or date from a string.
-
-    We use this when adding a job with /reminder add.
-
-    Attributes:
-        date_to_parse: The string we parsed the time from.
-        err: True if an error was raised when parsing the time.
-        err_msg: The error message.
-        parsed_time: The parsed time we got from the string.
-    """
-    date_to_parse: str = None
-    err: bool = False
-    err_msg: str = ""
-    parsed_time: datetime = None
-
-
-def parse_time(date_to_parse: str, timezone: str = config_timezone) -> ParsedTime:
-    """Parse the datetime from a string.
-
-    Args:
-        date_to_parse: The string we want to parse.
-        timezone: The timezone to use when parsing. This will be used when typing things like "22:00".
-
-    Returns:
-        ParsedTime
-    """
-    try:
-        parsed_date = dateparser.parse(
-            f"{date_to_parse}",
-            settings={
-                "PREFER_DATES_FROM": "future",
-                "TIMEZONE": f"{timezone}",
-                "TO_TIMEZONE": f"{timezone}",
-            },
-        )
-    except SettingValidationError as e:
-        return ParsedTime(err=True, err_msg=f"Timezone is possible wrong?: {e}", date_to_parse=date_to_parse)
-    except ValueError as e:
-        return ParsedTime(err=True, err_msg=f"Failed to parse date. Unknown language: {e}", date_to_parse=date_to_parse)
-    except TypeError as e:
-        return ParsedTime(err=True, err_msg=f"{e}", date_to_parse=date_to_parse)
-    if not parsed_date:
-        return ParsedTime(err=True, err_msg=f"Could not parse the date.", date_to_parse=date_to_parse)
-
-    return ParsedTime(parsed_time=parsed_date, date_to_parse=date_to_parse)
 
 
 @bot.modal("edit_modal")
