@@ -7,9 +7,8 @@ from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.triggers.date import DateTrigger
 from discord_webhook import DiscordWebhook
-from interactions import CommandContext, Embed, Option, OptionType, autodefer
+from interactions import CommandContext, Embed, OptionType, autodefer
 from interactions.ext.paginator import Paginator
-
 from discord_reminder_bot.countdown import calculate
 from discord_reminder_bot.create_pages import create_pages
 from discord_reminder_bot.parse import parse_time
@@ -143,20 +142,9 @@ async def modal_response_edit(ctx: CommandContext, *response: str):
 
 
 @autodefer()
-@bot.command(name="parse", description="Parse the time from a string", options=[
-    Option(
-        name="time_to_parse",
-        description="The string you want to parse.",
-        type=OptionType.STRING,
-        required=True,
-    ),
-    Option(
-        name="optional_timezone",
-        description="Optional time zone, for example Europe/Stockholm",
-        type=OptionType.STRING,
-        required=False,
-    ),
-])
+@bot.command(name="parse", description="Parse the time from a string")
+@interactions.option(name="time_to_parse", description="The string you want to parse.", type=OptionType.STRING, required=True)
+@interactions.option(name="optional_timezone", description="Optional time zone, for example Europe/Stockholm", type=OptionType.STRING, required=False)
 async def parse_command(ctx: interactions.CommandContext, time_to_parse: str, optional_timezone: str | None = None):
     """
     Find the date and time from a string.
@@ -217,42 +205,12 @@ async def list_command(ctx: interactions.CommandContext):
 
 
 @autodefer()
-@base_command.subcommand(
-    name="add",
-    description="Set a reminder.",
-    options=[
-        Option(
-            name="message_reason",
-            description="The message to send.",
-            type=OptionType.STRING,
-            required=True,
-        ),
-        Option(
-            name="message_date",
-            description="The date to send the message.",
-            type=OptionType.STRING,
-            required=True,
-        ),
-        Option(
-            name="different_channel",
-            description="The channel to send the message to.",
-            type=OptionType.CHANNEL,
-            required=False,
-        ),
-        Option(
-            name="send_dm_to_user",
-            description="Send message to a user via DM instead of a channel. Set both_dm_and_channel to send both.",
-            type=OptionType.USER,
-            required=False,
-        ),
-        Option(
-            name="both_dm_and_channel",
-            description="Send both DM and message to the channel, needs send_dm_to_user to be set if you want both.",
-            type=OptionType.BOOLEAN,
-            required=False,
-        ),
-    ],
-)
+@base_command.subcommand(name="add", description="Set a reminder.")
+@interactions.option(name="message_reason", description="The message I'm going to send you.", type=OptionType.STRING, required=True)
+@interactions.option(name="message_date", description="The date to send the message.", type=OptionType.STRING, required=True)
+@interactions.option(name="different_channel", description="The channel to send the message to.", type=OptionType.CHANNEL, required=False)
+@interactions.option(name="send_dm_to_user", description="Send message to a user via DM instead of a channel. Set both_dm_and_channel to send both.", type=OptionType.USER, required=False) # noqa
+@interactions.option(name="both_dm_and_channel", description="Send both DM and message to the channel, needs send_dm_to_user to be set if you want both.", type=OptionType.BOOLEAN, required=False) # noqa
 async def command_add(
         ctx: interactions.CommandContext,
         message_reason: str,
@@ -346,105 +304,23 @@ async def send_to_user(user_id: int, guild_id: int, message: str):
 @base_command.subcommand(
     name="cron",
     description="Triggers when current time matches all specified time constraints, similarly to the UNIX cron.",
-    options=[
-        Option(
-            name="message_reason",
-            description="The message I'm going to send you.",
-            type=OptionType.STRING,
-            required=True,
-        ),
-        Option(
-            name="year",
-            description="4-digit year. (Example: 2042)",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="month",
-            description="Month (1-12)",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="day",
-            description="Day of month (1-31)",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="week",
-            description="ISO week (1-53)",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="day_of_week",
-            description="Number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun). The first weekday is monday.",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="hour",
-            description="Hour (0-23)",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="minute",
-            description="Minute (0-59)",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="second",
-            description="Second (0-59)",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="start_date",
-            description="Earliest possible time to trigger on, in the ISO 8601 format. (Example: 2010-10-10 09:30:00)",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="end_date",
-            description="Latest possible time to trigger on, in the ISO 8601 format. (Example: 2010-10-10 09:30:00)",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="timezone",
-            description="Time zone to use for the date/time calculations (defaults to scheduler timezone)",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="jitter",
-            description="Delay the job execution by x seconds at most. Adds a random component to the execution time.",
-            type=OptionType.INTEGER,
-            required=False,
-        ),
-        Option(
-            name="different_channel",
-            description="Send the messages to a different channel.",
-            type=OptionType.CHANNEL,
-            required=False,
-        ),
-        Option(
-            name="send_dm_to_user",
-            description="Send message to a user via DM instead of a channel. Set both_dm_and_channel to send both.",
-            type=OptionType.USER,
-            required=False,
-        ),
-        Option(
-            name="both_dm_and_channel",
-            description="Send both DM and message to the channel, needs send_dm_to_user to be set if you want both.",
-            type=OptionType.BOOLEAN,
-            required=False,
-        ),
-    ],
 )
+@interactions.option(name="message_reason", description="The message I'm going to send you.", type=OptionType.STRING, required=True)
+@interactions.option(name="year", description="4-digit year. (Example: 2042)", type=OptionType.STRING, required=False)
+@interactions.option(name="month", description="Month. (1-12)", type=OptionType.STRING, required=False)
+@interactions.option(name="day", description="Day of month (1-31)", type=OptionType.STRING, required=False)
+@interactions.option(name="week", description="ISO week (1-53)", type=OptionType.STRING, required=False)
+@interactions.option(name="day_of_week", description="Number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun).", type=OptionType.STRING, required=False) # noqa
+@interactions.option(name="hour", description="Hour (0-23)", type=OptionType.STRING, required=False)
+@interactions.option(name="minute", description="Minute (0-59)", type=OptionType.STRING, required=False)
+@interactions.option(name="second", description="Second (0-59)", type=OptionType.STRING, required=False)
+@interactions.option(name="start_date", description="Earliest possible time to trigger on, in the ISO 8601 format. (Example: 2010-10-10 09:30:00)", type=OptionType.STRING, required=False) # noqa
+@interactions.option(name="end_date", description="Latest possible time to trigger on, in the ISO 8601 format. (Example: 2010-10-10 09:30:00)", type=OptionType.STRING, required=False) # noqa
+@interactions.option(name="timezone", description="Time zone to use for the date/time calculations (defaults to scheduler timezone)", type=OptionType.STRING, required=False) # noqa
+@interactions.option(name="jitter", description="Delay the job execution by x seconds at most. Adds a random component to the execution time.", type=OptionType.INTEGER, required=False) # noqa
+@interactions.option(name="different_channel", description="Send the messages to a different channel.", type=OptionType.CHANNEL, required=False) # noqa
+@interactions.option(name="send_dm_to_user", description="Send message to a user via DM instead of a channel. Set both_dm_and_channel to send both.", type=OptionType.USER, required=False) # noqa
+@interactions.option(name="both_dm_and_channel", description="Send both DM and message to the channel, needs send_dm_to_user to be set if you want both.", type=OptionType.BOOLEAN, required=False) # noqa
 async def remind_cron(
         ctx: interactions.CommandContext,
         message_reason: str,
@@ -564,91 +440,20 @@ async def remind_cron(
     await ctx.send(message)
 
 
-@autodefer()
-@base_command.subcommand(
-    name="interval",
-    description="Schedules messages to be run periodically, on selected intervals.",
-    options=[
-        Option(
-            name="message_reason",
-            description="The message I'm going to send you.",
-            type=OptionType.STRING,
-            required=True,
-        ),
-        Option(
-            name="weeks",
-            description="Number of weeks to wait",
-            type=OptionType.INTEGER,
-            required=False,
-        ),
-        Option(
-            name="days",
-            description="Number of days to wait",
-            type=OptionType.INTEGER,
-            required=False,
-        ),
-        Option(
-            name="hours",
-            description="Number of hours to wait",
-            type=OptionType.INTEGER,
-            required=False,
-        ),
-        Option(
-            name="minutes",
-            description="Number of minutes to wait",
-            type=OptionType.INTEGER,
-            required=False,
-        ),
-        Option(
-            name="seconds",
-            description="Number of seconds to wait.",
-            type=OptionType.INTEGER,
-            required=False,
-        ),
-        Option(
-            name="start_date",
-            description="When to start, in the ISO 8601 format. (Example: 2010-10-10 09:30:00)",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="end_date",
-            description="When to stop, in the ISO 8601 format. (Example: 2014-06-15 11:00:00)",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="timezone",
-            description="Time zone to use for the date/time calculations",
-            type=OptionType.STRING,
-            required=False,
-        ),
-        Option(
-            name="jitter",
-            description="Delay the job execution by x seconds at most. Adds a random component to the execution time.",
-            type=OptionType.INTEGER,
-            required=False,
-        ),
-        Option(
-            name="different_channel",
-            description="Send the messages to a different channel.",
-            type=OptionType.CHANNEL,
-            required=False,
-        ),
-        Option(
-            name="send_dm_to_user",
-            description="Send message to a user via DM instead of a channel. Set both_dm_and_channel to send both.",
-            type=OptionType.USER,
-            required=False,
-        ),
-        Option(
-            name="both_dm_and_channel",
-            description="Send both DM and message to the channel, needs send_dm_to_user to be set if you want both.",
-            type=OptionType.BOOLEAN,
-            required=False,
-        ),
-    ],
-)
+@base_command.subcommand(name="interval", description="Schedules messages to be run periodically, on selected intervals.")
+@interactions.option(name="message_reason", description="The message I'm going to send you.", type=OptionType.STRING, required=True)
+@interactions.option(name="weeks", description="Number of weeks to wait", type=OptionType.INTEGER, required=False)
+@interactions.option(name="days", description="Number of days to wait", type=OptionType.INTEGER, required=False)
+@interactions.option(name="hours", description="Number of hours to wait", type=OptionType.INTEGER, required=False)
+@interactions.option(name="minutes", description="Number of minutes to wait", type=OptionType.INTEGER, required=False)
+@interactions.option(name="seconds", description="Number of seconds to wait", type=OptionType.INTEGER, required=False)
+@interactions.option(name="start_date", description="When to start, in the ISO 8601 format. (Example: 2010-10-10 09:30:00)", type=OptionType.STRING, required=False) # noqa
+@interactions.option(name="end_date", description="When to stop, in the ISO 8601 format. (Example: 2014-06-15 11:00:00)", type=OptionType.STRING, required=False) # noqa
+@interactions.option(name="timezone", description="Time zone to use for the date/time calculations", type=OptionType.STRING, required=False)
+@interactions.option(name="jitter", description="Delay the job execution by x seconds at most. Adds a random component to the execution time.", type=OptionType.INTEGER, required=False) # noqa
+@interactions.option(name="different_channel", description="Send the messages to a different channel.", type=OptionType.CHANNEL, required=False)
+@interactions.option(name="send_dm_to_user", description="Send message to a user via DM instead of a channel. Set both_dm_and_channel to send both.", type=OptionType.USER, required=False) # noqa
+@interactions.option(name="both_dm_and_channel", description="Send both DM and message to the channel, needs send_dm_to_user to be set if you want both.", type=OptionType.BOOLEAN, required=False) # noqa
 async def remind_interval(
         ctx: interactions.CommandContext,
         message_reason: str,
