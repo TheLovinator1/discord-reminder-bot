@@ -58,6 +58,11 @@ def countdown(trigger_time: datetime) -> str:
         countdown_time.seconds // 60 % 60,
     )
 
+    # Return seconds if only seconds are left.
+    if days == 0 and hours == 0 and minutes == 0:
+        seconds = countdown_time.seconds % 60
+        return f"{seconds} second" + ("s" if seconds != 1 else "")
+
     # TODO: Explain this.
     return ", ".join(
         f"{x} {y}{'s' * (x != 1)}"
