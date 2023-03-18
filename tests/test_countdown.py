@@ -1,10 +1,8 @@
-"""Test discord-reminder-bot.
-
-Jobs are stored in memory.
-"""
+from datetime import datetime
 
 import dateparser
 import pytz
+from apscheduler.job import Job
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -19,23 +17,25 @@ class TestCountdown:
     runs at 00:00.
     """
 
-    jobstores = {"default": SQLAlchemyJobStore(url="sqlite:///:memory")}
-    job_defaults = {"coalesce": True}
+    jobstores: dict[str, SQLAlchemyJobStore] = {"default": SQLAlchemyJobStore(url="sqlite:///:memory")}
+    job_defaults: dict[str, bool] = {"coalesce": True}
     scheduler = AsyncIOScheduler(
         jobstores=jobstores,
         timezone=pytz.timezone("Europe/Stockholm"),
         job_defaults=job_defaults,
     )
 
-    parsed_date = dateparser.parse(
+    parsed_date: datetime | None = dateparser.parse(
         "18 January 2040",
         settings={
             "PREFER_DATES_FROM": "future",
             "TO_TIMEZONE": "Europe/Stockholm",
         },
     )
-    run_date = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
-    job = scheduler.add_job(
+    assert parsed_date
+
+    run_date: str = parsed_date.strftime("%Y-%m-%d %H:%M:%S")
+    job: Job = scheduler.add_job(
         send_to_discord,
         run_date=run_date,
         kwargs={
@@ -45,7 +45,7 @@ class TestCountdown:
         },
     )
 
-    timezone_date = dateparser.parse(
+    timezone_date: datetime | None = dateparser.parse(
         "00:00",
         settings={
             "PREFER_DATES_FROM": "future",
@@ -53,8 +53,10 @@ class TestCountdown:
             "TO_TIMEZONE": "Europe/Stockholm",
         },
     )
-    timezone_run_date = timezone_date.strftime("%Y-%m-%d %H:%M:%S")
-    timezone_job = scheduler.add_job(
+
+    assert timezone_date
+    timezone_run_date: str = timezone_date.strftime("%Y-%m-%d %H:%M:%S")
+    timezone_job: Job = scheduler.add_job(
         send_to_discord,
         run_date=timezone_run_date,
         kwargs={
@@ -64,7 +66,7 @@ class TestCountdown:
         },
     )
 
-    timezone_date2 = dateparser.parse(
+    timezone_date2: datetime | None = dateparser.parse(
         "13:37",
         settings={
             "PREFER_DATES_FROM": "future",
@@ -72,8 +74,10 @@ class TestCountdown:
             "TO_TIMEZONE": "Europe/Stockholm",
         },
     )
-    timezone_run_date2 = timezone_date2.strftime("%Y-%m-%d %H:%M:%S")
-    timezone_job2 = scheduler.add_job(
+
+    assert timezone_date2
+    timezone_run_date2: str = timezone_date2.strftime("%Y-%m-%d %H:%M:%S")
+    timezone_job2: Job = scheduler.add_job(
         send_to_discord,
         run_date=timezone_run_date2,
         kwargs={
@@ -83,21 +87,22 @@ class TestCountdown:
         },
     )
 
-    #    def test_countdown(self):
-    #        """Check if calc_countdown returns days, hours and minutes."""
-    #        # FIXME: This will break when there is 0 seconds/hours/days left
-    #        pattern = re.compile(r"\d* (day|days), \d* (hour|hours). \d* (minute|minutes)")
-    #        countdown = calculate(self.job)
-    #         assert pattern.match(countdown)
+    def test_if_timezones_are_working(self) -> None:  # noqa: ANN101
+        """Check if timezones are working.
 
-    def test_if_timezones_are_working(self):
-        """Check if timezones are working."""
-        time_job = self.scheduler.get_job(self.timezone_job.id)
+        Args:
+            self: TestCountdown
+        """
+        time_job: Job | None = self.scheduler.get_job(self.timezone_job.id)
+        assert time_job
+
         assert time_job.trigger.run_date.hour == 0
         assert time_job.trigger.run_date.minute == 0
         assert time_job.trigger.run_date.second == 0
 
-        time_job2 = self.scheduler.get_job(self.timezone_job2.id)
-        assert time_job2.trigger.run_date.hour == 13
-        assert time_job2.trigger.run_date.minute == 37
+        time_job2: Job | None = self.scheduler.get_job(self.timezone_job2.id)
+        assert time_job2
+
+        assert time_job2.trigger.run_date.hour == 13  # noqa: PLR2004
+        assert time_job2.trigger.run_date.minute == 37  # noqa: PLR2004
         assert time_job2.trigger.run_date.second == 0

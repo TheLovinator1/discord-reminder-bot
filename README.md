@@ -13,7 +13,7 @@ Type `/remind` in a Discord server where this bot exists to get a list of slash 
 
 ## Installation
 
-You have two choices, [install directly on your computer](#Install-directly-on-your-computer) or
+You have two choices, [install directly on your computer](#install-directly-on-your-computer) or
 using [Docker](https://hub.docker.com/r/thelovinator/discord-reminder-bot).
 
 ### Creating a Discord bot token
@@ -23,39 +23,39 @@ using [Docker](https://hub.docker.com/r/thelovinator/discord-reminder-bot).
 - You can change Icon and Username here.
 - Copy the bot token and paste it into the `BOT_TOKEN` environment variable.
 - Go to the OAuth2 page -> URL Generator
-    - Select the `bot` and `applications.commands` scope.
-    - Select the bot permissions that you want the bot to have. Select `Administrator`. (TODO: Add a list of permissions
+  - Select the `bot` and `applications.commands` scope.
+  - Select the bot permissions that you want the bot to have. Select `Administrator`. (TODO: Add a list of permissions
       that are needed)
-    - Copy the generated URL and open it in your browser. You can now invite the bot to your server.
+  - Copy the generated URL and open it in your browser. You can now invite the bot to your server.
 
 ### Install directly on your computer
 
 - Install the latest version of needed software:
-    - [Python](https://www.python.org/)
-        - You should use the latest version.
-        - You want to add Python to your PATH.
-        - Windows: Find `App execution aliases` and disable python.exe and python3.exe
-    - [Poetry](https://python-poetry.org/docs/master/#installation)
-        - Windows: You have to add `%appdata%\Python\Scripts` to your PATH for Poetry to work.
+  - [Python](https://www.python.org/)
+    - You should use the latest version.
+    - You want to add Python to your PATH.
+    - Windows: Find `App execution aliases` and disable python.exe and python3.exe
+  - [Poetry](https://python-poetry.org/docs/master/#installation)
+    - Windows: You have to add `%appdata%\Python\Scripts` to your PATH for Poetry to work.
 - Download project from GitHub with Git or download
   the [ZIP](https://github.com/TheLovinator1/discord-reminder-bot/archive/refs/heads/master.zip).
-    - If you want to update the bot, you can run `git pull` in the project folder or download the ZIP again.
+  - If you want to update the bot, you can run `git pull` in the project folder or download the ZIP again.
 - Rename .env.example to .env and open it in a text editor (e.g., VSCode, Notepad++, Notepad).
-    - If you can't see the file extension:
-        - Windows 10: Click the View Tab in File Explorer and click the box next to File name extensions.
-        - Windows 11: Click View -> Show -> File name extensions.
+  - If you can't see the file extension:
+    - Windows 10: Click the View Tab in File Explorer and click the box next to File name extensions.
+    - Windows 11: Click View -> Show -> File name extensions.
 - Open a terminal in the repository folder.
-    - Windows 10: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and select `Open PowerShell window here`
-    - Windows 11: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and Show more options
+  - Windows 10: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and select `Open PowerShell window here`
+  - Windows 11: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and Show more options
       and `Open PowerShell window here`
 - Install requirements:
-    - Type `poetry install` into the PowerShell window. Make sure you are
+  - Type `poetry install` into the PowerShell window. Make sure you are
       in the repository folder with the [pyproject.toml](pyproject.toml) file.
-        - You may have to restart your terminal if it can't find the `poetry` command. Also double check it is in
+    - You may have to restart your terminal if it can't find the `poetry` command. Also double check it is in
           your PATH.
 - Start the bot:
-    - Type `poetry run bot` into the PowerShell window.
-        - You can stop the bot with <kbd>Ctrl</kbd> + <kbd>c</kbd>.
+  - Type `poetry run bot` into the PowerShell window.
+    - You can stop the bot with <kbd>Ctrl</kbd> + <kbd>c</kbd>.
 
 Note: You will need to run `poetry install` again if poetry.lock has been modified.
 
@@ -66,17 +66,17 @@ Note: It can take up to one hour for the slash commands to be visible in the Dis
 Docker Hub: [thelovinator/discord-reminder-bot](https://hub.docker.com/r/thelovinator/discord-reminder-bot)
 
 - Rename .env.example to .env and open it in a text editor (e.g., VSCode, Notepad++, Notepad).
-    - If you can't see the file extension:
-        - Windows 10: Click the View Tab in File Explorer and click the box next to File name extensions.
-        - Windows 11: Click View -> Show -> File name extensions.
+  - If you can't see the file extension:
+    - Windows 10: Click the View Tab in File Explorer and click the box next to File name extensions.
+    - Windows 11: Click View -> Show -> File name extensions.
 - Open a terminal in the extras folder.
-    - Windows 10: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and select `Open PowerShell window here`
-    - Windows 11: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and Show more options
+  - Windows 10: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and select `Open PowerShell window here`
+  - Windows 11: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and Show more options
       and `Open PowerShell window here`
 - Run the Docker Compose file:
-    - `docker-compose up`
-        - You can stop the bot with <kbd>Ctrl</kbd> + <kbd>c</kbd>.
-        - If you want to run the bot in the background, you can run `docker-compose up -d`.
+  - `docker-compose up`
+    - You can stop the bot with <kbd>Ctrl</kbd> + <kbd>c</kbd>.
+    - If you want to run the bot in the background, you can run `docker-compose up -d`.
 
 ## Help
 

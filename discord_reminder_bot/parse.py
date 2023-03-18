@@ -9,8 +9,7 @@ from discord_reminder_bot.settings import config_timezone
 
 @dataclasses.dataclass
 class ParsedTime:
-    """
-    This is used when parsing a time or date from a string.
+    """This is used when parsing a time or date from a string.
 
     We use this when adding a job with /reminder add.
 
@@ -20,10 +19,11 @@ class ParsedTime:
         err_msg: The error message.
         parsed_time: The parsed time we got from the string.
     """
-    date_to_parse: str = None
+
+    date_to_parse: str | None = None
     err: bool = False
     err_msg: str = ""
-    parsed_time: datetime = None
+    parsed_time: datetime | None = None
 
 
 def parse_time(date_to_parse: str, timezone: str = config_timezone) -> ParsedTime:
@@ -37,7 +37,7 @@ def parse_time(date_to_parse: str, timezone: str = config_timezone) -> ParsedTim
         ParsedTime
     """
     try:
-        parsed_date = dateparser.parse(
+        parsed_date: datetime | None = dateparser.parse(
             f"{date_to_parse}",
             settings={
                 "PREFER_DATES_FROM": "future",
@@ -46,12 +46,25 @@ def parse_time(date_to_parse: str, timezone: str = config_timezone) -> ParsedTim
             },
         )
     except SettingValidationError as e:
-        return ParsedTime(err=True, err_msg=f"Timezone is possible wrong?: {e}", date_to_parse=date_to_parse)
+        return ParsedTime(
+            err=True,
+            err_msg=f"Timezone is possible wrong?: {e}",
+            date_to_parse=date_to_parse,
+        )
     except ValueError as e:
-        return ParsedTime(err=True, err_msg=f"Failed to parse date. Unknown language: {e}", date_to_parse=date_to_parse)
+        return ParsedTime(
+            err=True,
+            err_msg=f"Failed to parse date. Unknown language: {e}",
+            date_to_parse=date_to_parse,
+        )
     except TypeError as e:
         return ParsedTime(err=True, err_msg=f"{e}", date_to_parse=date_to_parse)
-    if not parsed_date:
-        return ParsedTime(err=True, err_msg=f"Could not parse the date.", date_to_parse=date_to_parse)
-
-    return ParsedTime(parsed_time=parsed_date, date_to_parse=date_to_parse)
+    return (
+        ParsedTime(parsed_time=parsed_date, date_to_parse=date_to_parse)
+        if parsed_date
+        else ParsedTime(
+            err=True,
+            err_msg="Could not parse the date.",
+            date_to_parse=date_to_parse,
+        )
+    )
