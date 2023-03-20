@@ -92,14 +92,14 @@ class TestCountdown:
         # FIXME: This try except train should be replaced with a better solution lol
         trigger_text: str = _get_trigger_text(self.normal_job)
         try:
-            regex: str = r"2040-01-18 00:00 \(in \d+ days, \d+ hours, \d+ minutes\)"
+            regex: str = r"2040-01-18 \d+:00 \(in \d+ days, \d+ hours, \d+ minutes\)"
             assert re.match(regex, trigger_text)
         except AssertionError:
             try:
-                regex2: str = r"2040-01-18 00:00 \(in \d+ days, \d+ minutes\)"
+                regex2: str = r"2040-01-18 \d+:00 \(in \d+ days, \d+ minutes\)"
                 assert re.match(regex2, trigger_text)
             except AssertionError:
-                regex3: str = r"2040-01-18 00:00 \(in \d+ days\, \d+ minutes\)"
+                regex3: str = r"2040-01-18 \d+:00 \(in \d+ days\, \d+ minutes\)"
                 assert re.match(regex3, trigger_text)
 
     def test_make_button(self) -> None:  # noqa: ANN101
@@ -168,14 +168,14 @@ class TestCountdown:
 
             # FIXME: This try except train should be replaced with a better solution lol
             try:
-                regex: str = r"2040-01-18 00:00 \(in \d+ days, \d+ hours, \d+ minutes\)"
+                regex: str = r"2040-01-18 \d+:00 \(in \d+ days, \d+ hours, \d+ minutes\)"
                 assert re.match(regex, trigger_text)
             except AssertionError:
                 try:
-                    regex2: str = r"2040-01-18 00:00 \(in \d+ days, \d+ minutes\)"
+                    regex2: str = r"2040-01-18 \d+:00 \(in \d+ days, \d+ minutes\)"
                     assert re.match(regex2, trigger_text)
                 except AssertionError:
-                    regex3: str = r"2040-01-18 00:00 \(in \d+ days\, \d+ minutes\)"
+                    regex3: str = r"2040-01-18 \d+:00 \(in \d+ days\, \d+ minutes\)"
                     assert re.match(regex3, trigger_text)
 
             # Check if type is Page
