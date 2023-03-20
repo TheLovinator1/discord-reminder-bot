@@ -99,7 +99,7 @@ class TestCountdown:
                 regex2: str = r"2040-01-18 \d+:00 \(in \d+ days, \d+ minutes\)"
                 assert re.match(regex2, trigger_text)
             except AssertionError:
-                regex3: str = r"2040-01-18 \d+:00 \(in \d+ days\, \d+ minutes\)"
+                regex3: str = r"2040-01-18 \d+:00 \(in \d+ days, \d+ hours\)"
                 assert re.match(regex3, trigger_text)
 
     def test_make_button(self) -> None:  # noqa: ANN101
@@ -175,7 +175,7 @@ class TestCountdown:
                     regex2: str = r"2040-01-18 \d+:00 \(in \d+ days, \d+ minutes\)"
                     assert re.match(regex2, trigger_text)
                 except AssertionError:
-                    regex3: str = r"2040-01-18 \d+:00 \(in \d+ days\, \d+ minutes\)"
+                    regex3: str = r"2040-01-18 \d+:00 \(in \d+ days, \d+ hours\)"
                     assert re.match(regex3, trigger_text)
 
             # Check if type is Page
