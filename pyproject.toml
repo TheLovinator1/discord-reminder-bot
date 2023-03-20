@@ -26,8 +26,7 @@ python-dotenv = "^1.0.0"
 apscheduler = "^3.9.1.post1"
 dateparser = "^1.1.4"
 sqlalchemy = "^1.4.45"
-discord-py-interactions = { git = "https://github.com/interactions-py/library.git", rev = "unstable" }
-interactions-wait-for = "^1.0.6"
+discord-py-interactions = "^4.4.0"
 dinteractions-paginator = { git = "https://github.com/interactions-py/paginator.git", rev = "unstable" }
 discord-webhook = "^1.0.0"
 
