@@ -339,14 +339,14 @@ resolved_reference = "5fa5c4a1fbcbfc634754822a50941cf4c95a2560"
 
 [[package]]
 name = "discord-py-interactions"
-version = "4.4.0"
+version = "4.4.1"
 description = "Easy, simple, scalable and modular: a Python API wrapper for interactions."
 category = "main"
 optional = false
 python-versions = ">=3.8.6"
 files = [
-    {file = "discord-py-interactions-4.4.0.tar.gz", hash = "sha256:671949003a20921f79072c49131000ed0e072bae7e538f91887c77eb2e64a2a6"},
-    {file = "discord_py_interactions-4.4.0-py3-none-any.whl", hash = "sha256:5723fa5e8559e529aacbd6e0e873a1ba4b754d52c7b4779a1bfe02047d879a75"},
+    {file = "discord-py-interactions-4.4.1.tar.gz", hash = "sha256:a098114595829939a1bfe4eb0fdf2025de809870bc51224fcd8f06ee8a11f960"},
+    {file = "discord_py_interactions-4.4.1-py3-none-any.whl", hash = "sha256:8b3f715230ccb8073789b806aea235fdbe5fc133a2aee22af303be1beda52839"},
 ]
 
 [package.dependencies]
