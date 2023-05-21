@@ -19,6 +19,7 @@ from interactions import (
 )
 from interactions.ext.paginator import Page, Paginator
 
+from discord_reminder_bot import settings
 from discord_reminder_bot.countdown import calculate
 from discord_reminder_bot.create_pages import create_pages
 from discord_reminder_bot.parse import ParsedTime, parse_time
@@ -50,8 +51,12 @@ def send_webhook(
         message: The message that will be sent to Discord.
     """
     if not url:
-        logging.error("ERROR: Tried to send a webhook but you have no webhook url configured.")
+        msg = "ERROR: Tried to send a webhook but you have no webhook url configured."
+        logging.error(msg)
+        webhook: DiscordWebhook = DiscordWebhook(url=settings.webhook_url, content=msg, rate_limit_retry=True)
+        webhook.execute()
         return
+
     webhook: DiscordWebhook = DiscordWebhook(url=url, content=message, rate_limit_retry=True)
     webhook.execute()
 
