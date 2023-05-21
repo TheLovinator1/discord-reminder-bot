@@ -7,7 +7,16 @@ from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, JobExecutionEv
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.triggers.date import DateTrigger
 from discord_webhook import DiscordWebhook
-from interactions import Channel, Client, CommandContext, Embed, Member, Message, OptionType, autodefer
+from interactions import (
+    Channel,
+    Client,
+    CommandContext,
+    Embed,
+    Member,
+    Message,
+    OptionType,
+    autodefer,
+)
 from interactions.ext.paginator import Page, Paginator
 
 from discord_reminder_bot.countdown import calculate

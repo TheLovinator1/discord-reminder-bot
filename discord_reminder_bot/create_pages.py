@@ -179,7 +179,10 @@ def _remove_job(job: Job) -> str:
     # TODO: Add button to undo the removal?
     channel_id: int = job.kwargs.get("channel_id")
     old_message: str = job.kwargs.get("message")
-    trigger_time: datetime | None = job.trigger.run_date
+    try:
+        trigger_time: datetime | str = job.trigger.run_date
+    except AttributeError:
+        trigger_time = "N/A"
     scheduler.remove_job(job.id)
 
     return f"Job {job.id} removed.\n**Message:** {old_message}\n**Channel:** {channel_id}\n**Time:** {trigger_time}"
