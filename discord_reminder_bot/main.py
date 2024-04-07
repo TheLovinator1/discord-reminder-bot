@@ -34,11 +34,19 @@ def send_webhook(
     if not url:
         msg = "Tried to send a webhook but you have no webhook url configured."
         logger.error(msg)
-        webhook: DiscordWebhook = DiscordWebhook(url=webhook_url, content=msg, rate_limit_retry=True)
+        webhook: DiscordWebhook = DiscordWebhook(
+            url=webhook_url,
+            content=msg,
+            rate_limit_retry=True,
+        )
         webhook.execute()
         return
 
-    webhook: DiscordWebhook = DiscordWebhook(url=url, content=message, rate_limit_retry=True)
+    webhook: DiscordWebhook = DiscordWebhook(
+        url=url,
+        content=message,
+        rate_limit_retry=True,
+    )
     response: Response = webhook.execute()
     logger.debug(response)
 
@@ -68,5 +76,4 @@ if __name__ == "__main__":
         logger.info("Using uvloop event loop")
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-    logger.debug(f"We have {len(bot.slash_commands)} commands.")
     bot.run(asyncio_debug=True)

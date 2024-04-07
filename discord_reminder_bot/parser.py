@@ -40,7 +40,7 @@ def parse_time(date_to_parse: str, timezone: str | None) -> None | ParsedTime:
         UnknownTimeZoneError: If the timezone is not a valid timezone.
 
     Returns:
-        ParsedTime: A dataclass with the parsed time, timezone, original string, and error.
+        ParsedTime: The parsed time, timezone, original string, and error.
     """
     our_timezone: str = timezone or config_timezone
 
@@ -48,7 +48,12 @@ def parse_time(date_to_parse: str, timezone: str | None) -> None | ParsedTime:
     try:
         pytz.timezone(our_timezone)
     except pytz.UnknownTimeZoneError as e:
-        return ParsedTime(parsed=None, timezone=our_timezone, original=date_to_parse, error=f"Unknown timezone: {e}.")
+        return ParsedTime(
+            parsed=None,
+            timezone=our_timezone,
+            original=date_to_parse,
+            error=f"Unknown timezone: {e}.",
+        )
 
     parsed: datetime | None = dateparser.parse(
         date_string=date_to_parse or "now",

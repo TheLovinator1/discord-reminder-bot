@@ -49,7 +49,6 @@ profile = "black"
 fix = true
 unsafe-fixes = true
 preview = true
-line-length = 120
 lint.select = ["ALL"]
 lint.ignore = [
     "CPY001",  # Missing copyright notice at top of file

@@ -9,13 +9,11 @@ from discord_reminder_bot.cmd_base import remind
     name="reason",
     description="The message that will be sent when the reminder is triggered.",
     required=True,
-    type=hikari.OptionType.STRING,
 )
 @lightbulb.option(
     name="date_or_time",
     description="The date to send the message. Will get parsed by dateparser.",
     required=True,
-    type=hikari.OptionType.STRING,
 )
 @lightbulb.option(
     name="channel",
@@ -23,7 +21,12 @@ from discord_reminder_bot.cmd_base import remind
     required=False,
     type=hikari.OptionType.CHANNEL,
 )
-@lightbulb.option(name="dm_user", description="Send a message to a user.", required=False, type=hikari.OptionType.USER)
+@lightbulb.option(
+    name="dm_user",
+    description="Send a message to a user.",
+    required=False,
+    type=hikari.OptionType.USER,
+)
 @lightbulb.command(name="add", description="Add a reminder.")
 @lightbulb.implements(lightbulb.SlashSubCommand)
 async def command_add(ctx: lightbulb.SlashContext) -> None:

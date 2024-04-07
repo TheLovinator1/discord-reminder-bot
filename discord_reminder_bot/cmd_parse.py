@@ -8,8 +8,16 @@ from discord_reminder_bot.parser import ParsedTime, parse_time
 
 
 @remind.child
-@lightbulb.option(name="time_to_parse", description="The date or time to parse.", required=True)
-@lightbulb.option(name="timezone", description="For example: 'Europe/Stockholm'.", required=False)
+@lightbulb.option(
+    name="time_to_parse",
+    description="The date or time to parse.",
+    required=True,
+)
+@lightbulb.option(
+    name="timezone",
+    description="For example: 'Europe/Stockholm'.",
+    required=False,
+)
 @lightbulb.command(name="parse", description="Find the date and time from a string.")
 @lightbulb.implements(lightbulb.SlashSubCommand)
 async def command_parse(ctx: lightbulb.SlashContext) -> None:
@@ -17,7 +25,10 @@ async def command_parse(ctx: lightbulb.SlashContext) -> None:
     logger.debug(f"Timezone: {ctx.options.timezone}")
     logger.debug(f"Time to parse: {ctx.options.time_to_parse}")
 
-    parsed: None | ParsedTime = parse_time(date_to_parse=ctx.options.time_to_parse, timezone=ctx.options.timezone)
+    parsed: None | ParsedTime = parse_time(
+        date_to_parse=ctx.options.time_to_parse,
+        timezone=ctx.options.timezone,
+    )
 
     if parsed is None:
         msg = f"Error: Could not parse `{ctx.options.time_to_parse}`."

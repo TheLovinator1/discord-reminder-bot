@@ -9,7 +9,6 @@ from discord_reminder_bot.cmd_base import remind
     name="reason",
     description="The message that will be sent when the reminder is triggered.",
     required=True,
-    type=hikari.OptionType.STRING,
 )
 @lightbulb.option(
     name="weeks",
@@ -45,25 +44,21 @@ from discord_reminder_bot.cmd_base import remind
     name="start_date",
     description="Start date of the cron job. Will get parsed by dateparser.",
     required=False,
-    type=hikari.OptionType.STRING,
 )
 @lightbulb.option(
     name="end_date",
     description="End date of the cron job. Will get parsed by dateparser.",
     required=False,
-    type=hikari.OptionType.STRING,
 )
 @lightbulb.option(
     name="timezone",
     description="Time zone for date/time calculations (default: scheduler timezone).",
     required=False,
-    type=hikari.OptionType.STRING,
 )
 @lightbulb.option(
     name="jitter",
-    description="Delay the job execution by x seconds at most. Adds a random component to the execution time.",
+    description="Delay the job execution by x seconds at most. Adds a random component to the execution time.",  # noqa: E501
     required=False,
-    type=hikari.OptionType.STRING,
 )
 @lightbulb.option(
     name="channel",
@@ -71,7 +66,12 @@ from discord_reminder_bot.cmd_base import remind
     required=False,
     type=hikari.OptionType.CHANNEL,
 )
-@lightbulb.option(name="dm_user", description="Send a message to a user.", required=False, type=hikari.OptionType.USER)
+@lightbulb.option(
+    name="dm_user",
+    description="Send a message to a user.",
+    required=False,
+    type=hikari.OptionType.USER,
+)
 @lightbulb.command(
     name="interval",
     description="Schedules messages to be run periodically, on selected intervals.",
@@ -81,7 +81,7 @@ async def command_interval(ctx: lightbulb.SlashContext) -> None:
     """Create a new reminder that triggers based on an interval."""
     # TODO(TheLovinator): Add reminder to database  # noqa: TD003
     # TODO(TheLovinator): Create a new type that has the options  # noqa: TD003
-    # TODO(TheLovinator): Don't allow this to trigger faster than every minute  # noqa: TD003
+    # TODO(TheLovinator): Don't allow this to trigger faster than every minute  # noqa: TD003, E501
     await ctx.respond(
         f"{ctx.options.reason=}\n{ctx.options.weeks=}\n{ctx.options.days=}\n{ctx.options.hours=}\n{ctx.options.minutes=}\n{ctx.options.seconds=}\n{ctx.options.start_date=}\n{ctx.options.end_date=}\n{ctx.options.timezone=}\n{ctx.options.jitter=}\n{ctx.options.channel=}\n{ctx.options.dm_user=}",
     )

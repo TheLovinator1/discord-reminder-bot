@@ -20,13 +20,19 @@ async def on_error(event: lightbulb.CommandErrorEvent) -> None:
             await event.context.respond("An error occurred during command invocation.")
             raise event.exception
 
-        await event.context.respond(f"Something went wrong during invocation of command `{command.name}`.")
+        await event.context.respond(
+            f"Something went wrong during invocation of command `{command.name}`.",
+        )
         raise event.exception
 
     # Unwrap the exception to get the original cause
-    exception: BaseException | lightbulb.LightbulbError = event.exception.__cause__ or event.exception
+    exception: BaseException | lightbulb.LightbulbError = (
+        event.exception.__cause__ or event.exception
+    )
 
     # TODO(TheLovinator): Send error to webhook  # noqa: TD003
     logger.error(f"An error occurred during command invocation: {exception}")
-    await event.context.respond(f"An error occurred during command invocation: {exception}")
+    await event.context.respond(
+        f"An error occurred during command invocation: {exception}",
+    )
     raise exception
