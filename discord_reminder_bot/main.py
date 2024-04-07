@@ -9,7 +9,7 @@ import lightbulb
 from discord_webhook import DiscordWebhook
 from loguru import logger
 
-from discord_reminder_bot import cmd_add, cmd_cron
+from discord_reminder_bot import cmd_add, cmd_cron, cmd_interval
 from discord_reminder_bot.settings import bot_token, webhook_url
 
 if TYPE_CHECKING:
@@ -48,11 +48,15 @@ def send_webhook(
 
 if __name__ == "__main__":
     logger.info("Starting discord-reminder-bot")
+
+    # Add the commands
     bot.command(cmd_like=cmd_add.remind)
     bot.command(cmd_like=cmd_add.command_add)
     bot.command(cmd_like=cmd_cron.command_cron)
+    bot.command(cmd_like=cmd_interval.command_interval)
+
+    # uvloop is 2-4x faster than default but only works on UNIX
     if os.name != "nt":
-        # uvloop is 2-4x faster than default but only works on UNIX
         import uvloop  # type: ignore[import]
 
         logger.info("Using uvloop event loop")
