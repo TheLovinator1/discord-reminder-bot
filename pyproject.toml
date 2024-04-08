@@ -31,7 +31,6 @@ python-dotenv = "^1.0.1"
 loguru = "^0.7.2"
 uvloop = { version = "^0.19.0", markers = "sys_platform == 'linux' or sys_platform == 'darwin'" }
 sqlalchemy = "^2.0.29"
-discord-py-interactions = "<5"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.3.4"
@@ -61,6 +60,7 @@ lint.ignore = [
     "D104",    # Missing docstring in public package.
     "D105",    # Missing docstring in magic method.
     "D106",    # Checks for undocumented public class definitions, for nested classes.
+    "D107",    # Checks for public __init__ method definitions that are missing docstrings.
     "COM812",  # Checks for the absence of trailing commas.
     "ISC001",  # Checks for implicitly concatenated strings on a single line.
     "PLR6301", # Checks for the presence of unused self parameter in methods definitions.

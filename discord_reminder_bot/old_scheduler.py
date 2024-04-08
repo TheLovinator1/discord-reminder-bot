@@ -22,10 +22,10 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from interactions import Snowflake
 from loguru import logger
 
 from discord_reminder_bot.settings import scheduler_timezone
+from interactions.api.models.misc import Snowflake
 
 if TYPE_CHECKING:
     import datetime
@@ -129,6 +129,7 @@ def get_interval_job(job: dict) -> IntervalJob:
 
     author_id = kwargs["author_id"]
     if isinstance(author_id, Snowflake):
+        logger.debug(f"Author ID was a Snowflake: {author_id}")
         author_id = int(author_id)
 
     return IntervalJob(
@@ -150,6 +151,7 @@ def get_cron_job(job: dict) -> CronJob:
 
     author_id = kwargs["author_id"]
     if isinstance(author_id, Snowflake):
+        logger.debug(f"Author ID was a Snowflake: {author_id}")
         author_id = int(author_id)
 
     return CronJob(
@@ -171,6 +173,7 @@ def get_date_job(job: dict) -> DateJob:
 
     author_id = kwargs["author_id"]
     if isinstance(author_id, Snowflake):
+        logger.debug(f"Author ID was a Snowflake: {author_id}")
         author_id = int(author_id)
 
     return DateJob(

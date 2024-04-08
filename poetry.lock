@@ -317,26 +317,6 @@ fasttext = ["fasttext"]
 langdetect = ["langdetect"]
 
 [[package]]
-name = "discord-py-interactions"
-version = "4.4.1"
-description = "Easy, simple, scalable and modular: a Python API wrapper for interactions."
-optional = false
-python-versions = ">=3.8.6"
-files = [
-    {file = "discord-py-interactions-4.4.1.tar.gz", hash = "sha256:a098114595829939a1bfe4eb0fdf2025de809870bc51224fcd8f06ee8a11f960"},
-    {file = "discord_py_interactions-4.4.1-py3-none-any.whl", hash = "sha256:8b3f715230ccb8073789b806aea235fdbe5fc133a2aee22af303be1beda52839"},
-]
-
-[package.dependencies]
-aiohttp = ">=3.8.1"
-attrs = ">=21.3.0"
-
-[package.extras]
-dev = ["Sphinx", "black", "enum-tools[sphinx]", "flake8", "furo", "isort", "pre-commit", "sphinx-copybutton", "sphinx-hoverxref"]
-lint = ["black", "flake8", "isort", "pre-commit"]
-readthedocs = ["Sphinx", "enum-tools[sphinx]", "furo", "sphinx-copybutton", "sphinx-hoverxref"]
-
-[[package]]
 name = "discord-webhook"
 version = "1.3.1"
 description = "Easily send Discord webhooks with Python"
@@ -1239,4 +1219,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.12,<3.13"
-content-hash = "0bda6d1d1a10d3e3dd7ea7dbdd07abd9fc2eb46d90c719008f9407d47732d6d7"
+content-hash = "d6286d13ebf6395e03a97ce9f6a45cee920f48f28b77aea7c4ec59f050b4cb1a"
