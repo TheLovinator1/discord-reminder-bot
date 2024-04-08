@@ -4,5 +4,8 @@
         "Textable",
         "unpickle",
         "uvloop"
-    ]
+    ],
+    "files.exclude": {
+        "interactions": true
+    },
 }
