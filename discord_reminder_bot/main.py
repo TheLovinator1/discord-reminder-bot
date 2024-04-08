@@ -10,6 +10,7 @@ from discord_webhook import DiscordWebhook
 from loguru import logger
 
 from discord_reminder_bot import cmd_add, cmd_cron, cmd_interval, cmd_parse
+from discord_reminder_bot.old_scheduler import list_jobs
 from discord_reminder_bot.settings import bot_token, webhook_url
 
 if TYPE_CHECKING:
@@ -17,6 +18,15 @@ if TYPE_CHECKING:
 
 intents: hikari.Intents = hikari.Intents.GUILD_MESSAGES | hikari.Intents.DM_MESSAGES
 bot = lightbulb.BotApp(token=bot_token, default_enabled_guilds=(341001473661992962,))
+
+
+def send_to_discord(message: str) -> None:
+    """Send a message to Discord.
+
+    Args:
+        message: The message that will be sent to Discord.
+    """
+    logger.debug(f"Sending message to Discord: {message}")
 
 
 # NOTE: send_webhook has to always be in discord_reminder_bot.main
@@ -76,4 +86,6 @@ if __name__ == "__main__":
         logger.info("Using uvloop event loop")
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-    bot.run(asyncio_debug=True)
+    list_jobs()
+
+    # bot.run(asyncio_debug=True)

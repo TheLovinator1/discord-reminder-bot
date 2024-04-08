@@ -317,6 +317,26 @@ fasttext = ["fasttext"]
 langdetect = ["langdetect"]
 
 [[package]]
+name = "discord-py-interactions"
+version = "4.4.1"
+description = "Easy, simple, scalable and modular: a Python API wrapper for interactions."
+optional = false
+python-versions = ">=3.8.6"
+files = [
+    {file = "discord-py-interactions-4.4.1.tar.gz", hash = "sha256:a098114595829939a1bfe4eb0fdf2025de809870bc51224fcd8f06ee8a11f960"},
+    {file = "discord_py_interactions-4.4.1-py3-none-any.whl", hash = "sha256:8b3f715230ccb8073789b806aea235fdbe5fc133a2aee22af303be1beda52839"},
+]
+
+[package.dependencies]
+aiohttp = ">=3.8.1"
+attrs = ">=21.3.0"
+
+[package.extras]
+dev = ["Sphinx", "black", "enum-tools[sphinx]", "flake8", "furo", "isort", "pre-commit", "sphinx-copybutton", "sphinx-hoverxref"]
+lint = ["black", "flake8", "isort", "pre-commit"]
+readthedocs = ["Sphinx", "enum-tools[sphinx]", "furo", "sphinx-copybutton", "sphinx-hoverxref"]
+
+[[package]]
 name = "discord-webhook"
 version = "1.3.1"
 description = "Easily send Discord webhooks with Python"
@@ -492,13 +512,13 @@ test = ["objgraph", "psutil"]
 
 [[package]]
 name = "hikari"
-version = "2.0.0.dev123"
+version = "2.0.0.dev124"
 description = "A sane Discord API for Python 3 built on asyncio and good intentions"
 optional = false
 python-versions = "<3.13,>=3.8.0"
 files = [
-    {file = "hikari-2.0.0.dev123-py3-none-any.whl", hash = "sha256:50f3b1aa42aa6dca7beb38c9781d9528cbdf213cc1ebb516ca22bcc0d48cb741"},
-    {file = "hikari-2.0.0.dev123.tar.gz", hash = "sha256:1bb02f3804594e61d2ca916d2ccc81b379f0faba913c7daa2de935db5bf7f07a"},
+    {file = "hikari-2.0.0.dev124-py3-none-any.whl", hash = "sha256:94d0ed699e2e3b7ed09fe351672f943474e9113bcd89329fb49d7313104161b3"},
+    {file = "hikari-2.0.0.dev124.tar.gz", hash = "sha256:14433674ceb88f1b5167fd75037eb77005498e0ec478764311b4e3657b704a1b"},
 ]
 
 [package.dependencies]
@@ -1219,4 +1239,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.12,<3.13"
-content-hash = "d6286d13ebf6395e03a97ce9f6a45cee920f48f28b77aea7c4ec59f050b4cb1a"
+content-hash = "0bda6d1d1a10d3e3dd7ea7dbdd07abd9fc2eb46d90c719008f9407d47732d6d7"
