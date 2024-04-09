@@ -10,7 +10,7 @@ from discord_webhook import DiscordWebhook
 from loguru import logger
 
 from discord_reminder_bot import cmd_add, cmd_cron, cmd_interval, cmd_parse
-from discord_reminder_bot.old_scheduler import list_jobs
+from discord_reminder_bot.scheduler_old import list_jobs
 from discord_reminder_bot.settings import bot_token, webhook_url
 
 if TYPE_CHECKING:

@@ -1,6 +1,7 @@
 {
     "cSpell.words": [
         "hikari",
+        "sessionmaker",
         "Textable",
         "unpickle",
         "uvloop"

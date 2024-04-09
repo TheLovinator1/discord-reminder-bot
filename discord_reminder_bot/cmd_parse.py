@@ -28,6 +28,7 @@ async def command_parse(ctx: lightbulb.SlashContext) -> None:
     parsed: None | ParsedTime = parse_time(
         date_to_parse=ctx.options.time_to_parse,
         timezone=ctx.options.timezone,
+        guild_id=int(ctx.guild_id) if ctx.guild_id else 0,
     )
 
     if parsed is None:

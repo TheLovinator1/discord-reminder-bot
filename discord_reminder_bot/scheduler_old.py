@@ -18,13 +18,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from loguru import logger
 
-from discord_reminder_bot.settings import scheduler_timezone
 from interactions.api.models.misc import Snowflake
 
 if TYPE_CHECKING:
@@ -34,44 +32,31 @@ if TYPE_CHECKING:
 sqlite_location: str = os.getenv(key="SQLITE_LOCATION", default="/jobs.sqlite")
 logger.debug(f"{sqlite_location=}")
 
-
 jobstores: dict[str, SQLAlchemyJobStore] = {
     "default": SQLAlchemyJobStore(url="sqlite:///jobs.sqlite"),
 }
-
-old_scheduler = AsyncIOScheduler(
-    jobstores=jobstores,
-    timezone=scheduler_timezone,
-)
-
-
-def check_if_old_db_exists() -> bool:
-    """Check if the old database exists."""
-    logger.debug("Checking if the old database exists.")
-    exists: bool = Path(sqlite_location).exists()
-    if exists:
-        logger.debug("Old database exists.")
-    else:
-        logger.debug("Old database does not exist.")
-    return exists
 
 
 def find_old_db() -> str | None:
     """Find the old database."""
     # Check current directory
-    # if check_if_old_db_exists():
-    # return sqlite_location
+    current_db: Path = Path(__file__).parent / "jobs.sqlite"
+    if Path(current_db).exists():
+        logger.debug(f"Found old database: {current_db}")
+        return str(current_db)
 
     # Check parent directory
     parent_dir: Path = Path(__file__).parent
     parent_db: Path = parent_dir / "jobs.sqlite"
     if Path(parent_db).exists():
+        logger.debug(f"Found old database: {parent_db}")
         return str(parent_db)
 
     # Check grandparent directory
     grandparent_dir: Path = parent_dir.parent
     grandparent_db: Path = grandparent_dir / "jobs.sqlite"
     if Path(grandparent_db).exists():
+        logger.debug(f"Found old database: {grandparent_db}")
         return str(grandparent_db)
 
     return None

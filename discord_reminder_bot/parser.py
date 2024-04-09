@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import dateparser
 import pytz
 
-from discord_reminder_bot.settings import config_timezone
+from discord_reminder_bot.database import GuildsDB, get_guild
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -29,12 +29,17 @@ class ParsedTime:
     error: str | None
 
 
-def parse_time(date_to_parse: str, timezone: str | None) -> None | ParsedTime:
+def parse_time(
+    date_to_parse: str,
+    timezone: str | None,
+    guild_id: int = 0,
+) -> ParsedTime:
     """Parse the datetime from a string.
 
     Args:
         date_to_parse: The date or time to parse.
         timezone: Time zone for date/time calculations. For example: 'Europe/Stockholm'.
+        guild_id: The guild id.
 
     Raises:
         UnknownTimeZoneError: If the timezone is not a valid timezone.
@@ -42,7 +47,16 @@ def parse_time(date_to_parse: str, timezone: str | None) -> None | ParsedTime:
     Returns:
         ParsedTime: The parsed time, timezone, original string, and error.
     """
-    our_timezone: str = timezone or config_timezone
+    if guild_id == 0:
+        return ParsedTime(
+            parsed=None,
+            timezone=timezone or "UTC",
+            original=date_to_parse,
+            error="Failed to get guild id.",
+        )
+
+    guild: GuildsDB = get_guild(guild_id=guild_id)
+    our_timezone: str = timezone or str(guild.timezone)
 
     # Raise an exception if the timezone is invalid
     try:

@@ -25,7 +25,7 @@ python = ">=3.12,<3.13"
 apscheduler = "^3.10.4"
 dateparser = "^1.2.0"
 discord-webhook = "^1.3.1"
-hikari = "^2.0.0.dev123"
+hikari = "^2.0.0.dev124"
 hikari-lightbulb = "^2.3.5"
 python-dotenv = "^1.0.1"
 loguru = "^0.7.2"
@@ -76,5 +76,5 @@ lint.ignore = [
     "PLR6301", # Checks for the presence of unused self parameter in methods definitions.
 ]
 
-[tool.ruff.pydocstyle]
+[tool.ruff.lint.pydocstyle]
 convention = "google"
