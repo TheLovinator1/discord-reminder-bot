@@ -23,10 +23,14 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from loguru import logger
 
+from discord_reminder_bot.get_scheduler import get_scheduler
+from discord_reminder_bot.send_to_discord import send_msg
 from interactions.api.models.misc import Snowflake
 
 if TYPE_CHECKING:
     import datetime
+
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 
 sqlite_location: str = os.getenv(key="SQLITE_LOCATION", default="/jobs.sqlite")
@@ -63,7 +67,9 @@ def find_old_db() -> str | None:
 
 
 @dataclass
-class Job:
+class FoundJob:
+    """A job found in the old scheduler."""
+
     # 1
     version: int
 
@@ -91,19 +97,19 @@ class Job:
 
 
 @dataclass
-class IntervalJob(Job):
+class IntervalJob(FoundJob):
     # <IntervalTrigger (interval=datetime.timedelta(days=365), start_date='2022-08-24 00:06:55 UTC', timezone='Etc/UTC')> # noqa: E501
     trigger: IntervalTrigger
 
 
 @dataclass
-class CronJob(Job):
+class CronJob(FoundJob):
     # <CronTrigger (year='2025', month='11', day='2', hour='14', minute='0', second='0', timezone='CET') # noqa: E501
     trigger: CronTrigger
 
 
 @dataclass
-class DateJob(Job):
+class DateJob(FoundJob):
     # <DateTrigger (run_date='2025-11-02 14:00:00 CET')>
     trigger: DateTrigger
 
@@ -174,17 +180,16 @@ def get_date_job(job: dict) -> DateJob:
     )
 
 
-def list_jobs() -> None:
+def list_jobs() -> list[FoundJob]:
     """List all jobs from the old scheduler."""
-    # if not check_if_old_db_exists():
-    #    return
-
     db_location: str | None = find_old_db()
     if db_location is None:
         logger.debug("Old database not found.")
-        return
+        return []
 
     logger.info("Listing all jobs from the old scheduler.")
+
+    jobs = []
 
     con: sqlite3.Connection = sqlite3.connect(db_location)
     cur: sqlite3.Cursor = con.cursor()
@@ -206,19 +211,56 @@ def list_jobs() -> None:
             job = get_interval_job(job)
         elif isinstance(job["trigger"], CronTrigger):
             job = get_cron_job(job)
+        else:
+            logger.error(f"Unknown trigger: {job['trigger']}")
+            continue
+
+        jobs.append(job)
 
         logger.info(job)
 
     cur.close()
     con.close()
 
-    rename_old_scheduler()
+    return jobs
 
 
 def migrate_jobs() -> None:
     """Migrate the jobs from the old scheduler to the new one."""
     # TODO(TheLovinator): Migrate jobs  # noqa: TD003
     logger.info("Migrating jobs from the old scheduler.")
+
+    old_jobs: list[FoundJob] = list_jobs()
+    logger.info(f"Found {len(old_jobs)} jobs in the old scheduler.")
+
+    for old_job in old_jobs:
+        guild_id = old_job.channel_id
+
+        trigger = (
+            "IntervalTrigger"
+            if isinstance(old_job, IntervalJob)
+            else "CronTrigger"
+            if isinstance(old_job, CronJob)
+            else "DateTrigger"
+        )
+
+        scheduler: AsyncIOScheduler = get_scheduler(guild_id=guild_id)
+        scheduler.add_job(
+            func=send_msg,
+            trigger=trigger,
+            id=old_job.job_id,
+            name=old_job.name,
+            kwargs={
+                "channel_id": old_job.channel_id,
+                "message": old_job.message,
+                "author_id": old_job.author_id,
+            },
+            next_run_time=old_job.next_run_time,
+        )
+        logger.debug(f"Added job '{job}' to scheduler '{scheduler=}' ({guild_id=}).")
+
+        logger.info(f"Migrating job: {old_job}")
+        add_job(guild_id=old_job.channel_id, job=old_job)
 
 
 def rename_old_scheduler() -> None:

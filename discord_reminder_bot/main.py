@@ -20,16 +20,6 @@ intents: hikari.Intents = hikari.Intents.GUILD_MESSAGES | hikari.Intents.DM_MESS
 bot = lightbulb.BotApp(token=bot_token, default_enabled_guilds=(341001473661992962,))
 
 
-def send_to_discord(message: str) -> None:
-    """Send a message to Discord.
-
-    Args:
-        message: The message that will be sent to Discord.
-    """
-    logger.debug(f"Sending message to Discord: {message}")
-
-
-# NOTE: send_webhook has to always be in discord_reminder_bot.main
 def send_webhook(
     url: str = webhook_url,
     message: str = "discord-reminder-bot: Empty message.",
