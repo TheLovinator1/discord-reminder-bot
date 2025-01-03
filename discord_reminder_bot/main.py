@@ -2,14 +2,21 @@ from __future__ import annotations
 
 import datetime
 import logging
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import dateparser
 import discord
+from apscheduler.job import Job
 from discord.abc import PrivateChannel
+from discord.ui import Button, Select
 from discord_webhook import DiscordWebhook
 
 from discord_reminder_bot import settings
+
+if TYPE_CHECKING:
+    from apscheduler.job import Job
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 logger: logging.Logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -35,6 +42,8 @@ class RemindBotClient(discord.Client):
 
     async def setup_hook(self) -> None:
         """Setup the bot."""
+        settings.scheduler.start()
+
         try:
             self.tree.copy_global_to(guild=GUILD_ID)
             await self.tree.sync(guild=GUILD_ID)
@@ -110,17 +119,83 @@ class RemindGroup(discord.app_commands.Group):
             user (discord.User, optional): Send reminder as a DM to this user. Defaults to None.
             dm_and_current_channel (bool, optional): Send reminder as a DM to the user and in this channel. Defaults to False.
         """  # noqa: E501
+        should_send_channel_reminder = True
+
         await interaction.response.defer()
         self.log_reminder_details(interaction, message, time, channel, user, dm_and_current_channel)
-        return await self.parse_reminder_time(interaction, time)
+        parsed_time: datetime.datetime | None = await self.parse_reminder_time(interaction, time)
+        if not parsed_time:
+            return
+
+        run_date: str = parsed_time.strftime("%Y-%m-%d %H:%M:%S")
+        guild: discord.Guild | None = interaction.guild or None
+        if not guild:
+            await interaction.followup.send("Failed to get guild.")
+            return
+
+        dm_message: str = ""
+        where_and_when = ""
+        channel_id: int | None = self.get_channel_id(interaction, channel)
+        if user:
+            _user_reminder: Job = settings.scheduler.add_job(
+                send_to_user,
+                run_date=run_date,
+                kwargs={
+                    "user_id": user.id,
+                    "guild_id": guild.id,
+                    "message": message,
+                },
+            )
+
+            dm_message = f"and a DM to {user.display_name} "
+            if not dm_and_current_channel:
+                should_send_channel_reminder = False
+                where_and_when: str = f"I will send a DM to {user.display_name} at:\n**{run_date}** (in )\n"
+        if should_send_channel_reminder:
+            _reminder: Job = settings.scheduler.add_job(
+                send_to_discord,
+                run_date=run_date,
+                kwargs={
+                    "channel_id": channel_id,
+                    "message": message,
+                    "author_id": interaction.user.id,
+                },
+            )
+            where_and_when = f"I will notify you in <#{channel_id}> {dm_message}at:\n**{run_date}** (in)\n"
+        final_message: str = f"Hello {interaction.user.display_name}, {where_and_when}With the message:\n**{message}**."
+        await interaction.followup.send(final_message)
 
     @staticmethod
-    async def parse_reminder_time(interaction: discord.Interaction, time: str) -> None:
+    def get_channel_id(interaction: discord.Interaction, channel: discord.TextChannel | None) -> int | None:
+        """Get the channel ID to send the reminder to.
+
+        Args:
+            interaction: The interaction object for the command.
+            channel: The channel to send the reminder to.
+
+        Returns:
+            int: The channel ID to send the reminder to.
+        """
+        channel_id: int | None = None
+        if interaction.channel:
+            channel_id = interaction.channel.id
+        if channel:
+            logger.info("Channel provided: %s (%s) so using that instead of current channel.", channel, channel.id)
+            channel_id = channel.id
+        logger.info("Will send reminder to channel: %s (%s)", channel, channel_id)
+
+        return channel_id
+
+    @staticmethod
+    async def parse_reminder_time(interaction: discord.Interaction, time: str) -> datetime.datetime | None:
         """Parse the reminder time.
 
         Args:
             interaction: The interaction object for the command.
             time: The time of the reminder.
+
+        Returns:
+            datetime.datetime: The parsed time.
         """
         parsed = None
         error_during_parsing: ValueError | TypeError | None = None
@@ -131,8 +206,8 @@ class RemindGroup(discord.app_commands.Group):
             error_during_parsing = e
         if not parsed:
             await interaction.followup.send(f"Failed to parse time. Error: {error_during_parsing}")
-            return
-        await interaction.followup.send(f"Reminder set for {parsed}")
+            return None
+        return parsed
 
     @staticmethod
     def log_reminder_details(  # noqa: PLR0913, PLR0917
@@ -158,16 +233,130 @@ class RemindGroup(discord.app_commands.Group):
         logger.info("Channel: %s User: %s", channel, user)
         logger.info("DM and current channel: %s", dm_and_current_channel)
 
-    @discord.app_commands.command(name="list", description="List all reminders")
+    @discord.app_commands.command(name="list", description="List, pause, unpause, and remove reminders.")
     async def list(self, interaction: discord.Interaction) -> None:  # noqa: PLR6301
-        """List all reminders.
+        """List all reminders with pagination and buttons for deleting and modifying jobs.
 
         Args:
-            interaction: The interaction.
+            interaction(discord.Interaction): The interaction object for the command.
         """
-        reminders: list[str] = ["Meeting at 10 AM", "Lunch at 12 PM"]
-        reminder_text: str = "\n".join(reminders)
-        await interaction.response.send_message(f"Your reminders:\n{reminder_text}")
+        await interaction.response.defer()
+
+        jobs: list[Job] = settings.scheduler.get_jobs()
+        if not jobs:
+            await interaction.followup.send("No jobs available.")
+            return
+
+        first_job: Job | None = jobs[0] if jobs else None
+        if not first_job:
+            await interaction.followup.send("No jobs available.")
+            return
+
+        embed: discord.Embed = create_job_embed(first_job)
+        view = JobManagementView(first_job, settings.scheduler)
+        await interaction.followup.send(embed=embed, view=view)
+
+
+def create_job_embed(job: Job) -> discord.Embed:
+    """Create an embed for a job.
+
+    Args:
+        job: The job to create the embed for.
+
+    Returns:
+        discord.Embed: The embed for the job.
+    """
+    return discord.Embed(
+        title=f"Job: {job.name}",
+        description=f"Next run: {job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time else 'Paused'}",
+        color=discord.Color.blue(),
+    )
+
+
+class JobSelector(Select):
+    """Select menu for selecting a job to manage."""
+
+    def __init__(self, scheduler: AsyncIOScheduler) -> None:
+        """Initialize the job selector.
+
+        Args:
+            scheduler: The scheduler to get the jobs from.
+        """
+        self.scheduler: settings.AsyncIOScheduler = scheduler
+        options: list[discord.SelectOption] = [
+            discord.SelectOption(label=job.name, value=job.id) for job in settings.scheduler.get_jobs()
+        ]
+        super().__init__(placeholder="Select a job...", options=options)
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        """Callback for the job selector.
+
+        Args:
+            interaction: The interaction object for the command.
+        """
+        job: Job | None = self.scheduler.get_job(self.values[0])
+        if job:
+            embed = create_job_embed(job)
+            view = JobManagementView(job, self.scheduler)
+            await interaction.response.edit_message(embed=embed, view=view)
+
+
+class JobManagementView(discord.ui.View):
+    """View for managing jobs."""
+
+    def __init__(self, job: Job, scheduler: AsyncIOScheduler) -> None:
+        """Initialize the job management view.
+
+        Args:
+            job: The job to manage.
+            scheduler: The scheduler to manage the job with.
+        """
+        super().__init__(timeout=None)
+        self.job: Job = job
+        self.scheduler: settings.AsyncIOScheduler = scheduler
+        self.add_item(JobSelector(scheduler))
+
+    @discord.ui.button(label="Delete", style=discord.ButtonStyle.danger)
+    async def delete_button(self, interaction: discord.Interaction, button: Button) -> None:  # noqa: ARG002
+        """Delete the job.
+
+        Args:
+            interaction: The interaction object for the command.
+            button: The button that was clicked.
+        """
+        self.job.remove()
+        await interaction.response.send_message(f"Job '{self.job.name}' has been deleted.", ephemeral=True)
+        self.stop()
+
+    @discord.ui.button(label="Modify", style=discord.ButtonStyle.primary)
+    async def modify_button(self, interaction: discord.Interaction, button: Button) -> None:  # noqa: ARG002
+        """Modify the job.
+
+        Args:
+            interaction: The interaction object for the command.
+            button: The button that was clicked.
+        """
+        next_run = self.job.next_run_time.strftime("%Y-%m-%d %H:%M:%S")
+        await interaction.response.send_message(
+            f"Current schedule: {next_run}\nPlease use /modify_job command to update the schedule.",
+            ephemeral=True,
+        )
+
+    @discord.ui.button(label="Pause/Resume", style=discord.ButtonStyle.secondary)
+    async def pause_button(self, interaction: discord.Interaction, button: Button) -> None:  # noqa: ARG002
+        """Pause or resume the job.
+
+        Args:
+            interaction: The interaction object for the command.
+            button: The button that was clicked.
+        """
+        if self.job.next_run_time is None:
+            self.job.resume()
+            status = "resumed"
+        else:
+            self.job.pause()
+            status = "paused"
+        await interaction.response.send_message(f"Job '{self.job.name}' has been {status}.", ephemeral=True)
 
 
 intents: discord.Intents = discord.Intents.default()

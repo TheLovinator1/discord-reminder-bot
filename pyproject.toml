@@ -13,6 +13,7 @@ dependencies = [
     "dateparser",
     "discord-py",
     "discord-webhook",
+    "legacy-cgi",
     "python-dotenv",
     "sqlalchemy",
 ]
