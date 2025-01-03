@@ -1,0 +1,20 @@
+{
+    "cSpell.words": [
+        "apscheduler",
+        "asctime",
+        "audioop",
+        "dateparser",
+        "docstrings",
+        "dotenv",
+        "hikari",
+        "isort",
+        "jobstores",
+        "levelname",
+        "Lovinator",
+        "pycodestyle",
+        "pydocstyle",
+        "sqlalchemy",
+        "uvloop"
+    ],
+    "python.analysis.typeCheckingMode": "standard"
+}

@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Start bot",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/discord_reminder_bot/main.py",
+            "console": "integratedTerminal",
+        }
+    ]
+}
