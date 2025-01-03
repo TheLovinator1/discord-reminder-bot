@@ -1,3 +1,7 @@
+# TODO(TheLovinator): Add GitHub Actions workflow for installing and running with Poetry
+# TODO(TheLovinator): Add GitHub Actions workflow for installing and running with uv
+# TODO(TheLovinator): Test bot on linux/windows/macOS with different Python versions and architectures
+
 [project]
 name = "discord-reminder-bot"
 version = "2.0.0"
@@ -5,13 +9,12 @@ description = "Discord bot that allows you to set date, cron and interval remind
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "apscheduler<4.0.0",
     "dateparser",
+    "discord-py",
+    "discord-webhook",
     "python-dotenv",
     "sqlalchemy",
-    "apscheduler<4.0.0",
-    "discord-py",
-    "audioop-lts",
-    "discord-webhook",
 ]
 
 [dependency-groups]
@@ -31,10 +34,9 @@ bot = "discord_reminder_bot.main:start"
 python = "^3.13"
 apscheduler = "<4.0.0"
 dateparser = "*"
+discord-py = {git = "https://github.com/Rapptz/discord.py"}
 python-dotenv = "*"
 sqlalchemy = "*"
-discord-py = "*"
-audioop-lts = "*"
 
 [tool.poetry.dev-dependencies]
 pytest = "*"
@@ -99,4 +101,5 @@ log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 
-python_files = "test_*.py *_test.py *_tests.py"
+[tool.uv.sources]
+discord-py = {git = "https://github.com/Rapptz/discord.py"}
