@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import datetime
 import logging
+import textwrap
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 import dateparser
 import discord
 from apscheduler.job import Job
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from discord.abc import PrivateChannel
 from discord.ui import Button, Select
 from discord_webhook import DiscordWebhook
@@ -137,7 +141,7 @@ class RemindGroup(discord.app_commands.Group):
         where_and_when = ""
         channel_id: int | None = self.get_channel_id(interaction, channel)
         if user:
-            _user_reminder: Job = settings.scheduler.add_job(
+            user_reminder: Job = settings.scheduler.add_job(
                 send_to_user,
                 run_date=run_date,
                 kwargs={
@@ -150,9 +154,11 @@ class RemindGroup(discord.app_commands.Group):
             dm_message = f"and a DM to {user.display_name} "
             if not dm_and_current_channel:
                 should_send_channel_reminder = False
-                where_and_when: str = f"I will send a DM to {user.display_name} at:\n**{run_date}** (in )\n"
+                where_and_when: str = (
+                    f"I will send a DM to {user.display_name} at:\n**{run_date}** (in {calculate(user_reminder)})\n"
+                )
         if should_send_channel_reminder:
-            _reminder: Job = settings.scheduler.add_job(
+            reminder: Job = settings.scheduler.add_job(
                 send_to_discord,
                 run_date=run_date,
                 kwargs={
@@ -161,7 +167,9 @@ class RemindGroup(discord.app_commands.Group):
                     "author_id": interaction.user.id,
                 },
             )
-            where_and_when = f"I will notify you in <#{channel_id}> {dm_message}at:\n**{run_date}** (in)\n"
+            where_and_when = (
+                f"I will notify you in <#{channel_id}> {dm_message}at:\n**{run_date}** (in {calculate(reminder)})\n"
+            )
         final_message: str = f"Hello {interaction.user.display_name}, {where_and_when}With the message:\n**{message}**."
         await interaction.followup.send(final_message)
 
@@ -257,6 +265,48 @@ class RemindGroup(discord.app_commands.Group):
         await interaction.followup.send(embed=embed, view=view)
 
 
+def calculate(job: Job) -> str:
+    """Get trigger time from a reminder and calculate how many days, hours and minutes till trigger.
+
+    Days/Minutes will not be included if 0.
+
+    Args:
+        job: The job. Can be cron, interval or normal.
+
+    Returns:
+        Returns days, hours and minutes till the reminder. Returns "Couldn't calculate time" if no job is found.
+    """
+    trigger_time: datetime.datetime | None = (
+        job.trigger.run_date if isinstance(job.trigger, DateTrigger) else job.next_run_time
+    )
+    if trigger_time is None:
+        logger.error("Couldn't calculate time for job: %s: %s", job.id, job.name)
+        return "Couldn't calculate time"
+
+    countdown_time: datetime.timedelta = trigger_time - datetime.datetime.now(tz=ZoneInfo(settings.config_timezone))
+
+    days, hours, minutes = (
+        countdown_time.days,
+        countdown_time.seconds // 3600,
+        countdown_time.seconds // 60 % 60,
+    )
+
+    # Return seconds if only seconds are left.
+    if days == 0 and hours == 0 and minutes == 0:
+        seconds: int = countdown_time.seconds % 60
+        return f"{seconds} second" + ("s" if seconds != 1 else "")
+
+    return ", ".join(
+        f"{x} {y}{'s' * (x != 1)}"
+        for x, y in (
+            (days, "day"),
+            (hours, "hour"),
+            (minutes, "minute"),
+        )
+        if x
+    )
+
+
 def create_job_embed(job: Job) -> discord.Embed:
     """Create an embed for a job.
 
@@ -266,9 +316,18 @@ def create_job_embed(job: Job) -> discord.Embed:
     Returns:
         discord.Embed: The embed for the job.
     """
+    next_run_time: datetime.datetime | str = (
+        job.next_run_time.strftime("%Y-%m-%d %H:%M:%S") if job.next_run_time else "Paused"
+    )
+    job_kwargs: dict = job.kwargs or {}
+    channel_id: int = job_kwargs.get("channel_id", 0)
+    message: str = job_kwargs.get("message", "N/A")
+    author_id: int = job_kwargs.get("author_id", 0)
+    embed_title: str = textwrap.shorten(f"{message}", width=256, placeholder="...")
+
     return discord.Embed(
-        title=f"Job: {job.name}",
-        description=f"Next run: {job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time else 'Paused'}",
+        title=embed_title,
+        description=f"ID: {job.id}\nNext run: {next_run_time}\nTime left: {calculate(job)}\nChannel: <#{channel_id}>\nAuthor: <@{author_id}>",  # noqa: E501
         color=discord.Color.blue(),
     )
 
@@ -283,9 +342,32 @@ class JobSelector(Select):
             scheduler: The scheduler to get the jobs from.
         """
         self.scheduler: settings.AsyncIOScheduler = scheduler
-        options: list[discord.SelectOption] = [
-            discord.SelectOption(label=job.name, value=job.id) for job in settings.scheduler.get_jobs()
-        ]
+        options: list[discord.SelectOption] = []
+        jobs: list[Job] = scheduler.get_jobs()
+
+        # Only 25 options are allowed in a select menu.
+        # TODO(TheLovinator): Add pagination for more than 25 jobs.  # noqa: TD003
+        max_jobs: int = 25
+        if len(jobs) > max_jobs:
+            jobs = jobs[:max_jobs]
+
+        for job in jobs:
+            job_kwargs: dict = job.kwargs or {}
+
+            label_prefix: str = ""
+            if job.next_run_time is None:
+                label_prefix = "Paused: "
+            # Cron job
+            elif isinstance(job.trigger, CronTrigger):
+                label_prefix = "Cron: "
+            # Interval job
+            elif isinstance(job.trigger, IntervalTrigger):
+                label_prefix = "Interval: "
+
+            message: str = job_kwargs.get("message", f"{job.id}")
+            message: str = textwrap.shorten(f"{label_prefix}{message}", width=100, placeholder="...")
+
+            options.append(discord.SelectOption(label=message, value=job.id))
         super().__init__(placeholder="Select a job...", options=options)
 
     async def callback(self, interaction: discord.Interaction) -> None:
@@ -296,7 +378,7 @@ class JobSelector(Select):
         """
         job: Job | None = self.scheduler.get_job(self.values[0])
         if job:
-            embed = create_job_embed(job)
+            embed: discord.Embed = create_job_embed(job)
             view = JobManagementView(job, self.scheduler)
             await interaction.response.edit_message(embed=embed, view=view)
 
