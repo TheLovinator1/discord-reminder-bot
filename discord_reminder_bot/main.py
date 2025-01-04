@@ -155,7 +155,7 @@ class RemindGroup(discord.app_commands.Group):
             if not dm_and_current_channel:
                 should_send_channel_reminder = False
                 where_and_when: str = (
-                    f"I will send a DM to {user.display_name} at:\n**{run_date}** (in {calculate(user_reminder)})\n"
+                    f"I will send a DM to {user.display_name} at:\n**{run_date}** {calculate(user_reminder)}\n"
                 )
         if should_send_channel_reminder:
             reminder: Job = settings.scheduler.add_job(
@@ -168,7 +168,7 @@ class RemindGroup(discord.app_commands.Group):
                 },
             )
             where_and_when = (
-                f"I will notify you in <#{channel_id}> {dm_message}at:\n**{run_date}** (in {calculate(reminder)})\n"
+                f"I will notify you in <#{channel_id}> {dm_message}at:\n**{run_date}** {calculate(reminder)}\n"
             )
         final_message: str = f"Hello {interaction.user.display_name}, {where_and_when}With the message:\n**{message}**."
         await interaction.followup.send(final_message)
@@ -266,15 +266,13 @@ class RemindGroup(discord.app_commands.Group):
 
 
 def calculate(job: Job) -> str:
-    """Get trigger time from a reminder and calculate how many days, hours and minutes till trigger.
-
-    Days/Minutes will not be included if 0.
+    """Calculate the time left for a job.
 
     Args:
-        job: The job. Can be cron, interval or normal.
+        job: The job to calculate the time for.
 
     Returns:
-        Returns days, hours and minutes till the reminder. Returns "Couldn't calculate time" if no job is found.
+        str: The time left for the job.
     """
     trigger_time: datetime.datetime | None = (
         job.trigger.run_date if isinstance(job.trigger, DateTrigger) else job.next_run_time
@@ -283,28 +281,7 @@ def calculate(job: Job) -> str:
         logger.error("Couldn't calculate time for job: %s: %s", job.id, job.name)
         return "Couldn't calculate time"
 
-    countdown_time: datetime.timedelta = trigger_time - datetime.datetime.now(tz=ZoneInfo(settings.config_timezone))
-
-    days, hours, minutes = (
-        countdown_time.days,
-        countdown_time.seconds // 3600,
-        countdown_time.seconds // 60 % 60,
-    )
-
-    # Return seconds if only seconds are left.
-    if days == 0 and hours == 0 and minutes == 0:
-        seconds: int = countdown_time.seconds % 60
-        return f"{seconds} second" + ("s" if seconds != 1 else "")
-
-    return ", ".join(
-        f"{x} {y}{'s' * (x != 1)}"
-        for x, y in (
-            (days, "day"),
-            (hours, "hour"),
-            (minutes, "minute"),
-        )
-        if x
-    )
+    return f"<t:{int(trigger_time.timestamp())}:R>"
 
 
 def create_job_embed(job: Job) -> discord.Embed:
