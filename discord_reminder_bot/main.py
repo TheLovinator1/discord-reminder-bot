@@ -1,24 +1,25 @@
 from __future__ import annotations
 
-import datetime
 import logging
 import textwrap
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfo
 
-import dateparser
 import discord
 from apscheduler.job import Job
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from discord.abc import PrivateChannel
 from discord.ui import Button, Select
 from discord_webhook import DiscordWebhook
 
 from discord_reminder_bot import settings
+from discord_reminder_bot.misc import calculate
+from discord_reminder_bot.parser import parse_time
+from discord_reminder_bot.ui import ModifyJobModal, create_job_embed
 
 if TYPE_CHECKING:
+    import datetime
+
     from apscheduler.job import Job
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -62,38 +63,6 @@ class RemindBotClient(discord.Client):
             logger.exception("An error occurred while translating the commands.")
         except discord.HTTPException as e:
             logger.exception("An HTTP error occurred: %s, %s, %s", e.text, e.status, e.code)
-
-
-def parse_time(date_to_parse: str, timezone: str | None = None) -> datetime.datetime | None:
-    """Parse a date string into a datetime object.
-
-    Args:
-        date_to_parse(str): The date string to parse.
-        timezone(str, optional): The timezone to use. Defaults timezone from settings.
-
-    Returns:
-        datetime.datetime: The parsed datetime object.
-    """
-    logger.info("Parsing date: '%s' with timezone: '%s'", date_to_parse, timezone)
-
-    if not date_to_parse:
-        logger.error("No date provided to parse.")
-        return None
-
-    if not timezone:
-        timezone = settings.config_timezone
-
-    parsed_date: datetime.datetime | None = dateparser.parse(
-        date_string=date_to_parse,
-        settings={
-            "PREFER_DATES_FROM": "future",
-            "TIMEZONE": f"{timezone}",
-            "RETURN_AS_TIMEZONE_AWARE": True,
-            "RELATIVE_BASE": datetime.datetime.now(tz=ZoneInfo(timezone)),
-        },
-    )
-
-    return parsed_date
 
 
 class RemindGroup(discord.app_commands.Group):
@@ -265,50 +234,6 @@ class RemindGroup(discord.app_commands.Group):
         await interaction.followup.send(embed=embed, view=view)
 
 
-def calculate(job: Job) -> str:
-    """Calculate the time left for a job.
-
-    Args:
-        job: The job to calculate the time for.
-
-    Returns:
-        str: The time left for the job.
-    """
-    trigger_time: datetime.datetime | None = (
-        job.trigger.run_date if isinstance(job.trigger, DateTrigger) else job.next_run_time
-    )
-    if trigger_time is None:
-        logger.error("Couldn't calculate time for job: %s: %s", job.id, job.name)
-        return "Couldn't calculate time"
-
-    return f"<t:{int(trigger_time.timestamp())}:R>"
-
-
-def create_job_embed(job: Job) -> discord.Embed:
-    """Create an embed for a job.
-
-    Args:
-        job: The job to create the embed for.
-
-    Returns:
-        discord.Embed: The embed for the job.
-    """
-    next_run_time: datetime.datetime | str = (
-        job.next_run_time.strftime("%Y-%m-%d %H:%M:%S") if job.next_run_time else "Paused"
-    )
-    job_kwargs: dict = job.kwargs or {}
-    channel_id: int = job_kwargs.get("channel_id", 0)
-    message: str = job_kwargs.get("message", "N/A")
-    author_id: int = job_kwargs.get("author_id", 0)
-    embed_title: str = textwrap.shorten(f"{message}", width=256, placeholder="...")
-
-    return discord.Embed(
-        title=embed_title,
-        description=f"ID: {job.id}\nNext run: {next_run_time}\nTime left: {calculate(job)}\nChannel: <#{channel_id}>\nAuthor: <@{author_id}>",  # noqa: E501
-        color=discord.Color.blue(),
-    )
-
-
 class JobSelector(Select):
     """Select menu for selecting a job to manage."""
 
@@ -395,11 +320,8 @@ class JobManagementView(discord.ui.View):
             interaction: The interaction object for the command.
             button: The button that was clicked.
         """
-        next_run = self.job.next_run_time.strftime("%Y-%m-%d %H:%M:%S")
-        await interaction.response.send_message(
-            f"Current schedule: {next_run}\nPlease use /modify_job command to update the schedule.",
-            ephemeral=True,
-        )
+        modal = ModifyJobModal(self.job, self.scheduler)
+        await interaction.response.send_modal(modal)
 
     @discord.ui.button(label="Pause/Resume", style=discord.ButtonStyle.secondary)
     async def pause_button(self, interaction: discord.Interaction, button: Button) -> None:  # noqa: ARG002
@@ -416,6 +338,23 @@ class JobManagementView(discord.ui.View):
             self.job.pause()
             status = "paused"
         await interaction.response.send_message(f"Job '{self.job.name}' has been {status}.", ephemeral=True)
+
+    def update_buttons(self) -> None:
+        """Update the visibility of buttons based on job status."""
+        self.pause_button.disabled = not self.job.next_run_time
+        self.pause_button.label = "Resume" if self.job.next_run_time is None else "Pause"
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:  # noqa: ARG002
+        """Check the interaction and update buttons before responding.
+
+        Args:
+            interaction: The interaction object for the command.
+
+        Returns:
+            bool: Whether the interaction is valid.
+        """
+        self.update_buttons()
+        return True
 
 
 intents: discord.Intents = discord.Intents.default()
