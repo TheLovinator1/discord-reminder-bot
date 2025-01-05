@@ -308,9 +308,107 @@ class JobManagementView(discord.ui.View):
             interaction: The interaction object for the command.
             button: The button that was clicked.
         """
+        job_kwargs: dict = self.job.kwargs or {}
+
+        logger.info("Deleting job: %s", self.job.id)
+        logger.info("\tTrigger time: %s %s", self.job.next_run_time, calculate(self.job))
+        logger.info("\tMessage: %s", self.job.kwargs.get("message", "N/A"))
+        logger.info("\tChannel: <#%s>", self.job.kwargs.get("channel_id", 0))
+        logger.info("\tCreated by: %s", self.job.kwargs.get("author_id", 0))
+        logger.info("\tIn guild: %s", self.job.kwargs.get("guild_id", 0))
+        logger.info("\tTo Discord user: %s", self.job.kwargs.get("user_id", 0))
+        logger.info("\tFunction: %s", self.job.func)
+        logger.info("\tTrigger: %s", self.job.trigger)
+        logger.info("\tExecutor: %s", self.job.executor)
+        logger.info("\tArgs: %s", self.job.args)
+        logger.info("\tName: %s", self.job.name)
+        logger.info("\tMisfire grace time: %s", self.job.misfire_grace_time)
+        logger.info("\tCoalesce: %s", self.job.coalesce)
+        logger.info("\tMax instances: %s", self.job.max_instances)
+
+        # Log extra kwargs
+        for key, value in job_kwargs.items():
+            if key not in {"message", "channel_id", "author_id", "guild_id", "user_id"}:
+                logger.error("Extra kwargs: %s: %s", key, value)
+
+        msg: str = self.generate_deletion_message(job_kwargs)
+
         self.job.remove()
-        await interaction.response.send_message(f"Job '{self.job.name}' has been deleted.", ephemeral=True)
+        await interaction.response.send_message(msg)
         self.stop()
+
+    def generate_deletion_message(self, job_kwargs: dict[str, str | int]) -> str:  # noqa: C901, PLR0912
+        """Generate the deletion message.
+
+        Args:
+            job_kwargs: The job kwargs.
+
+        Returns:
+            str: The deletion message.
+        """
+        msg: str = f"# Job *{job_kwargs.get('message'), 'No message'}* has been deleted.\n"
+        msg += f"**Job ID**: {self.job.id}\n"
+
+        # The time the job was supposed to run
+        if hasattr(self.job, "next_run_time"):
+            if self.job.next_run_time:
+                msg += f"**Next run time**: ({self.job.next_run_time} {calculate(self.job)})\n"
+            else:
+                msg += "**Next run time**: Paused\n"
+        else:
+            msg += "**Next run time**: Pending\n"
+
+        # The Discord user who created the job
+        if job_kwargs.get("author_id"):
+            msg += f"**Created by**: <@{job_kwargs.get('author_id')}>\n"
+
+        # The Discord channel to send the message to
+        if job_kwargs.get("channel_id"):
+            msg += f"**Channel**: <#{job_kwargs.get('channel_id')}>\n"
+
+        # The Discord user to send the message to
+        if job_kwargs.get("user_id"):
+            msg += f"**User**: <@{job_kwargs.get('user_id')}>\n"
+
+        # The Discord guild to send the message to
+        if job_kwargs.get("guild_id"):
+            msg += f"**Guild**: {job_kwargs.get('guild_id')}\n"
+
+        msg += "\n## Debug info\n"
+
+        # Callable (or a textual reference to one) to run at the given time
+        if self.job.func:
+            msg += f"**Function**: {self.job.func}\n"
+
+        # Trigger that determines when func is called
+        if self.job.trigger:
+            msg += f"**Trigger**: {self.job.trigger}\n"
+
+        # Alias of the executor to run the job with
+        if self.job.executor:
+            msg += f"**Executor**: {self.job.executor}\n"
+
+        # List of positional arguments to call func with
+        if self.job.args:
+            msg += f"**Args**: {self.job.args}\n"
+
+        # Textual description of the job
+        if self.job.name:
+            msg += f"**Name**: {self.job.name}\n"
+
+        # Seconds after the designated runtime that the job is still allowed to be run (or None to allow the job to run no matter how late it is) # noqa: E501
+        if self.job.misfire_grace_time:
+            msg += f"**Misfire grace time**: {self.job.misfire_grace_time}\n"
+
+        # Run once instead of many times if the scheduler determines that the job should be run more than once in succession # noqa: E501
+        if self.job.coalesce:
+            msg += f"**Coalesce**: {self.job.coalesce}\n"
+
+        # Maximum number of concurrently running instances allowed for this job
+        if self.job.max_instances:
+            msg += f"**Max instances**: {self.job.max_instances}\n"
+
+        return msg
 
     @discord.ui.button(label="Modify", style=discord.ButtonStyle.primary)
     async def modify_button(self, interaction: discord.Interaction, button: Button) -> None:  # noqa: ARG002
