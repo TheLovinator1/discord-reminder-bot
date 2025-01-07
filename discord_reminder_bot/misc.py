@@ -27,6 +27,7 @@ def calculate(job: Job) -> str:
     )
     if trigger_time is None:
         logger.error("Couldn't calculate time for job: %s: %s", job.id, job.name)
+        logger.error("State: %s", job.__getstate__() if hasattr(job, "__getstate__") else "No state")
         return "Couldn't calculate time"
 
     return f"<t:{int(trigger_time.timestamp())}:R>"

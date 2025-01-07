@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import textwrap
+from pprint import pformat
 from typing import TYPE_CHECKING
 
 import discord
@@ -48,6 +49,7 @@ class RemindBotClient(discord.Client):
     async def setup_hook(self) -> None:
         """Setup the bot."""
         settings.scheduler.start()
+        log_current_jobs()
 
         try:
             self.tree.copy_global_to(guild=GUILD_ID)
@@ -311,20 +313,8 @@ class JobManagementView(discord.ui.View):
         job_kwargs: dict = self.job.kwargs or {}
 
         logger.info("Deleting job: %s", self.job.id)
-        logger.info("\tTrigger time: %s %s", self.job.next_run_time, calculate(self.job))
-        logger.info("\tMessage: %s", self.job.kwargs.get("message", "N/A"))
-        logger.info("\tChannel: <#%s>", self.job.kwargs.get("channel_id", 0))
-        logger.info("\tCreated by: %s", self.job.kwargs.get("author_id", 0))
-        logger.info("\tIn guild: %s", self.job.kwargs.get("guild_id", 0))
-        logger.info("\tTo Discord user: %s", self.job.kwargs.get("user_id", 0))
-        logger.info("\tFunction: %s", self.job.func)
-        logger.info("\tTrigger: %s", self.job.trigger)
-        logger.info("\tExecutor: %s", self.job.executor)
-        logger.info("\tArgs: %s", self.job.args)
-        logger.info("\tName: %s", self.job.name)
-        logger.info("\tMisfire grace time: %s", self.job.misfire_grace_time)
-        logger.info("\tCoalesce: %s", self.job.coalesce)
-        logger.info("\tMax instances: %s", self.job.max_instances)
+        if hasattr(self.job, "__getstate__"):
+            logger.error("State: %s", self.job.__getstate__() if hasattr(self.job, "__getstate__") else "No state")
 
         # Log extra kwargs
         for key, value in job_kwargs.items():
@@ -418,6 +408,10 @@ class JobManagementView(discord.ui.View):
             interaction: The interaction object for the command.
             button: The button that was clicked.
         """
+        logger.info("Modifying job: %s", self.job.id)
+        if hasattr(self.job, "__getstate__"):
+            logger.error("State: %s", self.job.__getstate__() if hasattr(self.job, "__getstate__") else "No state")
+
         modal = ModifyJobModal(self.job, self.scheduler)
         await interaction.response.send_modal(modal)
 
@@ -532,6 +526,21 @@ async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
         member = await guild.fetch_member(user_id)
 
     await member.send(message)
+
+
+def log_current_jobs() -> None:
+    """Log the current jobs."""
+    jobs: list[Job] = settings.scheduler.get_jobs()
+    if not jobs:
+        logger.info("No jobs available.")
+        return
+
+    for job in jobs:
+        logger.debug("Job: %s", job)
+
+        state = {} if not hasattr(job, "__getstate__") else job.__getstate__()
+        if state:
+            logger.debug("State:\n%s", pformat(state))
 
 
 if __name__ == "__main__":
