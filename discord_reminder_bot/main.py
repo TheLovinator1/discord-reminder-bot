@@ -301,6 +301,7 @@ class JobManagementView(discord.ui.View):
         self.job: Job = job
         self.scheduler: settings.AsyncIOScheduler = scheduler
         self.add_item(JobSelector(scheduler))
+        self.update_buttons()
 
     @discord.ui.button(label="Delete", style=discord.ButtonStyle.danger)
     async def delete_button(self, interaction: discord.Interaction, button: Button) -> None:  # noqa: ARG002
@@ -416,20 +417,36 @@ class JobManagementView(discord.ui.View):
         await interaction.response.send_modal(modal)
 
     @discord.ui.button(label="Pause/Resume", style=discord.ButtonStyle.secondary)
-    async def pause_button(self, interaction: discord.Interaction, button: Button) -> None:  # noqa: ARG002
+    async def pause_button(self, interaction: discord.Interaction, button: Button) -> None:
         """Pause or resume the job.
 
         Args:
             interaction: The interaction object for the command.
             button: The button that was clicked.
         """
-        if self.job.next_run_time is None:
-            self.job.resume()
-            status = "resumed"
+        if hasattr(self.job, "next_run_time"):
+            if self.job.next_run_time is None:
+                logger.info("State: %s", self.job.__getstate__())
+                self.job.resume()
+                status = "resumed"
+                button.label = "Pause"
+            else:
+                logger.info("State: %s", self.job.__getstate__())
+                self.job.pause()
+                status = "paused"
+                button.label = "Resume"
         else:
-            self.job.pause()
-            status = "paused"
-        await interaction.response.send_message(f"Job '{self.job.name}' has been {status}.", ephemeral=True)
+            status: str = f"What is this? {self.job.__getstate__()}"
+            button.label = "What?"
+
+        self.update_buttons()
+        await interaction.response.edit_message(view=self)
+
+        msg: str = f"Job '{self.job.name}' has been {status}."
+        if hasattr(self.job, "next_run_time"):
+            msg += f"\nNext run time: {self.job.next_run_time} {calculate(self.job)}"
+
+        await interaction.followup.send(msg)
 
     def update_buttons(self) -> None:
         """Update the visibility of buttons based on job status."""
