@@ -69,6 +69,7 @@ class RemindGroup(discord.app_commands.Group):
         """Initialize the remind group."""
         super().__init__(name="remind", description="Group for remind commands")
 
+    # /remind add
     @discord.app_commands.command(name="add", description="Add a new reminder")
     async def add(  # noqa: PLR0913, PLR0917
         self,
@@ -139,6 +140,148 @@ class RemindGroup(discord.app_commands.Group):
         final_message: str = f"Hello {interaction.user.display_name}, {where_and_when}With the message:\n**{message}**."
         await interaction.followup.send(final_message)
 
+    # /remind list
+    @discord.app_commands.command(name="list", description="List, pause, unpause, and remove reminders.")
+    async def list(self, interaction: discord.Interaction) -> None:  # noqa: PLR6301
+        """List all reminders with pagination and buttons for deleting and modifying jobs.
+
+        Args:
+            interaction(discord.Interaction): The interaction object for the command.
+        """
+        await interaction.response.defer()
+
+        jobs: list[Job] = settings.scheduler.get_jobs()
+        if not jobs:
+            await interaction.followup.send("No jobs available.")
+            return
+
+        first_job: Job | None = jobs[0] if jobs else None
+        if not first_job:
+            await interaction.followup.send("No jobs available.")
+            return
+
+        embed: discord.Embed = create_job_embed(first_job)
+        view = JobManagementView(first_job, settings.scheduler)
+        await interaction.followup.send(embed=embed, view=view)
+
+    # /remind cron
+    @discord.app_commands.command(name="cron", description="Create new cron job. Works like UNIX cron.")
+    async def cron(  # noqa: PLR0913, PLR0917
+        self,
+        interaction: discord.Interaction,
+        message: str,
+        year: str | None = None,
+        month: str | None = None,
+        day: str | None = None,
+        week: str | None = None,
+        day_of_week: str | None = None,
+        hour: str | None = None,
+        minute: str | None = None,
+        second: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        timezone: str | None = None,
+        jitter: int | None = None,
+        channel: discord.TextChannel | None = None,
+        user: discord.User | None = None,
+        dm_and_current_channel: bool | None = None,  # noqa: FBT001
+    ) -> None:
+        """Create a new cron job.
+
+        Args that are None will be defaulted to *.
+
+        Args:
+            interaction (discord.Interaction): The interaction object for the command.
+            message (str): The content of the reminder.
+            year (str): 4-digit year. Defaults to *.
+            month (str): Month (1-12). Defaults to *.
+            day (str): Day of the month (1-31). Defaults to *.
+            week (str): ISO Week of the year (1-53). Defaults to *.
+            day_of_week (str): Number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun).
+            hour (str): Hour (0-23). Defaults to *.
+            minute (str): Minute (0-59). Defaults to *.
+            second (str): Second (0-59). Defaults to *.
+            start_date (str): Earliest possible date/time to trigger on (inclusive). Will get parsed.
+            end_date (str): Latest possible date/time to trigger on (inclusive). Will get parsed.
+            timezone (str): Time zone to use for the date/time calculations Defaults to scheduler timezone.
+            jitter (int, optional): Delay the job execution by jitter seconds at most.
+            channel (discord.TextChannel, optional): The channel to send the reminder to. Defaults to current channel.
+            user (discord.User, optional): Send reminder as a DM to this user. Defaults to None.
+            dm_and_current_channel (bool, optional): If user is provided, send reminder as a DM to the user and in this channel. Defaults to only the user.
+        """  # noqa: E501
+        # Log kwargs
+        logger.info("New cron job from %s (%s) in %s", interaction.user, interaction.user.id, interaction.channel)
+        logger.info("Cron job arguments: %s", {k: v for k, v in locals().items() if k != "self" and v is not None})
+
+        channel_id: int | None = self.get_channel_id(interaction, channel)
+        guild: discord.Guild | None = interaction.guild or None
+        if not guild:
+            await interaction.followup.send("Failed to get guild.")
+            return
+
+        dm_message: str = ""
+        where_and_when = ""
+        should_send_channel_reminder = True
+        if user:
+            user_reminder: Job = settings.scheduler.add_job(
+                send_to_user,
+                "cron",
+                year=year,
+                month=month,
+                day=day,
+                week=week,
+                day_of_week=day_of_week,
+                hour=hour,
+                minute=minute,
+                second=second,
+                start_date=start_date,
+                end_date=end_date,
+                timezone=timezone,
+                jitter=jitter,
+                kwargs={
+                    "user_id": user.id,
+                    "guild_id": guild.id,
+                    "message": message,
+                },
+            )
+
+            dm_message = f" and a DM to {user.display_name}"
+            if not dm_and_current_channel:
+                should_send_channel_reminder = False
+                where_and_when: str = (
+                    f"I will send a DM to {user.display_name} at:\n"
+                    f"First run in {calculate(user_reminder)} with the message:\n"
+                )
+        if should_send_channel_reminder:
+            reminder: Job = settings.scheduler.add_job(
+                send_to_discord,
+                "cron",
+                year=year,
+                month=month,
+                day=day,
+                week=week,
+                day_of_week=day_of_week,
+                hour=hour,
+                minute=minute,
+                second=second,
+                start_date=start_date,
+                end_date=end_date,
+                timezone=timezone,
+                jitter=jitter,
+                kwargs={
+                    "channel_id": channel_id,
+                    "message": message,
+                    "author_id": interaction.user.id,
+                },
+            )
+            where_and_when = (
+                f"I will notify you in <#{channel_id}>{dm_message}.\n"
+                f"First run in {calculate(reminder)} with the message:\n"
+            )
+
+        final_message: str = f"Hello {interaction.user.display_name}, {where_and_when}**{message}**."
+        await interaction.followup.send(final_message)
+
     @staticmethod
     def get_channel_id(interaction: discord.Interaction, channel: discord.TextChannel | None) -> int | None:
         """Get the channel ID to send the reminder to.
@@ -206,29 +349,6 @@ class RemindGroup(discord.app_commands.Group):
         logger.info("Adding reminder: %s Time: %s", message, time)
         logger.info("Channel: %s User: %s", channel, user)
         logger.info("DM and current channel: %s", dm_and_current_channel)
-
-    @discord.app_commands.command(name="list", description="List, pause, unpause, and remove reminders.")
-    async def list(self, interaction: discord.Interaction) -> None:  # noqa: PLR6301
-        """List all reminders with pagination and buttons for deleting and modifying jobs.
-
-        Args:
-            interaction(discord.Interaction): The interaction object for the command.
-        """
-        await interaction.response.defer()
-
-        jobs: list[Job] = settings.scheduler.get_jobs()
-        if not jobs:
-            await interaction.followup.send("No jobs available.")
-            return
-
-        first_job: Job | None = jobs[0] if jobs else None
-        if not first_job:
-            await interaction.followup.send("No jobs available.")
-            return
-
-        embed: discord.Embed = create_job_embed(first_job)
-        view = JobManagementView(first_job, settings.scheduler)
-        await interaction.followup.send(embed=embed, view=view)
 
 
 intents: discord.Intents = discord.Intents.default()
