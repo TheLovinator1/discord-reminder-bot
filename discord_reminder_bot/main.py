@@ -91,6 +91,10 @@ class RemindGroup(discord.app_commands.Group):
             user (discord.User, optional): Send reminder as a DM to this user. Defaults to None.
             dm_and_current_channel (bool, optional): Send reminder as a DM to the user and in this channel. Defaults to False.
         """  # noqa: E501
+        # TODO(TheLovinator): Add try/except for all of these await calls  # noqa: TD003
+        # TODO(TheLovinator): Add a warning if the interval is too short  # noqa: TD003
+        # TODO(TheLovinator): Check if we have access to the channel and user# noqa: TD003
+
         should_send_channel_reminder = True
 
         await interaction.response.defer()
@@ -210,6 +214,10 @@ class RemindGroup(discord.app_commands.Group):
             user (discord.User, optional): Send reminder as a DM to this user. Defaults to None.
             dm_and_current_channel (bool, optional): If user is provided, send reminder as a DM to the user and in this channel. Defaults to only the user.
         """  # noqa: E501
+        # TODO(TheLovinator): Add try/except for all of these await calls  # noqa: TD003
+        # TODO(TheLovinator): Add a warning if the interval is too short  # noqa: TD003
+        # TODO(TheLovinator): Check if we have access to the channel and user# noqa: TD003
+
         # Log kwargs
         logger.info("New cron job from %s (%s) in %s", interaction.user, interaction.user.id, interaction.channel)
         logger.info("Cron job arguments: %s", {k: v for k, v in locals().items() if k != "self" and v is not None})
@@ -258,6 +266,119 @@ class RemindGroup(discord.app_commands.Group):
                 },
             )
             dm_message = f" and a DM to {user.display_name}"
+            if not dm_and_current_channel:
+                # If only DM is required, notify about the DM job and exit
+                await interaction.followup.send(
+                    content=f"Hello {interaction.user.display_name},\n"
+                    f"I will send a DM to {user.display_name} at:\n"
+                    f"First run in {calculate(dm_job)} with the message:\n**{message}**.",
+                )
+
+        # Create channel reminder job
+        channel_job: Job = add_job(
+            func=send_to_discord,
+            job_kwargs={
+                "channel_id": channel_id,
+                "message": message,
+                "author_id": interaction.user.id,
+            },
+        )
+
+        # Compose the final message
+        await interaction.followup.send(
+            content=f"Hello {interaction.user.display_name},\n"
+            f"I will notify you in <#{channel_id}>{dm_message}.\n"
+            f"First run in {calculate(channel_job)} with the message:\n**{message}**.",
+        )
+
+    # /remind interval
+    @discord.app_commands.command(
+        name="interval",
+        description="Create a new reminder that triggers based on an interval.",
+    )
+    async def interval(  # noqa: PLR0913, PLR0917
+        self,
+        interaction: discord.Interaction,
+        message: str,
+        weeks: int = 0,
+        days: int = 0,
+        hours: int = 0,
+        minutes: int = 0,
+        seconds: int = 0,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        timezone: str | None = None,
+        jitter: int | None = None,
+        channel: discord.TextChannel | None = None,
+        user: discord.User | None = None,
+        dm_and_current_channel: bool | None = None,  # noqa: FBT001
+    ) -> None:
+        """Create a new reminder that triggers based on an interval.
+
+        Args:
+            interaction (discord.Interaction): The interaction object for the command.
+            message (str): The content of the reminder.
+            weeks (int, optional): Number of weeks between each run. Defaults to 0.
+            days (int, optional): Number of days between each run. Defaults to 0.
+            hours (int, optional): Number of hours between each run. Defaults to 0.
+            minutes (int, optional): Number of minutes between each run. Defaults to 0.
+            seconds (int, optional): Number of seconds between each run. Defaults to 0.
+            start_date (str, optional): Earliest possible date/time to trigger on (inclusive). Will get parsed.
+            end_date (str, optional): Latest possible date/time to trigger on (inclusive). Will get parsed.
+            timezone (str, optional): Time zone to use for the date/time calculations Defaults to scheduler timezone.
+            jitter (int, optional): Delay the job execution by jitter seconds at most.
+            channel (discord.TextChannel, optional): The channel to send the reminder to. Defaults to current channel.
+            user (discord.User, optional): Send reminder as a DM to this user. Defaults to None.
+            dm_and_current_channel (bool, optional): If user is provided, send reminder as a DM to the user and in this channel. Defaults to only the user.
+        """  # noqa: E501
+        # TODO(TheLovinator): Add try/except for all of these await calls  # noqa: TD003
+        # TODO(TheLovinator): Add a warning if the interval is too short  # noqa: TD003
+        # TODO(TheLovinator): Check if we have access to the channel and user# noqa: TD003
+
+        logger.info("New interval job from %s (%s) in %s", interaction.user, interaction.user.id, interaction.channel)
+        logger.info("Interval job arguments: %s", {k: v for k, v in locals().items() if k != "self" and v is not None})
+
+        # Get the channel ID
+        channel_id: int | None = self.get_channel_id(interaction=interaction, channel=channel)
+        if not channel_id:
+            await interaction.followup.send(content="Failed to get channel.")
+            return
+
+        # Ensure the guild is valid
+        guild: discord.Guild | None = interaction.guild or None
+        if not guild:
+            await interaction.followup.send(content="Failed to get guild.")
+            return
+
+        # Helper to add a job
+        def add_job(func: Callable, job_kwargs: dict[str, int | str]) -> Job:
+            return settings.scheduler.add_job(
+                func=func,
+                trigger="interval",
+                weeks=weeks,
+                days=days,
+                hours=hours,
+                minutes=minutes,
+                seconds=seconds,
+                start_date=start_date,
+                end_date=end_date,
+                timezone=timezone,
+                jitter=jitter,
+                kwargs=job_kwargs,
+            )
+
+        # Create user DM reminder job if user is specified
+        dm_message: str = ""
+        if user:
+            dm_job: Job = add_job(
+                func=send_to_user,
+                job_kwargs={
+                    "user_id": user.id,
+                    "guild_id": guild.id,
+                    "message": message,
+                },
+            )
+            dm_message = f" and a DM to {user.display_name} "
             if not dm_and_current_channel:
                 # If only DM is required, notify about the DM job and exit
                 await interaction.followup.send(

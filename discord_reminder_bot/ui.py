@@ -294,7 +294,7 @@ class JobManagementView(discord.ui.View):
 
         logger.info("Deleting job: %s", self.job.id)
         if hasattr(self.job, "__getstate__"):
-            logger.error("State: %s", self.job.__getstate__() if hasattr(self.job, "__getstate__") else "No state")
+            logger.debug("State: %s", self.job.__getstate__() if hasattr(self.job, "__getstate__") else "No state")
 
         # Log extra kwargs
         for key, value in job_kwargs.items():
@@ -316,7 +316,8 @@ class JobManagementView(discord.ui.View):
         Returns:
             str: The deletion message.
         """
-        msg: str = f"# Job *{job_kwargs.get('message'), 'No message'}* has been deleted.\n"
+        job_msg: str | int = job_kwargs.get("message", "No message found")
+        msg: str = f"# Job *{job_msg}* has been deleted.\n"
         msg += f"**Job ID**: {self.job.id}\n"
 
         # The time the job was supposed to run
@@ -390,7 +391,7 @@ class JobManagementView(discord.ui.View):
         """
         logger.info("Modifying job: %s", self.job.id)
         if hasattr(self.job, "__getstate__"):
-            logger.error("State: %s", self.job.__getstate__() if hasattr(self.job, "__getstate__") else "No state")
+            logger.debug("State: %s", self.job.__getstate__() if hasattr(self.job, "__getstate__") else "No state")
 
         modal = ModifyJobModal(self.job, self.scheduler)
         await interaction.response.send_modal(modal)
