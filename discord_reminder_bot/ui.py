@@ -12,7 +12,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from discord.ui import Button, Select
 
 from discord_reminder_bot import settings
-from discord_reminder_bot.misc import calc_time, calculate
+from discord_reminder_bot.misc import DateTrigger, calc_time, calculate
 from discord_reminder_bot.parser import parse_time
 
 if TYPE_CHECKING:
@@ -208,9 +208,14 @@ def create_job_embed(job: Job) -> discord.Embed:
     author_id: int = job_kwargs.get("author_id", 0)
     embed_title: str = textwrap.shorten(f"{message}", width=256, placeholder="...")
 
+    # If trigger is IntervalTrigger, show the interval
+    interval: str = ""
+    if isinstance(job.trigger, IntervalTrigger):
+        interval = f"Interval: {job.trigger.interval} seconds"
+
     return discord.Embed(
         title=embed_title,
-        description=f"ID: {job.id}\nNext run: {next_run_time}\nTime left: {calculate(job)}\nChannel: <#{channel_id}>\nAuthor: <@{author_id}>",  # noqa: E501
+        description=f"ID: {job.id}\nNext run: {next_run_time}\nTime left: {calculate(job)}\n{interval}\nChannel: <#{channel_id}>\nAuthor: <@{author_id}>",  # noqa: E501
         color=discord.Color.blue(),
     )
 
@@ -240,9 +245,11 @@ class JobSelector(Select):
             label_prefix: str = ""
             if job.next_run_time is None:
                 label_prefix = "Paused: "
+
             # Cron job
             elif isinstance(job.trigger, CronTrigger):
                 label_prefix = "Cron: "
+
             # Interval job
             elif isinstance(job.trigger, IntervalTrigger):
                 label_prefix = "Interval: "
@@ -281,6 +288,7 @@ class JobManagementView(discord.ui.View):
         self.scheduler: settings.AsyncIOScheduler = scheduler
         self.add_item(JobSelector(scheduler))
         self.update_buttons()
+        logger.debug("JobManagementView created for job: %s", job.id)
 
     @discord.ui.button(label="Delete", style=discord.ButtonStyle.danger)
     async def delete_button(self, interaction: discord.Interaction, button: Button) -> None:  # noqa: ARG002
@@ -292,7 +300,7 @@ class JobManagementView(discord.ui.View):
         """
         job_kwargs: dict = self.job.kwargs or {}
 
-        logger.info("Deleting job: %s", self.job.id)
+        logger.info("Deleting job: %s because %s clicked the button.", self.job.id, interaction.user.name)
         if hasattr(self.job, "__getstate__"):
             logger.debug("State: %s", self.job.__getstate__() if hasattr(self.job, "__getstate__") else "No state")
 
@@ -379,6 +387,7 @@ class JobManagementView(discord.ui.View):
         if self.job.max_instances:
             msg += f"**Max instances**: {self.job.max_instances}\n"
 
+        logger.debug("Deletion message: %s", msg)
         return msg
 
     @discord.ui.button(label="Modify", style=discord.ButtonStyle.primary)
@@ -389,7 +398,7 @@ class JobManagementView(discord.ui.View):
             interaction: The interaction object for the command.
             button: The button that was clicked.
         """
-        logger.info("Modifying job: %s", self.job.id)
+        logger.info("Modifying job: %s. Clicked by %s", self.job.id, interaction.user.name)
         if hasattr(self.job, "__getstate__"):
             logger.debug("State: %s", self.job.__getstate__() if hasattr(self.job, "__getstate__") else "No state")
 
@@ -422,16 +431,26 @@ class JobManagementView(discord.ui.View):
         self.update_buttons()
         await interaction.response.edit_message(view=self)
 
-        msg: str = f"Job '{self.job.name}' has been {status}."
+        job_kwargs: dict = self.job.kwargs or {}
+        job_msg: str = job_kwargs.get("message", "No message found")
+        job_author: int = job_kwargs.get("author_id", 0)
+        msg: str = f"Job '{job_msg}' has been {status} by <@{interaction.user.id}>. Job was created by <@{job_author}>."
+
         if hasattr(self.job, "next_run_time"):
-            msg += f"\nNext run time: {self.job.next_run_time} {calculate(self.job)}"
+            trigger_time: datetime.datetime | None = (
+                self.job.trigger.run_date if isinstance(self.job.trigger, DateTrigger) else self.job.next_run_time
+            )
+            msg += f"\nNext run time: {trigger_time} {calculate(self.job)}"
 
         await interaction.followup.send(msg)
 
     def update_buttons(self) -> None:
         """Update the visibility of buttons based on job status."""
-        self.pause_button.disabled = not self.job.next_run_time
+        logger.debug("Updating buttons for job: %s", self.job.id)
         self.pause_button.label = "Resume" if self.job.next_run_time is None else "Pause"
+
+        logger.debug("Pause button disabled: %s", self.pause_button.disabled)
+        logger.debug("Pause button label: %s", self.pause_button.label)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:  # noqa: ARG002
         """Check the interaction and update buttons before responding.

@@ -10,6 +10,7 @@ from discord.abc import PrivateChannel
 from discord_webhook import DiscordWebhook
 
 from discord_reminder_bot import settings
+from discord_reminder_bot.interaction_responses import followup_msg
 from discord_reminder_bot.misc import calculate
 from discord_reminder_bot.parser import parse_time
 from discord_reminder_bot.ui import JobManagementView, create_job_embed
@@ -106,7 +107,7 @@ class RemindGroup(discord.app_commands.Group):
         run_date: str = parsed_time.strftime("%Y-%m-%d %H:%M:%S")
         guild: discord.Guild | None = interaction.guild or None
         if not guild:
-            await interaction.followup.send("Failed to get guild.")
+            await followup_msg(interaction=interaction, msg="Failed to get guild.")
             return
 
         dm_message: str = ""
@@ -142,8 +143,9 @@ class RemindGroup(discord.app_commands.Group):
             where_and_when = (
                 f"I will notify you in <#{channel_id}> {dm_message}at:\n**{run_date}** {calculate(reminder)}\n"
             )
+
         final_message: str = f"Hello {interaction.user.display_name}, {where_and_when}With the message:\n**{message}**."
-        await interaction.followup.send(final_message)
+        await followup_msg(interaction=interaction, msg=final_message)
 
     # /remind list
     @discord.app_commands.command(name="list", description="List, pause, unpause, and remove reminders.")
@@ -157,21 +159,17 @@ class RemindGroup(discord.app_commands.Group):
 
         jobs: list[Job] = settings.scheduler.get_jobs()
         if not jobs:
-            await interaction.followup.send(content="No jobs available.")
+            await followup_msg(interaction=interaction, msg="No scheduled jobs found in the database.")
             return
 
-        first_job: Job | None = jobs[0] if jobs else None
-        if not first_job:
-            await interaction.followup.send(content="No jobs available.")
-            return
+        embed: discord.Embed = create_job_embed(job=jobs[0])
+        view = JobManagementView(job=jobs[0], scheduler=settings.scheduler)
 
-        embed: discord.Embed = create_job_embed(job=first_job)
-        view = JobManagementView(job=first_job, scheduler=settings.scheduler)
-        await interaction.followup.send(embed=embed, view=view)
+        await followup_msg(interaction=interaction, embed=embed, view=view)
 
     # /remind cron
     @discord.app_commands.command(name="cron", description="Create new cron job. Works like UNIX cron.")
-    async def cron(  # noqa: PLR0913, PLR0917
+    async def cron(  # noqa: C901, PLR0911, PLR0913, PLR0917
         self,
         interaction: discord.Interaction,
         message: str,
@@ -214,9 +212,14 @@ class RemindGroup(discord.app_commands.Group):
             user (discord.User, optional): Send reminder as a DM to this user. Defaults to None.
             dm_and_current_channel (bool, optional): If user is provided, send reminder as a DM to the user and in this channel. Defaults to only the user.
         """  # noqa: E501
-        # TODO(TheLovinator): Add try/except for all of these await calls  # noqa: TD003
-        # TODO(TheLovinator): Add a warning if the interval is too short  # noqa: TD003
-        # TODO(TheLovinator): Check if we have access to the channel and user# noqa: TD003
+        try:
+            await interaction.response.defer()
+        except discord.HTTPException as e:
+            logger.exception("Failed to defer interaction: text=%s, status=%s, code=%s", e.text, e.status, e.code)
+            return
+        except discord.InteractionResponded as e:
+            logger.exception("Interaction already responded to - interaction: %s", e.interaction)
+            return
 
         # Log kwargs
         logger.info("New cron job from %s (%s) in %s", interaction.user, interaction.user.id, interaction.channel)
@@ -225,39 +228,43 @@ class RemindGroup(discord.app_commands.Group):
         # Get the channel ID
         channel_id: int | None = self.get_channel_id(interaction=interaction, channel=channel)
         if not channel_id:
-            await interaction.followup.send(content="Failed to get channel.")
+            await followup_msg(interaction, msg="Failed to get channel.")
             return
 
         # Ensure the guild is valid
         guild: discord.Guild | None = interaction.guild or None
         if not guild:
-            await interaction.followup.send(content="Failed to get guild.")
+            await followup_msg(interaction, msg="Failed to get guild.")
             return
 
         # Helper to add a job
-        def add_job(func: Callable, job_kwargs: dict[str, int | str]) -> Job:
-            return settings.scheduler.add_job(
-                func=func,
-                trigger="cron",
-                year=year,
-                month=month,
-                day=day,
-                week=week,
-                day_of_week=day_of_week,
-                hour=hour,
-                minute=minute,
-                second=second,
-                start_date=start_date,
-                end_date=end_date,
-                timezone=timezone,
-                jitter=jitter,
-                kwargs=job_kwargs,
-            )
+        def add_job(func: Callable, job_kwargs: dict[str, int | str]) -> Job | None:
+            try:
+                return settings.scheduler.add_job(
+                    func=func,
+                    trigger="cron",
+                    year=year,
+                    month=month,
+                    day=day,
+                    week=week,
+                    day_of_week=day_of_week,
+                    hour=hour,
+                    minute=minute,
+                    second=second,
+                    start_date=start_date,
+                    end_date=end_date,
+                    timezone=timezone,
+                    jitter=jitter,
+                    kwargs=job_kwargs,
+                )
+            except Exception:
+                logger.exception("Failed to add job: %s")
+                return None
 
         # Create user DM reminder job if user is specified
         dm_message: str = ""
         if user:
-            dm_job: Job = add_job(
+            dm_job: Job | None = add_job(
                 func=send_to_user,
                 job_kwargs={
                     "user_id": user.id,
@@ -265,17 +272,22 @@ class RemindGroup(discord.app_commands.Group):
                     "message": message,
                 },
             )
+            if not dm_job:
+                await followup_msg(interaction=interaction, msg="Failed to create DM reminder job.")
+                return
+
             dm_message = f" and a DM to {user.display_name}"
             if not dm_and_current_channel:
-                # If only DM is required, notify about the DM job and exit
-                await interaction.followup.send(
-                    content=f"Hello {interaction.user.display_name},\n"
+                await followup_msg(
+                    interaction=interaction,
+                    msg=f"Hello {interaction.user.display_name},\n"
                     f"I will send a DM to {user.display_name} at:\n"
                     f"First run in {calculate(dm_job)} with the message:\n**{message}**.",
                 )
+                return
 
         # Create channel reminder job
-        channel_job: Job = add_job(
+        channel_job: Job | None = add_job(
             func=send_to_discord,
             job_kwargs={
                 "channel_id": channel_id,
@@ -283,10 +295,14 @@ class RemindGroup(discord.app_commands.Group):
                 "author_id": interaction.user.id,
             },
         )
+        if not channel_job:
+            await followup_msg(interaction, msg="Failed to create channel reminder job.")
+            return
 
         # Compose the final message
-        await interaction.followup.send(
-            content=f"Hello {interaction.user.display_name},\n"
+        await followup_msg(
+            interaction=interaction,
+            msg=f"Hello {interaction.user.display_name},\n"
             f"I will notify you in <#{channel_id}>{dm_message}.\n"
             f"First run in {calculate(channel_job)} with the message:\n**{message}**.",
         )
@@ -341,13 +357,13 @@ class RemindGroup(discord.app_commands.Group):
         # Get the channel ID
         channel_id: int | None = self.get_channel_id(interaction=interaction, channel=channel)
         if not channel_id:
-            await interaction.followup.send(content="Failed to get channel.")
+            await followup_msg(interaction, msg="Failed to get channel.")
             return
 
         # Ensure the guild is valid
         guild: discord.Guild | None = interaction.guild or None
         if not guild:
-            await interaction.followup.send(content="Failed to get guild.")
+            await followup_msg(interaction, msg="Failed to get guild.")
             return
 
         # Helper to add a job
@@ -381,8 +397,9 @@ class RemindGroup(discord.app_commands.Group):
             dm_message = f" and a DM to {user.display_name} "
             if not dm_and_current_channel:
                 # If only DM is required, notify about the DM job and exit
-                await interaction.followup.send(
-                    content=f"Hello {interaction.user.display_name},\n"
+                await followup_msg(
+                    interaction=interaction,
+                    msg=f"Hello {interaction.user.display_name},\n"
                     f"I will send a DM to {user.display_name} at:\n"
                     f"First run in {calculate(dm_job)} with the message:\n**{message}**.",
                 )
@@ -398,8 +415,9 @@ class RemindGroup(discord.app_commands.Group):
         )
 
         # Compose the final message
-        await interaction.followup.send(
-            content=f"Hello {interaction.user.display_name},\n"
+        await followup_msg(
+            interaction=interaction,
+            msg=f"Hello {interaction.user.display_name},\n"
             f"I will notify you in <#{channel_id}>{dm_message}.\n"
             f"First run in {calculate(channel_job)} with the message:\n**{message}**.",
         )
@@ -444,7 +462,7 @@ class RemindGroup(discord.app_commands.Group):
             logger.exception("Error parsing time '%s'", time)
             error_during_parsing = e
         if not parsed:
-            await interaction.followup.send(f"Failed to parse time. Error: {error_during_parsing}")
+            await followup_msg(interaction=interaction, msg=f"Failed to parse time. Error: {error_during_parsing}")
             return None
         return parsed
 
