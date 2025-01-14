@@ -30,14 +30,17 @@ def parse_time(date_to_parse: str, timezone: str | None = None) -> datetime.date
     if not timezone:
         timezone = settings.config_timezone
 
-    parsed_date: datetime.datetime | None = dateparser.parse(
-        date_string=date_to_parse,
-        settings={
-            "PREFER_DATES_FROM": "future",
-            "TIMEZONE": f"{timezone}",
-            "RETURN_AS_TIMEZONE_AWARE": True,
-            "RELATIVE_BASE": datetime.datetime.now(tz=ZoneInfo(timezone)),
-        },
-    )
+    try:
+        parsed_date: datetime.datetime | None = dateparser.parse(
+            date_string=date_to_parse,
+            settings={
+                "PREFER_DATES_FROM": "future",
+                "TIMEZONE": f"{timezone}",
+                "RETURN_AS_TIMEZONE_AWARE": True,
+                "RELATIVE_BASE": datetime.datetime.now(tz=ZoneInfo(timezone)),
+            },
+        )
+    except (ValueError, TypeError):
+        return None
 
     return parsed_date
