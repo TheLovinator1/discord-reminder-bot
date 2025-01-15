@@ -22,9 +22,7 @@ def calculate(job: Job) -> str:
     Returns:
         str: The time left for the job.
     """
-    trigger_time: datetime.datetime | None = (
-        job.trigger.run_date if isinstance(job.trigger, DateTrigger) else job.next_run_time
-    )
+    trigger_time: datetime.datetime | None = job.trigger.run_date if isinstance(job.trigger, DateTrigger) else job.next_run_time
 
     # Check if the job is paused
     if trigger_time is None:

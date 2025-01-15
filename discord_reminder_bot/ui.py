@@ -168,7 +168,7 @@ class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
         await self.on_error(
             interaction=interaction,
             error=ValueError(
-                f"Got invalid date for job '{self.job.name}':\nJob ID: {self.job.id}\\Failed to parse date: {new_date_str}",  # noqa: E501
+                f"Got invalid date for job '{self.job.name}':\nJob ID: {self.job.id}\nFailed to parse date: {new_date_str}",
             ),
         )
         await interaction.followup.send(
@@ -199,9 +199,7 @@ def create_job_embed(job: Job) -> discord.Embed:
     Returns:
         discord.Embed: The embed for the job.
     """
-    next_run_time: datetime.datetime | str = (
-        job.next_run_time.strftime("%Y-%m-%d %H:%M:%S") if job.next_run_time else "Paused"
-    )
+    next_run_time: datetime.datetime | str = job.next_run_time.strftime("%Y-%m-%d %H:%M:%S") if job.next_run_time else "Paused"
     job_kwargs: dict = job.kwargs or {}
     channel_id: int = job_kwargs.get("channel_id", 0)
     message: str = job_kwargs.get("message", "N/A")
@@ -379,7 +377,7 @@ class JobManagementView(discord.ui.View):
         if self.job.misfire_grace_time:
             msg += f"**Misfire grace time**: {self.job.misfire_grace_time}\n"
 
-        # Run once instead of many times if the scheduler determines that the job should be run more than once in succession # noqa: E501
+        # Run once instead of many times if the scheduler determines that the job should be run more than once in succession
         if self.job.coalesce:
             msg += f"**Coalesce**: {self.job.coalesce}\n"
 

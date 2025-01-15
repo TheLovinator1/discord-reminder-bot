@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import datetime
 import logging
-from pprint import pformat
 from typing import TYPE_CHECKING
 
 import discord
@@ -15,26 +15,14 @@ from discord_reminder_bot.parser import parse_time
 from discord_reminder_bot.ui import JobManagementView, create_job_embed
 
 if TYPE_CHECKING:
-    import datetime
-
     from apscheduler.job import Job
+    from discord.guild import GuildChannel
+    from discord.interactions import InteractionChannel
 
 logger: logging.Logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 GUILD_ID = discord.Object(id=341001473661992962)
-
-type Channels = (
-    discord.TextChannel
-    | discord.VoiceChannel
-    | discord.StageChannel
-    | discord.ForumChannel
-    | discord.CategoryChannel
-    | discord.Thread
-    | discord.DMChannel
-    | discord.GroupChannel
-    | None
-)
 
 
 class RemindBotClient(discord.Client):
@@ -56,22 +44,25 @@ class RemindBotClient(discord.Client):
     async def setup_hook(self) -> None:
         """Setup the bot."""
         settings.scheduler.start()
-        log_current_jobs()
+        jobs: list[Job] = settings.scheduler.get_jobs()
+        if not jobs:
+            logger.info("No jobs available.")
+            return
 
+        logger.info("Jobs available:")
         try:
-            self.tree.copy_global_to(guild=GUILD_ID)
-            await self.tree.sync(guild=GUILD_ID)
-        except discord.app_commands.CommandSyncFailure:
-            exp_msg = "Syncing the commands failed due to a user related error, typically because the command has invalid data. This is equivalent to an HTTP status code of 400."  # noqa: E501
-            logger.exception(exp_msg)
-        except discord.Forbidden:
-            logger.exception("The client does not have the applications.commands scope in the guild.")
-        except discord.app_commands.MissingApplicationID:
-            logger.exception("The client does not have an application ID.")
-        except discord.app_commands.TranslationError:
-            logger.exception("An error occurred while translating the commands.")
-        except discord.HTTPException as e:
-            logger.exception("An HTTP error occurred: %s, %s, %s", e.text, e.status, e.code)
+            for job in jobs:
+                msg: str = job.kwargs.get("message", "") if (job.kwargs and isinstance(job.kwargs, dict)) else ""
+                time: str = "Paused"
+                if hasattr(job, "next_run_time") and job.next_run_time and isinstance(job.next_run_time, datetime.datetime):
+                    time = job.next_run_time.strftime("%Y-%m-%d %H:%M:%S")
+
+                logger.info("\t%s: %s (%s)", msg[:50] or "No message", time, job.id)
+        except Exception:
+            logger.exception("Failed to loop through jobs")
+
+        self.tree.copy_global_to(guild=GUILD_ID)
+        await self.tree.sync(guild=GUILD_ID)
 
 
 class RemindGroup(discord.app_commands.Group):
@@ -101,7 +92,7 @@ class RemindGroup(discord.app_commands.Group):
             channel (discord.TextChannel, optional): The channel to send the reminder to. Defaults to current channel.
             user (discord.User, optional): Send reminder as a DM to this user. Defaults to None.
             dm_and_current_channel (bool, optional): Send reminder as a DM to the user and in this channel. Defaults to False.
-        """  # noqa: E501
+        """
         # TODO(TheLovinator): Check if we have access to the channel and user # noqa: TD003
         await interaction.response.defer()
 
@@ -109,14 +100,8 @@ class RemindGroup(discord.app_commands.Group):
         logger.info("Arguments: %s", {k: v for k, v in locals().items() if k != "self" and v is not None})
 
         # Check if we have access to the specified channel or the current channel
-
-        target_channel: Channels = channel or interaction.channel
-
-        if (
-            target_channel
-            and interaction.guild
-            and not target_channel.permissions_for(interaction.guild.me).send_messages
-        ):
+        target_channel: InteractionChannel | None = channel or interaction.channel
+        if target_channel and interaction.guild and not target_channel.permissions_for(interaction.guild.me).send_messages:
             await interaction.followup.send(
                 content=f"I don't have permission to send messages in <#{target_channel.id}>.",
                 ephemeral=True,
@@ -141,20 +126,19 @@ class RemindGroup(discord.app_commands.Group):
                 await interaction.followup.send(content=f"Failed to parse time: {time}.", ephemeral=True)
                 return
 
-            run_date: str = parsed_time.strftime("%Y-%m-%d %H:%M:%S")
-
             user_reminder: Job = settings.scheduler.add_job(
                 func=send_to_user,
                 trigger="date",
-                run_date=run_date,
+                run_date=parsed_time,
                 job_kwargs={
                     "user_id": user.id,
                     "guild_id": guild.id,
                     "message": message,
                 },
             )
+            logger.info("User reminder job created: %s for %s at %s", user_reminder, user.id, time)
 
-            dm_message = f"and a DM to {user.display_name} "
+            dm_message = f" and a DM to {user.display_name}"
             if not dm_and_current_channel:
                 msg = (
                     f"Hello {interaction.user.display_name},\n"
@@ -173,6 +157,7 @@ class RemindGroup(discord.app_commands.Group):
                 "author_id": interaction.user.id,
             },
         )
+        logger.info("Channel reminder job created: %s for %s at %s", channel_job, channel_id, time)
 
         msg: str = (
             f"Hello {interaction.user.display_name},\n"
@@ -375,12 +360,23 @@ class RemindGroup(discord.app_commands.Group):
             user (discord.User, optional): Send reminder as a DM to this user. Defaults to None.
             dm_and_current_channel (bool, optional): If user is provided, send reminder as a DM to the user and in this channel. Defaults to only the user.
         """  # noqa: E501
-        # TODO(TheLovinator): Add a warning if the interval is too short  # noqa: TD003
-        # TODO(TheLovinator): Check if we have access to the channel and user # noqa: TD003
         await interaction.response.defer()
 
         logger.info("New interval job from %s (%s) in %s", interaction.user, interaction.user.id, interaction.channel)
         logger.info("Arguments: %s", {k: v for k, v in locals().items() if k != "self" and v is not None})
+
+        # Only allow intervals of 30 seconds or more so we don't spam the channel
+        if weeks == days == hours == minutes == 0 and seconds < 30:  # noqa: PLR2004
+            await interaction.followup.send(content="Interval must be at least 30 seconds.", ephemeral=True)
+            return
+
+        # Check if we have access to the specified channel or the current channel
+        target_channel: InteractionChannel | None = channel or interaction.channel
+        if target_channel and interaction.guild and not target_channel.permissions_for(interaction.guild.me).send_messages:
+            await interaction.followup.send(
+                content=f"I don't have permission to send messages in <#{target_channel.id}>.",
+                ephemeral=True,
+            )
 
         # Get the channel ID
         channel_id: int | None = channel.id if channel else (interaction.channel.id if interaction.channel else None)
@@ -488,17 +484,7 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
         message: The message.
         author_id: User we should ping.
     """
-    # TODO(TheLovinator): Add try/except for all of these await calls  # noqa: TD003
-    channel: (
-        discord.VoiceChannel
-        | discord.StageChannel
-        | discord.ForumChannel
-        | discord.TextChannel
-        | discord.CategoryChannel
-        | discord.Thread
-        | PrivateChannel
-        | None
-    ) = bot.get_channel(channel_id)
+    channel: GuildChannel | discord.Thread | PrivateChannel | None = bot.get_channel(channel_id)
     if channel is None:
         channel = await bot.fetch_channel(channel_id)
 
@@ -528,21 +514,6 @@ async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
         member = await guild.fetch_member(user_id)
 
     await member.send(message)
-
-
-def log_current_jobs() -> None:
-    """Log the current jobs."""
-    jobs: list[Job] = settings.scheduler.get_jobs()
-    if not jobs:
-        logger.info("No jobs available.")
-        return
-
-    for job in jobs:
-        logger.debug("Job: %s", job)
-
-        state = {} if not hasattr(job, "__getstate__") else job.__getstate__()
-        if state:
-            logger.debug("State:\n%s", pformat(state))
 
 
 if __name__ == "__main__":

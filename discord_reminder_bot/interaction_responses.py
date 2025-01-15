@@ -42,7 +42,7 @@ async def followup_msg(
         msg = "No message was provided."
     try:
         if embed and view:
-            log_msg: str = f"Sending followup message with embed and view to the interaction.\n{msg=}.\n{ephemeral=}\n{embed.to_dict()=}"  # noqa: E501
+            log_msg: str = f"Sending followup message with embed and view to the interaction.\n{msg=}.\n{ephemeral=}\n{embed.to_dict()=}"
             for view_item in view.children:
                 log_msg += f"\n{view_item=}"
 

@@ -50,7 +50,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 preview = true
-line-length = 120
+line-length = 140
 lint.select = ["ALL"]
 lint.pydocstyle.convention = "google"
 lint.isort.required-imports = ["from __future__ import annotations"]
