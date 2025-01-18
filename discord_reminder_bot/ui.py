@@ -30,8 +30,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
     """Modal for modifying a job."""
 
-    job_name = discord.ui.TextInput(label="Name", placeholder="Enter new job name")
-    job_date = discord.ui.TextInput(label="Date", placeholder="Enter new job date")
+    job_name = discord.ui.TextInput(label="Name", placeholder="Enter new job name", required=False)
+    job_date = discord.ui.TextInput(label="Date", placeholder="Enter new job date", required=False)
 
     def __init__(self, job: Job, scheduler: AsyncIOScheduler) -> None:
         """Initialize the modify job modal.
@@ -86,7 +86,7 @@ class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
         new_date_str: str = self.job_date.value
         old_date: datetime.datetime = self.job.next_run_time
 
-        if new_date_str != old_date.strftime("%Y-%m-%d %H:%M:%S %Z"):
+        if new_date_str and new_date_str != old_date.strftime("%Y-%m-%d %H:%M:%S %Z"):
             new_date: datetime.datetime | None = parse_time(new_date_str)
             if not new_date:
                 return await self.report_date_parsing_failure(
@@ -97,7 +97,7 @@ class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
 
             await self.update_job_schedule(interaction, old_date, new_date)
 
-        if self.job.name != new_name:
+        if self.job_name.value and self.job.name != new_name:
             await self.update_job_name(interaction, new_name)
 
         return None
@@ -199,23 +199,27 @@ def create_job_embed(job: Job) -> discord.Embed:
     Returns:
         discord.Embed: The embed for the job.
     """
-    next_run_time: datetime.datetime | str = job.next_run_time.strftime("%Y-%m-%d %H:%M:%S") if job.next_run_time else "Paused"
+    next_run_time = ""
+    if hasattr(job, "next_run_time"):
+        next_run_time: str = job.next_run_time.strftime("%Y-%m-%d %H:%M:%S")
+
     job_kwargs: dict = job.kwargs or {}
     channel_id: int = job_kwargs.get("channel_id", 0)
     message: str = job_kwargs.get("message", "N/A")
     author_id: int = job_kwargs.get("author_id", 0)
     embed_title: str = textwrap.shorten(f"{message}", width=256, placeholder="...")
 
-    # If trigger is IntervalTrigger, show the interval
-    interval: str = ""
+    msg: str = f"ID: {job.id}\n"
+    if next_run_time:
+        msg += f"Next run: {next_run_time}\n"
     if isinstance(job.trigger, IntervalTrigger):
-        interval = f"Interval: {job.trigger.interval} seconds"
+        msg += f"Interval: {job.trigger.interval}"
+    if channel_id:
+        msg += f"Channel: <#{channel_id}>\n"
+    if author_id:
+        msg += f"Author: <@{author_id}>"
 
-    return discord.Embed(
-        title=embed_title,
-        description=f"ID: {job.id}\nNext run: {next_run_time}\nTime left: {calculate(job)}\n{interval}\nChannel: <#{channel_id}>\nAuthor: <@{author_id}>",  # noqa: E501
-        color=discord.Color.blue(),
-    )
+    return discord.Embed(title=embed_title, description=msg, color=discord.Color.blue())
 
 
 class JobSelector(Select):
@@ -238,24 +242,18 @@ class JobSelector(Select):
             jobs = jobs[:max_jobs]
 
         for job in jobs:
-            job_kwargs: dict = job.kwargs or {}
-
             label_prefix: str = ""
-            if job.next_run_time is None:
-                label_prefix = "Paused: "
+            label_prefix = "Paused: " if job.next_run_time is None else label_prefix
+            label_prefix = "Interval: " if isinstance(job.trigger, IntervalTrigger) else label_prefix
+            label_prefix = "Cron: " if isinstance(job.trigger, CronTrigger) else label_prefix
 
-            # Cron job
-            elif isinstance(job.trigger, CronTrigger):
-                label_prefix = "Cron: "
-
-            # Interval job
-            elif isinstance(job.trigger, IntervalTrigger):
-                label_prefix = "Interval: "
-
+            job_kwargs: dict = job.kwargs or {}
             message: str = job_kwargs.get("message", f"{job.id}")
-            message: str = textwrap.shorten(f"{label_prefix}{message}", width=100, placeholder="...")
+            message = f"{label_prefix}{message}"
+            message = message[:96] + "..." if len(message) > 100 else message  # noqa: PLR2004
 
             options.append(discord.SelectOption(label=message, value=job.id))
+
         super().__init__(placeholder="Select a job...", options=options)
 
     async def callback(self, interaction: discord.Interaction) -> None:
@@ -286,6 +284,7 @@ class JobManagementView(discord.ui.View):
         self.scheduler: settings.AsyncIOScheduler = scheduler
         self.add_item(JobSelector(scheduler))
         self.update_buttons()
+
         logger.debug("JobManagementView created for job: %s", job.id)
 
     @discord.ui.button(label="Delete", style=discord.ButtonStyle.danger)
@@ -313,7 +312,7 @@ class JobManagementView(discord.ui.View):
         await interaction.response.send_message(msg)
         self.stop()
 
-    def generate_deletion_message(self, job_kwargs: dict[str, str | int]) -> str:  # noqa: C901, PLR0912
+    def generate_deletion_message(self, job_kwargs: dict[str, str | int]) -> str:
         """Generate the deletion message.
 
         Args:
@@ -323,15 +322,16 @@ class JobManagementView(discord.ui.View):
             str: The deletion message.
         """
         job_msg: str | int = job_kwargs.get("message", "No message found")
-        msg: str = f"# Job *{job_msg}* has been deleted.\n"
+        msg: str = f"**Job '{job_msg}' has been deleted.**\n"
         msg += f"**Job ID**: {self.job.id}\n"
 
         # The time the job was supposed to run
         if hasattr(self.job, "next_run_time"):
             if self.job.next_run_time:
-                msg += f"**Next run time**: ({self.job.next_run_time} {calculate(self.job)})\n"
+                msg += f"**Next run time**: {self.job.next_run_time} ({calculate(self.job)})\n"
             else:
                 msg += "**Next run time**: Paused\n"
+                msg += f"**Trigger**: {self.job.trigger}\n"
         else:
             msg += "**Next run time**: Pending\n"
 
@@ -350,40 +350,6 @@ class JobManagementView(discord.ui.View):
         # The Discord guild to send the message to
         if job_kwargs.get("guild_id"):
             msg += f"**Guild**: {job_kwargs.get('guild_id')}\n"
-
-        msg += "\n## Debug info\n"
-
-        # Callable (or a textual reference to one) to run at the given time
-        if self.job.func:
-            msg += f"**Function**: {self.job.func}\n"
-
-        # Trigger that determines when func is called
-        if self.job.trigger:
-            msg += f"**Trigger**: {self.job.trigger}\n"
-
-        # Alias of the executor to run the job with
-        if self.job.executor:
-            msg += f"**Executor**: {self.job.executor}\n"
-
-        # List of positional arguments to call func with
-        if self.job.args:
-            msg += f"**Args**: {self.job.args}\n"
-
-        # Textual description of the job
-        if self.job.name:
-            msg += f"**Name**: {self.job.name}\n"
-
-        # Seconds after the designated runtime that the job is still allowed to be run (or None to allow the job to run no matter how late it is) # noqa: E501
-        if self.job.misfire_grace_time:
-            msg += f"**Misfire grace time**: {self.job.misfire_grace_time}\n"
-
-        # Run once instead of many times if the scheduler determines that the job should be run more than once in succession
-        if self.job.coalesce:
-            msg += f"**Coalesce**: {self.job.coalesce}\n"
-
-        # Maximum number of concurrently running instances allowed for this job
-        if self.job.max_instances:
-            msg += f"**Max instances**: {self.job.max_instances}\n"
 
         logger.debug("Deletion message: %s", msg)
         return msg

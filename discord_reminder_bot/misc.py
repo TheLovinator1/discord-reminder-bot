@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-def calculate(job: Job) -> str:
+def calculate(job: Job) -> str | None:
     """Calculate the time left for a job.
 
     Args:
@@ -28,7 +28,7 @@ def calculate(job: Job) -> str:
     if trigger_time is None:
         logger.error("Couldn't calculate time for job: %s: %s", job.id, job.name)
         logger.error("State: %s", job.__getstate__() if hasattr(job, "__getstate__") else "No state")
-        return "Paused"
+        return None
 
     return f"<t:{int(trigger_time.timestamp())}:R>"
 
