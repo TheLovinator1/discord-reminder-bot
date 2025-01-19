@@ -13,6 +13,7 @@
         "Lovinator",
         "pycodestyle",
         "pydocstyle",
+        "pyupgrade",
         "sqlalchemy",
         "uvloop"
     ],
