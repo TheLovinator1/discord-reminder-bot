@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import textwrap
 from typing import TYPE_CHECKING
 
 import discord
@@ -44,8 +43,12 @@ class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
         self.job: Job = job
         self.scheduler: settings.AsyncIOScheduler = scheduler
 
-        # Replace placeholders with current values
-        self.job_name.label = self.get_job_name_label()
+        # Use "Name" as label if the message is too long, otherwise use the old message
+        job_name_label: str = f"Name ({self.job.kwargs.get('message', 'X' * 46)})"
+        if len(job_name_label) > 45:
+            job_name_label = "Name"
+
+        self.job_name.label = job_name_label
         self.job_date.label = f"Date ({self.job.next_run_time.strftime('%Y-%m-%d %H:%M:%S')})"
 
         # Replace placeholders with current values
@@ -59,22 +62,6 @@ class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
         logger.info("\tName label: '%s'", self.job_name.label)
         logger.info("\tDate label: '%s'", self.job_date.label)
 
-    def get_job_name_label(self) -> str:
-        """Get the job name label.
-
-        Returns:
-            str: The job name label.
-        """
-        label_max_chars: int = 45
-
-        # If name is too long or not provided, use "Name" as label instead
-        job_name_label: str = f"Name ({self.job.kwargs.get('message', 'X' * (label_max_chars + 1))})"
-
-        if len(job_name_label) > label_max_chars:
-            job_name_label = "Name"
-
-        return job_name_label
-
     async def on_submit(self, interaction: discord.Interaction) -> None:
         """Submit the job modifications.
 
@@ -86,108 +73,58 @@ class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
         new_date_str: str = self.job_date.value
         old_date: datetime.datetime = self.job.next_run_time
 
+        # if both are empty, do nothing
+        if not new_name and not new_date_str:
+            logger.info("Job '%s' modified: No changes submitted", self.job.name)
+
+            await interaction.response.send_message(
+                content=f"Job **{self.job.name}** was not modified by {interaction.user.mention}.\nNo changes submitted.",
+            )
+            return
+
         if new_date_str and new_date_str != old_date.strftime("%Y-%m-%d %H:%M:%S %Z"):
             new_date: datetime.datetime | None = parse_time(new_date_str)
             if not new_date:
-                return await self.report_date_parsing_failure(
-                    interaction=interaction,
-                    new_date_str=new_date_str,
-                    old_date=old_date,
+                logger.error("Job '%s' modified: Failed to parse date: '%s'", self.job.name, new_date_str)
+                await interaction.response.send_message(
+                    content=(
+                        f"Failed modifying job **{self.job.name}**\n"
+                        f"Job ID: **{self.job.id}**\n"
+                        f"Failed to parse date: **{new_date_str}**\n"
+                        f"Defaulting to old date: **{old_date.strftime('%Y-%m-%d %H:%M:%S')}** {calc_time(old_date)}"
+                    ),
                 )
+                return
 
-            await self.update_job_schedule(interaction, old_date, new_date)
+            logger.info("Job '%s' modified: New date: '%s'", self.job.name, new_date)
+            logger.info("Job '%s' modified: Old date: '%s'", self.job.name, old_date)
+            self.job.modify(next_run_time=new_date)
+
+            old_date_str: str = old_date.strftime("%Y-%m-%d %H:%M:%S")
+            new_date_str: str = new_date.strftime("%Y-%m-%d %H:%M:%S")
+
+            await interaction.response.send_message(
+                content=(
+                    f"Job **{self.job.name}** was modified by {interaction.user.mention}:\n"
+                    f"Job ID: **{self.job.id}**\n"
+                    f"Old date: **{old_date_str}** {calculate(self.job)} {calc_time(old_date)}\n"
+                    f"New date: **{new_date_str}** {calculate(self.job)} {calc_time(new_date)}"
+                ),
+            )
 
         if self.job_name.value and self.job.name != new_name:
-            await self.update_job_name(interaction, new_name)
+            logger.info("Job '%s' modified: New name: '%s'", self.job.name, new_name)
+            logger.info("Job '%s' modified: Old name: '%s'", self.job.name, self.job.name)
+            self.job.modify(name=new_name)
 
-        return None
-
-    async def update_job_schedule(
-        self,
-        interaction: discord.Interaction,
-        old_date: datetime.datetime,
-        new_date: datetime.datetime,
-    ) -> None:
-        """Update the job schedule.
-
-        Args:
-            interaction: The interaction object for the command.
-            old_date: The old date that was used.
-            new_date: The new date to use.
-        """
-        logger.info("Job '%s' modified: New date: '%s'", self.job.name, new_date)
-        logger.info("Job '%s' modified: Old date: '%s'", self.job.name, old_date)
-        self.job.modify(next_run_time=new_date)
-
-        old_date_str: str = old_date.strftime("%Y-%m-%d %H:%M:%S")
-        new_date_str: str = new_date.strftime("%Y-%m-%d %H:%M:%S")
-
-        await interaction.followup.send(
-            content=(
-                f"Job **{self.job.name}** was modified by {interaction.user.mention}:\n"
-                f"Job ID: **{self.job.id}**\n"
-                f"Old date: **{old_date_str}** {calculate(self.job)} {calc_time(old_date)}\n"
-                f"New date: **{new_date_str}** {calculate(self.job)} {calc_time(new_date)}"
-            ),
-        )
-
-    async def update_job_name(self, interaction: discord.Interaction, new_name: str) -> None:
-        """Update the job name.
-
-        Args:
-            interaction: The interaction object for the command.
-            new_name: The new name for the job.
-        """
-        logger.info("Job '%s' modified: New name: '%s'", self.job.name, new_name)
-        logger.info("Job '%s' modified: Old name: '%s'", self.job.name, self.job.name)
-        self.job.modify(name=new_name)
-
-        await interaction.followup.send(
-            content=(
-                f"Job **{self.job.name}** was modified by {interaction.user.mention}:\n"
-                f"Job ID: **{self.job.id}**\n"
-                f"Old name: **{self.job.name}**\n"
-                f"New name: **{new_name}**"
-            ),
-        )
-
-    async def report_date_parsing_failure(
-        self,
-        interaction: discord.Interaction,
-        new_date_str: str,
-        old_date: datetime.datetime,
-    ) -> None:
-        """Report a date parsing failure.
-
-        Args:
-            interaction: The interaction object for the command.
-            new_date_str: The new date string that failed to parse.
-            old_date: The old date that was used instead.
-        """
-        logger.error("Job '%s' modified: Failed to parse date: '%s'", self.job.name, new_date_str)
-        await self.on_error(
-            interaction=interaction,
-            error=ValueError(
-                f"Got invalid date for job '{self.job.name}':\nJob ID: {self.job.id}\nFailed to parse date: {new_date_str}",
-            ),
-        )
-        await interaction.followup.send(
-            content=(
-                f"Failed modifying job **{self.job.name}**\n"
-                f"Job ID: **{self.job.id}**\n"
-                f"Failed to parse date: **{new_date_str}**\n"
-                f"Defaulting to old date: **{old_date.strftime('%Y-%m-%d %H:%M:%S')}** {calc_time(old_date)}"
-            ),
-        )
-
-    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:  # noqa: PLR6301
-        """Handle an error.
-
-        Args:
-            interaction: The interaction object for the command.
-            error: The error that occurred.
-        """
-        await interaction.followup.send(f"An error occurred: {error}", ephemeral=True)
+            await interaction.response.send_message(
+                content=(
+                    f"Job **{self.job.name}** was modified by {interaction.user.mention}:\n"
+                    f"Job ID: **{self.job.id}**\n"
+                    f"Old name: **{self.job.name}**\n"
+                    f"New name: **{new_name}**"
+                ),
+            )
 
 
 def create_job_embed(job: Job) -> discord.Embed:
@@ -199,19 +136,18 @@ def create_job_embed(job: Job) -> discord.Embed:
     Returns:
         discord.Embed: The embed for the job.
     """
-    next_run_time = ""
-    if hasattr(job, "next_run_time"):
-        next_run_time: str = job.next_run_time.strftime("%Y-%m-%d %H:%M:%S")
-
     job_kwargs: dict = job.kwargs or {}
     channel_id: int = job_kwargs.get("channel_id", 0)
     message: str = job_kwargs.get("message", "N/A")
     author_id: int = job_kwargs.get("author_id", 0)
-    embed_title: str = textwrap.shorten(f"{message}", width=256, placeholder="...")
+    embed_title: str = f"{message[:256]}..." if len(message) > 256 else message
 
     msg: str = f"ID: {job.id}\n"
-    if next_run_time:
-        msg += f"Next run: {next_run_time}\n"
+    if hasattr(job, "next_run_time"):
+        if job.next_run_time:
+            msg += f"Next run: {job.next_run_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        else:
+            msg += "Paused\n"
     if isinstance(job.trigger, IntervalTrigger):
         msg += f"Interval: {job.trigger.interval}"
     if channel_id:
@@ -250,7 +186,7 @@ class JobSelector(Select):
             job_kwargs: dict = job.kwargs or {}
             message: str = job_kwargs.get("message", f"{job.id}")
             message = f"{label_prefix}{message}"
-            message = message[:96] + "..." if len(message) > 100 else message  # noqa: PLR2004
+            message = message[:96] + "..." if len(message) > 100 else message
 
             options.append(discord.SelectOption(label=message, value=job.id))
 
@@ -301,26 +237,6 @@ class JobManagementView(discord.ui.View):
         if hasattr(self.job, "__getstate__"):
             logger.debug("State: %s", self.job.__getstate__() if hasattr(self.job, "__getstate__") else "No state")
 
-        # Log extra kwargs
-        for key, value in job_kwargs.items():
-            if key not in {"message", "channel_id", "author_id", "guild_id", "user_id"}:
-                logger.error("Extra kwargs: %s: %s", key, value)
-
-        msg: str = self.generate_deletion_message(job_kwargs)
-
-        self.job.remove()
-        await interaction.response.send_message(msg)
-        self.stop()
-
-    def generate_deletion_message(self, job_kwargs: dict[str, str | int]) -> str:
-        """Generate the deletion message.
-
-        Args:
-            job_kwargs: The job kwargs.
-
-        Returns:
-            str: The deletion message.
-        """
         job_msg: str | int = job_kwargs.get("message", "No message found")
         msg: str = f"**Job '{job_msg}' has been deleted.**\n"
         msg += f"**Job ID**: {self.job.id}\n"
@@ -352,7 +268,10 @@ class JobManagementView(discord.ui.View):
             msg += f"**Guild**: {job_kwargs.get('guild_id')}\n"
 
         logger.debug("Deletion message: %s", msg)
-        return msg
+
+        self.job.remove()
+        await interaction.response.send_message(msg)
+        self.stop()
 
     @discord.ui.button(label="Modify", style=discord.ButtonStyle.primary)
     async def modify_button(self, interaction: discord.Interaction, button: Button) -> None:  # noqa: ARG002

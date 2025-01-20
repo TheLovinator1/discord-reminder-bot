@@ -369,7 +369,7 @@ class RemindGroup(discord.app_commands.Group):
         logger.info("Arguments: %s", {k: v for k, v in locals().items() if k != "self" and v is not None})
 
         # Only allow intervals of 30 seconds or more so we don't spam the channel
-        if weeks == days == hours == minutes == 0 and seconds < 30:  # noqa: PLR2004
+        if weeks == days == hours == minutes == 0 and seconds < 30:
             await interaction.followup.send(content="Interval must be at least 30 seconds.", ephemeral=True)
             return
 
