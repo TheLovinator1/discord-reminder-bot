@@ -9,17 +9,26 @@ description = "Discord bot that allows you to set date, cron and interval remind
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "apscheduler<4.0.0",
-    "dateparser",
-    "discord-py",
-    "discord-webhook",
-    "legacy-cgi",
-    "python-dotenv",
-    "sqlalchemy",
+    # The Discord bot library, and legacy-cgi is because Python 3.13 removed cgi module
+    "discord-py[speed]>=2.4.0,<3.0.0",                    # https://github.com/Rapptz/discord.py
+    "legacy-cgi>=2.6.2,<3.0.0; python_version >= '3.13'", # https://github.com/jackrosenthal/legacy-cgi
+
+    # For parsing dates and times in /remind commands
+    "dateparser>=1.0.0", # https://github.com/scrapinghub/dateparser
+
+    # For sending webhook messages to Discord
+    "discord-webhook>=1.3.1,<2.0.0", # https://github.com/lovvskillz/python-discord-webhook
+
+    # For scheduling reminders, sqlalchemy is needed for storing reminders in a database
+    "apscheduler>=3.11.0,<4.0.0", # https://github.com/agronholm/apscheduler
+    "sqlalchemy>=2.0.37,<3.0.0",  # https://github.com/sqlalchemy/sqlalchemy
+
+    # For loading environment variables from a .env file
+    "python-dotenv>=1.0.1,<2.0.0", # https://github.com/theskumar/python-dotenv
 ]
 
 [dependency-groups]
-dev = ["pytest", "ruff", "pre-commit"]
+dev = ["pytest", "ruff", "pre-commit", "pytest-asyncio", "freezegun"]
 
 [tool.poetry]
 name = "discord-reminder-bot"
@@ -33,16 +42,37 @@ bot = "discord_reminder_bot.main:start"
 
 [tool.poetry.dependencies]
 python = "^3.13"
-apscheduler = "<4.0.0"
-dateparser = "*"
-discord-py = {git = "https://github.com/Rapptz/discord.py"}
-python-dotenv = "*"
-sqlalchemy = "*"
+
+# https://github.com/agronholm/apscheduler
+# https://github.com/sqlalchemy/sqlalchemy
+# For scheduling reminders, sqlalchemy is needed for storing reminders in a database
+sqlalchemy = {version = ">=2.0.37,<3.0.0"}
+apscheduler = {version = ">=3.11.0,<4.0.0"}
+
+# https://github.com/scrapinghub/dateparser
+# For parsing dates and times in /remind commands
+dateparser = {version = ">=1.0.0"}
+
+# https://github.com/Rapptz/discord.py
+# https://github.com/jackrosenthal/legacy-cgi
+# The Discord bot library, and legacy-cgi is because Python 3.13 removed cgi module
+discord-py = {version = ">=2.4.0,<3.0.0", extras = ["speed"]}
+legacy-cgi = {version = ">=2.6.2,<3.0.0", markers = "python_version >= '3.13'"}
+
+# https://github.com/lovvskillz/python-discord-webhook
+# For sending webhook messages to Discord
+discord-webhook = {version = ">=1.3.1,<2.0.0"}
+
+# https://github.com/theskumar/python-dotenv
+# For loading environment variables from a .env file
+python-dotenv = {version = ">=1.0.1,<2.0.0"}
 
 [tool.poetry.dev-dependencies]
 pytest = "*"
 pre-commit = "*"
 ruff = "*"
+pytest-asyncio = "*"
+freezegun = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -89,7 +119,7 @@ docstring-code-format = true
 docstring-code-line-length = 20
 
 [tool.ruff.lint.per-file-ignores]
-"**/*_test.py" = [
+"**/test_*.py" = [
     "ARG",     # Unused function args -> fixtures nevertheless are functionally relevant...
     "FBT",     # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
     "PLR2004", # Magic value used in comparison, ...
@@ -102,6 +132,7 @@ log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+filterwarnings = ["ignore::DeprecationWarning:aiohttp.cookiejar"]
 
-[tool.uv.sources]
-discord-py = {git = "https://github.com/Rapptz/discord.py"}
+# [tool.uv.sources]
+# discord-py = {git = "https://github.com/Rapptz/discord.py"}

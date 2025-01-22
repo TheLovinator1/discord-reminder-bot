@@ -1,11 +1,17 @@
 {
     "cSpell.words": [
+        "aiohttp",
         "apscheduler",
         "asctime",
+        "asyncio",
         "audioop",
+        "cookiejar",
         "dateparser",
+        "delenv",
         "docstrings",
         "dotenv",
+        "filterwarnings",
+        "freezegun",
         "hikari",
         "isort",
         "jobstores",

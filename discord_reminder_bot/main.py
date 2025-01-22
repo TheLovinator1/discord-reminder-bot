@@ -12,9 +12,9 @@ from apscheduler.job import Job
 from discord.abc import PrivateChannel
 from discord_webhook import DiscordWebhook
 
-from discord_reminder_bot import settings
 from discord_reminder_bot.misc import calculate
 from discord_reminder_bot.parser import parse_time
+from discord_reminder_bot.settings import get_bot_token, get_scheduler, get_webhook_url
 from discord_reminder_bot.ui import JobManagementView, create_job_embed
 
 if TYPE_CHECKING:
@@ -22,10 +22,14 @@ if TYPE_CHECKING:
     from discord.guild import GuildChannel
     from discord.interactions import InteractionChannel
 
+    from discord_reminder_bot import settings
+
 logger: logging.Logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 GUILD_ID = discord.Object(id=341001473661992962)
+
+scheduler: settings.AsyncIOScheduler = get_scheduler()
 
 
 class RemindBotClient(discord.Client):
@@ -46,8 +50,8 @@ class RemindBotClient(discord.Client):
 
     async def setup_hook(self) -> None:
         """Setup the bot."""
-        settings.scheduler.start()
-        jobs: list[Job] = settings.scheduler.get_jobs()
+        scheduler.start()
+        jobs: list[Job] = scheduler.get_jobs()
         if not jobs:
             logger.info("No jobs available.")
             return
@@ -129,7 +133,7 @@ class RemindGroup(discord.app_commands.Group):
                 await interaction.followup.send(content=f"Failed to parse time: {time}.", ephemeral=True)
                 return
 
-            user_reminder: Job = settings.scheduler.add_job(
+            user_reminder: Job = scheduler.add_job(
                 func=send_to_user,
                 trigger="date",
                 run_date=parsed_time,
@@ -152,7 +156,7 @@ class RemindGroup(discord.app_commands.Group):
                 return
 
         # Create channel reminder job
-        channel_job: Job = settings.scheduler.add_job(
+        channel_job: Job = scheduler.add_job(
             func=send_to_discord,
             job_kwargs={
                 "channel_id": channel_id,
@@ -180,13 +184,13 @@ class RemindGroup(discord.app_commands.Group):
         """
         await interaction.response.defer()
 
-        jobs: list[Job] = settings.scheduler.get_jobs()
+        jobs: list[Job] = scheduler.get_jobs()
         if not jobs:
             await interaction.followup.send(content="No scheduled jobs found in the database.", ephemeral=True)
             return
 
         embed: discord.Embed = create_job_embed(job=jobs[0])
-        view = JobManagementView(job=jobs[0], scheduler=settings.scheduler)
+        view = JobManagementView(job=jobs[0], scheduler=scheduler)
 
         await interaction.followup.send(embed=embed, view=view)
 
@@ -263,7 +267,7 @@ class RemindGroup(discord.app_commands.Group):
         # Create user DM reminder job if user is specified
         dm_message: str = ""
         if user:
-            user_reminder: Job = settings.scheduler.add_job(
+            user_reminder: Job = scheduler.add_job(
                 func=send_to_user,
                 trigger="cron",
                 year=year,
@@ -295,7 +299,7 @@ class RemindGroup(discord.app_commands.Group):
                 return
 
         # Create channel reminder job
-        channel_job: Job = settings.scheduler.add_job(
+        channel_job: Job = scheduler.add_job(
             func=send_to_discord,
             trigger="cron",
             year=year,
@@ -396,7 +400,7 @@ class RemindGroup(discord.app_commands.Group):
         # Create user DM reminder job if user is specified
         dm_message: str = ""
         if user:
-            dm_job: Job = settings.scheduler.add_job(
+            dm_job: Job = scheduler.add_job(
                 func=send_to_user,
                 trigger="interval",
                 weeks=weeks,
@@ -424,7 +428,7 @@ class RemindGroup(discord.app_commands.Group):
                 )
 
         # Create channel reminder job
-        channel_job: Job = settings.scheduler.add_job(
+        channel_job: Job = scheduler.add_job(
             func=send_to_discord,
             trigger="interval",
             weeks=weeks,
@@ -463,7 +467,7 @@ class RemindGroup(discord.app_commands.Group):
         # Retrieve all jobs
         with tempfile.NamedTemporaryFile(mode="r+", delete=False, encoding="utf-8", suffix=".json") as temp_file:
             # Export jobs to a temporary file
-            settings.scheduler.export_jobs(temp_file.name)
+            scheduler.export_jobs(temp_file.name)
 
             # Load the exported jobs
             temp_file.seek(0)
@@ -513,7 +517,7 @@ class RemindGroup(discord.app_commands.Group):
 
         # Write the data to a new file
         with tempfile.NamedTemporaryFile(mode="w", delete=False, encoding="utf-8", suffix=".json") as output_file:
-            file_name = f"reminders-backup-{datetime.datetime.now(tz=settings.scheduler.timezone)}.json"
+            file_name = f"reminders-backup-{datetime.datetime.now(tz=scheduler.timezone)}.json"
             json.dump(jobs_data, output_file, indent=4)
             output_file.seek(0)
 
@@ -532,7 +536,7 @@ class RemindGroup(discord.app_commands.Group):
         logger.info("Restoring reminders from file for %s (%s) in %s", interaction.user, interaction.user.id, interaction.channel)
 
         # Get the old jobs
-        old_jobs: list[Job] = settings.scheduler.get_jobs()
+        old_jobs: list[Job] = scheduler.get_jobs()
 
         # Tell to reply with the file to this message
         await interaction.followup.send(content="Please reply to this message with the backup file.")
@@ -547,6 +551,10 @@ class RemindGroup(discord.app_commands.Group):
                     content=("~~Please reply to this message with the backup file.~~\nTimed out after 60 seconds."),
                 )
                 return
+
+            if not reply.channel:
+                await interaction.followup.send(content="No channel found. Please try again.")
+                continue
 
             # Fetch the message by its ID to ensure we have the latest data
             reply = await reply.channel.fetch_message(reply.id)
@@ -580,8 +588,8 @@ class RemindGroup(discord.app_commands.Group):
 
             with tempfile.NamedTemporaryFile(mode="w+", delete=False, encoding="utf-8", suffix=".json") as temp_import_file:
                 # We can't import jobs with the same ID so remove them from the JSON
-                jobs = [job for job in jobs_data.get("jobs", []) if not settings.scheduler.get_job(job.get("id"))]
-                jobs_already_exist = [job.get("id") for job in jobs_data.get("jobs", []) if settings.scheduler.get_job(job.get("id"))]
+                jobs = [job for job in jobs_data.get("jobs", []) if not scheduler.get_job(job.get("id"))]
+                jobs_already_exist = [job.get("id") for job in jobs_data.get("jobs", []) if scheduler.get_job(job.get("id"))]
                 jobs_data["jobs"] = jobs
                 for job_id in jobs_already_exist:
                     logger.debug("Removed job: %s because it already exists.", job_id)
@@ -594,10 +602,10 @@ class RemindGroup(discord.app_commands.Group):
                 temp_import_file.seek(0)
 
                 # Import the jobs
-                settings.scheduler.import_jobs(temp_import_file.name)
+                scheduler.import_jobs(temp_import_file.name)
 
         # Get the new jobs
-        new_jobs: list[Job] = settings.scheduler.get_jobs()
+        new_jobs: list[Job] = scheduler.get_jobs()
 
         # Get the difference
         added_jobs: list[Job] = [job for job in new_jobs if job not in old_jobs]
@@ -621,20 +629,26 @@ remind_group = RemindGroup()
 bot.tree.add_command(remind_group)
 
 
-def send_webhook(
-    url: str = settings.webhook_url,
-    message: str = "discord-reminder-bot: Empty message.",
-) -> None:
+def send_webhook(url: str = "", message: str = "") -> None:
     """Send a webhook to Discord.
 
     Args:
         url: Our webhook url, defaults to the one from settings.
         message: The message that will be sent to Discord.
     """
+    if not message:
+        logger.error("No message provided.")
+        message = "No message provided."
+
     if not url:
-        msg = "ERROR: Tried to send a webhook but you have no webhook url configured."
-        logger.error(msg)
-        webhook: DiscordWebhook = DiscordWebhook(url=settings.webhook_url, content=msg, rate_limit_retry=True)
+        url = get_webhook_url()
+        logger.error("No webhook URL provided. Using the one from settings.")
+        webhook: DiscordWebhook = DiscordWebhook(
+            url=url,
+            username="discord-reminder-bot",
+            content="No webhook URL provided. Using the one from settings.",
+            rate_limit_retry=True,
+        )
         webhook.execute()
         return
 
@@ -683,4 +697,5 @@ async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
 
 
 if __name__ == "__main__":
-    bot.run(settings.bot_token, root_logger=True)
+    bot_token: str = get_bot_token()
+    bot.run(bot_token, root_logger=True)

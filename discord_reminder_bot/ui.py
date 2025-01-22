@@ -10,7 +10,6 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from discord.ui import Button, Select
 
-from discord_reminder_bot import settings
 from discord_reminder_bot.misc import DateTrigger, calc_time, calculate
 from discord_reminder_bot.parser import parse_time
 
@@ -19,8 +18,6 @@ if TYPE_CHECKING:
 
     from apscheduler.job import Job
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
-    from discord_reminder_bot import settings
 
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -41,7 +38,7 @@ class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
         """
         super().__init__()
         self.job: Job = job
-        self.scheduler: settings.AsyncIOScheduler = scheduler
+        self.scheduler: AsyncIOScheduler = scheduler
 
         # Use "Name" as label if the message is too long, otherwise use the old message
         job_name_label: str = f"Name ({self.job.kwargs.get('message', 'X' * 46)})"
@@ -167,7 +164,7 @@ class JobSelector(Select):
         Args:
             scheduler: The scheduler to get the jobs from.
         """
-        self.scheduler: settings.AsyncIOScheduler = scheduler
+        self.scheduler: AsyncIOScheduler = scheduler
         options: list[discord.SelectOption] = []
         jobs: list[Job] = scheduler.get_jobs()
 
@@ -217,7 +214,7 @@ class JobManagementView(discord.ui.View):
         """
         super().__init__(timeout=None)
         self.job: Job = job
-        self.scheduler: settings.AsyncIOScheduler = scheduler
+        self.scheduler: AsyncIOScheduler = scheduler
         self.add_item(JobSelector(scheduler))
         self.update_buttons()
 
