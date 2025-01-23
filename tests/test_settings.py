@@ -17,18 +17,34 @@ def test_get_settings(monkeypatch: pytest.MonkeyPatch) -> None:
 
     settings: dict[str, str | dict[str, SQLAlchemyJobStore] | dict[str, bool] | AsyncIOScheduler] = get_settings(use_dotenv=False)
 
-    assert settings["sqlite_location"] == "/test_jobs.sqlite"
-    assert settings["config_timezone"] == "UTC"
-    assert settings["bot_token"] == "test_token"  # noqa: S105
-    assert settings["log_level"] == "DEBUG"
-    assert settings["webhook_url"] == "http://test_webhook_url"
-    assert isinstance(settings["jobstores"]["default"], SQLAlchemyJobStore)  # type: ignore  # noqa: PGH003
+    assert_msg = f"Expected /test_jobs.sqlite, got {settings['sqlite_location']}"
+    assert settings["sqlite_location"] == "/test_jobs.sqlite", assert_msg
+
+    assert_msg = f"Expected UTC, got {settings['config_timezone']}"
+    assert settings["config_timezone"] == "UTC", assert_msg
+
+    assert_msg = f"Expected test_token, got {settings['bot_token']}"
+    assert settings["bot_token"] == "test_token", assert_msg  # noqa: S105
+
+    assert_msg = f"Expected DEBUG, got {settings['log_level']}"
+    assert settings["log_level"] == "DEBUG", assert_msg
+
+    assert_msg = f"Expected http://test_webhook_url, got {settings['webhook_url']}"
+    assert settings["webhook_url"] == "http://test_webhook_url", assert_msg
+
+    assert_msg = f"Expected dict, got {type(settings['jobstores'])}"
+    assert isinstance(settings["jobstores"], dict), assert_msg
+
+    assert_msg: str = f"Expected SQLAlchemyJobStore, got {type(settings['jobstores']['default'])}"
+    assert isinstance(settings["jobstores"]["default"], SQLAlchemyJobStore), assert_msg
+
+    assert_msg = f"Expected AsyncIOScheduler, got {type(settings['scheduler'])}"
+    assert isinstance(settings["scheduler"], AsyncIOScheduler), assert_msg
 
 
 def test_get_settings_missing_bot_token(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test get_settings function with missing bot token."""
     monkeypatch.delenv("BOT_TOKEN", raising=False)
-
     with pytest.raises(ValueError, match="Missing bot token"):
         get_settings(use_dotenv=False)
 
@@ -44,10 +60,26 @@ def test_get_settings_default_values(monkeypatch: pytest.MonkeyPatch) -> None:
 
     settings: dict[str, str | dict[str, SQLAlchemyJobStore] | dict[str, bool] | AsyncIOScheduler] = get_settings(use_dotenv=False)
 
-    assert settings["sqlite_location"] == "/jobs.sqlite"
-    assert settings["config_timezone"] == "UTC"
-    assert settings["bot_token"] == "default_token"  # noqa: S105
-    assert settings["log_level"] == "INFO"
-    assert not settings["webhook_url"]
-    assert isinstance(settings["jobstores"]["default"], SQLAlchemyJobStore)  # type: ignore  # noqa: PGH003
-    assert isinstance(settings["scheduler"], AsyncIOScheduler)
+    assert_msg: str = f"Expected /jobs.sqlite, got {settings['sqlite_location']}"
+    assert settings["sqlite_location"] == "/jobs.sqlite", assert_msg
+
+    assert_msg = f"Expected UTC, got {settings['config_timezone']}"
+    assert settings["config_timezone"] == "UTC", assert_msg
+
+    assert_msg = f"Expected default_token, got {settings['bot_token']}"
+    assert settings["bot_token"] == "default_token", assert_msg  # noqa: S105
+
+    assert_msg = f"Expected INFO, got {settings['log_level']}"
+    assert settings["log_level"] == "INFO", assert_msg
+
+    assert_msg = f"Expected empty string, got {settings['webhook_url']}"
+    assert not settings["webhook_url"], assert_msg
+
+    assert_msg = f"Expected dict, got {type(settings['jobstores'])}"
+    assert isinstance(settings["jobstores"], dict), assert_msg
+
+    assert_msg = f"Expected SQLAlchemyJobStore, got {type(settings['jobstores']['default'])}"
+    assert isinstance(settings["jobstores"]["default"], SQLAlchemyJobStore), assert_msg
+
+    assert_msg = f"Expected AsyncIOScheduler, got {type(settings['scheduler'])}"
+    assert isinstance(settings["scheduler"], AsyncIOScheduler), assert_msg

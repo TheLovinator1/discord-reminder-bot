@@ -15,6 +15,7 @@
         "freezegun",
         "hikari",
         "isort",
+        "jobstore",
         "jobstores",
         "levelname",
         "Lovinator",

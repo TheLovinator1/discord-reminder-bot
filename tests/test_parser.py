@@ -14,8 +14,8 @@ def test_parse_time_valid_date() -> None:
     date_to_parse = "tomorrow at 5pm"
     timezone = "UTC"
     result: datetime.datetime | None = parse_time(date_to_parse, timezone, use_dotenv=False)
-    assert result is not None
-    assert result.tzinfo == ZoneInfo(timezone)
+    assert result is not None, f"Expected a datetime object, got {result}"
+    assert result.tzinfo == ZoneInfo(timezone), f"Expected timezone {timezone}, got {result.tzinfo}"
 
 
 def test_parse_time_no_date() -> None:
@@ -23,15 +23,17 @@ def test_parse_time_no_date() -> None:
     date_to_parse: str = ""
     timezone = "UTC"
     result: datetime.datetime | None = parse_time(date_to_parse, timezone, use_dotenv=False)
-    assert result is None
+    assert result is None, f"Expected None, got {result}"
 
 
 def test_parse_time_no_timezone() -> None:
     """Test the `parse_time` function with no timezone."""
     date_to_parse = "tomorrow at 5pm"
     result: datetime.datetime | None = parse_time(date_to_parse, use_dotenv=False)
-    assert result is not None
-    assert result.tzinfo == ZoneInfo(settings.get_timezone(use_dotenv=False))
+    assert result is not None, f"Expected a datetime object, got {result}"
+
+    assert_msg: str = f"Expected timezone {settings.get_timezone(use_dotenv=False)}, got {result.tzinfo}"
+    assert result.tzinfo == ZoneInfo(settings.get_timezone(use_dotenv=False)), assert_msg
 
 
 def test_parse_time_invalid_date() -> None:
@@ -39,7 +41,7 @@ def test_parse_time_invalid_date() -> None:
     date_to_parse = "invalid date"
     timezone = "UTC"
     result: datetime.datetime | None = parse_time(date_to_parse, timezone, use_dotenv=False)
-    assert result is None
+    assert result is None, f"Expected None, got {result}"
 
 
 @freeze_time("2023-01-01 12:00:00")
@@ -48,6 +50,8 @@ def test_parse_time_invalid_timezone() -> None:
     date_to_parse = "tomorrow at 5pm"
     timezone = "Invalid/Timezone"
     result: datetime.datetime | None = parse_time(date_to_parse, timezone, use_dotenv=False)
-    assert result is not None
-    assert result.tzinfo == ZoneInfo("UTC")
-    assert result == datetime.datetime(2023, 1, 2, 17, 0, tzinfo=ZoneInfo("UTC"))
+    assert result is not None, f"Expected a datetime object, got {result}"
+    assert result.tzinfo == ZoneInfo("UTC"), f"Expected timezone UTC, got {result.tzinfo}"
+
+    assert_msg: str = f"Expected {datetime.datetime(2023, 1, 2, 17, 0, tzinfo=ZoneInfo('UTC'))}, got {result}"
+    assert result == datetime.datetime(2023, 1, 2, 17, 0, tzinfo=ZoneInfo("UTC")), assert_msg

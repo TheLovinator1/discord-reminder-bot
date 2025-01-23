@@ -28,27 +28,57 @@ class TestCreateJobEmbed(unittest.TestCase):
 
         embed: discord.Embed = create_job_embed(self.job)
 
-        assert isinstance(embed, discord.Embed)
-        assert embed.title == "Test message"
-        assert embed.description is not None
-        assert "ID: 12345" in embed.description
-        assert "Next run: 2023-10-10 10:00:00" in embed.description
-        assert "Interval: 1 day" in embed.description
-        assert "Channel: <#67890>" in embed.description
-        assert "Author: <@54321>" in embed.description
+        assert_msg: str = f"Expected discord.Embed, got {type(embed)}"
+        assert isinstance(embed, discord.Embed), assert_msg
+
+        assert_msg = f"Expected Test message, got {embed.title}"
+        assert embed.title == "Test message", assert_msg
+
+        assert_msg = "Expected embed description to not be None"
+        assert embed.description is not None, assert_msg
+
+        assert_msg = f"Expected ID: 12345 in embed description, got {embed.description}"
+        assert "ID: 12345" in embed.description, assert_msg
+
+        assert_msg = f"Expected Next run: 2023-10-10 10:00:00 in embed description, got {embed.description}"
+        assert "Next run: 2023-10-10 10:00:00" in embed.description, assert_msg
+
+        assert_msg = f"Expected Interval: 1 day in embed description, got {embed.description}"
+        assert "Interval: 1 day" in embed.description, assert_msg
+
+        assert_msg = f"Expected Channel: <#67890> in embed description, got {embed.description}"
+        assert "Channel: <#67890>" in embed.description, assert_msg
+
+        assert_msg = f"Expected Author: <@54321> in embed description, got {embed.description}"
+        assert "Author: <@54321>" in embed.description, assert_msg
 
     def test_create_job_embed_without_next_run_time(self) -> None:
         """Test the `create_job_embed` function to ensure it correctly creates a Discord embed for a job without the next run time."""
         embed: discord.Embed = create_job_embed(self.job)
 
-        assert isinstance(embed, discord.Embed)
-        assert embed.title == "Test message"
-        assert embed.description is not None
-        assert "ID: 12345" in embed.description
-        assert "Paused" in embed.description
-        assert "Interval: 1 day" in embed.description
-        assert "Channel: <#67890>" in embed.description
-        assert "Author: <@54321>" in embed.description
+        assert_msg: str = f"Expected discord.Embed, got {type(embed)}"
+        assert isinstance(embed, discord.Embed), assert_msg
+
+        assert_msg = f"Expected Test message, got {embed.title}"
+        assert embed.title == "Test message", assert_msg
+
+        assert_msg = "Expected embed description to not be None"
+        assert embed.description is not None, assert_msg
+
+        assert_msg = f"Expected ID: 12345 in embed description, got {embed.description}"
+        assert "ID: 12345" in embed.description, assert_msg
+
+        assert_msg = f"Expected Paused in embed description, got {embed.description}"
+        assert "Paused" in embed.description, assert_msg
+
+        assert_msg = f"Expected Interval: 1 day in embed description, got {embed.description}"
+        assert "Interval: 1 day" in embed.description, assert_msg
+
+        assert_msg = f"Expected Channel: <#67890> in embed description, got {embed.description}"
+        assert "Channel: <#67890>" in embed.description, assert_msg
+
+        assert_msg = f"Expected Author: <@54321> in embed description, got {embed.description}"
+        assert "Author: <@54321>" in embed.description, assert_msg
 
     def test_create_job_embed_with_long_message(self) -> None:
         """Test the `create_job_embed` function to ensure it correctly truncates long messages."""
@@ -56,15 +86,26 @@ class TestCreateJobEmbed(unittest.TestCase):
 
         embed: discord.Embed = create_job_embed(self.job)
 
-        assert isinstance(embed, discord.Embed)
-        assert embed.title == "A" * 256 + "..."
-        assert embed.description is not None
-        assert "ID: 12345" in embed.description
-        assert "Paused" in embed.description
-        assert "Interval: 1 day" in embed.description
-        assert "Channel: <#67890>" in embed.description
-        assert "Author: <@54321>" in embed.description
+        assert_msg: str = f"Expected A{'...' * 84} in embed title, got {embed.title}"
+        assert isinstance(embed, discord.Embed), assert_msg
 
+        assert_msg = f"Expected A{'...' * 84} in embed title, got {embed.title}"
+        assert embed.title == "A" * 256 + "...", assert_msg
 
-if __name__ == "__main__":
-    unittest.main()
+        assert_msg = "Expected embed description to not be None"
+        assert embed.description is not None, assert_msg
+
+        assert_msg = f"Expected ID: 12345 in embed description, got {embed.description}"
+        assert "ID: 12345" in embed.description, assert_msg
+
+        assert_msg = f"Expected Paused in embed description, got {embed.description}"
+        assert "Paused" in embed.description, assert_msg
+
+        assert_msg = f"Expected Interval: 1 day in embed description, got {embed.description}"
+        assert "Interval: 1 day" in embed.description, assert_msg
+
+        assert_msg = f"Expected Channel: <#67890> in embed description, got {embed.description}"
+        assert "Channel: <#67890>" in embed.description, assert_msg
+
+        assert_msg = f"Expected Author: <@54321> in embed description, got {embed.description}"
+        assert "Author: <@54321>" in embed.description, assert_msg
