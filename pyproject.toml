@@ -9,9 +9,11 @@ description = "Discord bot that allows you to set date, cron and interval remind
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    # The Discord bot library, and legacy-cgi is because Python 3.13 removed cgi module
-    "discord-py[speed]>=2.4.0,<3.0.0",                    # https://github.com/Rapptz/discord.py
-    "legacy-cgi>=2.6.2,<3.0.0; python_version >= '3.13'", # https://github.com/jackrosenthal/legacy-cgi
+    # The Discord bot library uses discord.py
+    # legacy-cgi and audioop-lts are because Python 3.13 removed cgi module and audioop module
+    "discord-py[speed]>=2.4.0,<3.0.0",                     # https://github.com/Rapptz/discord.py
+    "legacy-cgi>=2.6.2,<3.0.0; python_version >= '3.13'",  # https://github.com/jackrosenthal/legacy-cgi
+    "audioop-lts>=0.2.1,<1.0.0; python_version >= '3.13'", # https://github.com/AbstractUmbra/audioop
 
     # For parsing dates and times in /remind commands
     "dateparser>=1.0.0", # https://github.com/scrapinghub/dateparser
@@ -55,9 +57,12 @@ dateparser = {version = ">=1.0.0"}
 
 # https://github.com/Rapptz/discord.py
 # https://github.com/jackrosenthal/legacy-cgi
-# The Discord bot library, and legacy-cgi is because Python 3.13 removed cgi module
+# https://github.com/AbstractUmbra/audioop
+# The Discord bot library uses discord.py
+# legacy-cgi and audioop-lts are because Python 3.13 removed cgi module and audioop module
 discord-py = {version = ">=2.4.0,<3.0.0", extras = ["speed"]}
 legacy-cgi = {version = ">=2.6.2,<3.0.0", markers = "python_version >= '3.13'"}
+audioop-lts = {version = ">=0.2.1,<1.0.0", markers = "python_version >= '3.13'"}
 
 # https://github.com/lovvskillz/python-discord-webhook
 # For sending webhook messages to Discord

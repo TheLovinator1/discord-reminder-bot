@@ -5,6 +5,7 @@
         "asctime",
         "asyncio",
         "audioop",
+        "botuser",
         "cookiejar",
         "dateparser",
         "delenv",
@@ -19,8 +20,12 @@
         "Lovinator",
         "pycodestyle",
         "pydocstyle",
+        "pyproject",
+        "PYTHONDONTWRITEBYTECODE",
+        "PYTHONUNBUFFERED",
         "pyupgrade",
         "sqlalchemy",
+        "thelovinator",
         "uvloop"
     ],
     "python.analysis.typeCheckingMode": "standard"
