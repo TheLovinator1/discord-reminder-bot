@@ -12,7 +12,7 @@ from apscheduler.job import Job
 from discord.abc import PrivateChannel
 from discord_webhook import DiscordWebhook
 
-from discord_reminder_bot.misc import calculate
+from discord_reminder_bot.misc import calc_time, calculate
 from discord_reminder_bot.parser import parse_time
 from discord_reminder_bot.settings import get_bot_token, get_scheduler, get_webhook_url
 from discord_reminder_bot.ui import JobManagementView, create_job_embed
@@ -171,6 +171,85 @@ class RemindGroup(discord.app_commands.Group):
             f"I will notify you in <#{channel_id}>{dm_message}.\n"
             f"First run in {calculate(channel_job)} with the message:\n**{message}**."
         )
+
+        await interaction.followup.send(content=msg)
+
+    # /remind event
+    @discord.app_commands.command(name="event", description="Add a new Discord event.")
+    async def add_event(  # noqa: PLR0913, PLR0917, PLR6301
+        self,
+        interaction: discord.Interaction,
+        message: str,
+        event_start: str,
+        event_end: str,
+        location: str,
+        reason: str | None = None,
+    ) -> None:
+        """Add a new reminder.
+
+        Args:
+            interaction (discord.Interaction): The interaction object for the command.
+            message (str): The description of the scheduled event.
+            event_start (str): The scheduled start time of the scheduled event. Will get parsed.
+            event_end (str, optional): The scheduled end time of the scheduled event. Will get parsed.
+            reason (str, optional): The reason for creating this scheduled event. Shows up on the audit log.
+            location (str, optional): The location of the scheduled event.
+        """
+        await interaction.response.defer()
+
+        logger.info("New event from %s (%s) in %s", interaction.user, interaction.user.id, interaction.channel)
+        logger.info("Arguments: %s", {k: v for k, v in locals().items() if k != "self" and v is not None})
+
+        guild: discord.Guild | None = interaction.guild
+        if not guild:
+            await interaction.followup.send(content="Failed to get guild.", ephemeral=True)
+            return
+
+        event_start_time: datetime.datetime | None = parse_time(date_to_parse=event_start)
+        event_end_time: datetime.datetime | None = parse_time(date_to_parse=event_end)
+
+        if not event_start_time or not event_end_time:
+            await interaction.followup.send(content=f"Failed to parse time: {event_start} or {event_end}.", ephemeral=True)
+            return
+
+        # If event_start_time is in the past, make it now + 5 seconds
+        start_immediately: bool = False
+        if event_start_time < datetime.datetime.now(event_start_time.tzinfo):
+            start_immediately = True
+            event_start_time = datetime.datetime.now(event_start_time.tzinfo) + datetime.timedelta(seconds=5)
+            await interaction.followup.send(content="Event start time was in the past. Starting event in 5 seconds instead.")
+
+        reason_msg: str = f"Event created by {interaction.user} ({interaction.user.id})."
+
+        event: discord.ScheduledEvent = await guild.create_scheduled_event(
+            name=message,
+            start_time=event_start_time,
+            entity_type=discord.EntityType.external,
+            privacy_level=discord.PrivacyLevel.guild_only,
+            end_time=event_end_time,
+            reason=reason or reason_msg,
+            location=location,
+        )
+
+        if start_immediately:
+            await event.start()
+
+        msg: str = f"Event '{event.name}' created successfully!\n"
+
+        if event.start_time:
+            msg += f"Start Time: {calc_time(event.start_time)}\n"
+
+        if event.end_time:
+            msg += f"End Time: {calc_time(event.end_time)}\n"
+
+        if event.channel_id:
+            msg += f"Channel: <#{event.channel_id}>\n"
+
+        if event.location:
+            msg += f"Location: {event.location}\n"
+
+        if event.creator_id:
+            msg += f"Created by: <@{event.creator_id}>"
 
         await interaction.followup.send(content=msg)
 
@@ -622,6 +701,8 @@ class RemindGroup(discord.app_commands.Group):
 
 
 intents: discord.Intents = discord.Intents.default()
+intents.guild_scheduled_events = True
+
 bot = RemindBotClient(intents=intents)
 
 # Add the group to the bot

@@ -59,7 +59,7 @@ def get_human_time(time: datetime.timedelta) -> str:
     return time_str
 
 
-def calc_time(time: datetime.datetime) -> str:
+def calc_time(time: datetime.datetime | None) -> str:
     """Convert a datetime object to a Discord timestamp.
 
     Args:
@@ -68,4 +68,7 @@ def calc_time(time: datetime.datetime) -> str:
     Returns:
         str: The Discord timestamp.
     """
+    if not time:
+        return "None"
+
     return f"<t:{int(time.timestamp())}:R>"

@@ -11,7 +11,7 @@ from discord_reminder_bot.settings import get_timezone
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-def parse_time(date_to_parse: str, timezone: str | None = None, use_dotenv: bool = True) -> datetime.datetime | None:  # noqa: FBT001, FBT002
+def parse_time(date_to_parse: str | None, timezone: str | None = None, use_dotenv: bool = True) -> datetime.datetime | None:  # noqa: FBT001, FBT002
     """Parse a date string into a datetime object.
 
     Args:
