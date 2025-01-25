@@ -134,25 +134,35 @@ def create_job_embed(job: Job) -> discord.Embed:
         discord.Embed: The embed for the job.
     """
     job_kwargs: dict = job.kwargs or {}
-    channel_id: int = job_kwargs.get("channel_id", 0)
-    message: str = job_kwargs.get("message", "N/A")
-    author_id: int = job_kwargs.get("author_id", 0)
-    embed_title: str = f"{message[:256]}..." if len(message) > 256 else message
 
-    msg: str = f"ID: {job.id}\n"
+    msg: str = ""
     if hasattr(job, "next_run_time"):
         if job.next_run_time:
             msg += f"Next run: {job.next_run_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         else:
-            msg += "Paused\n"
+            msg += "Status: Paused\n"
     if isinstance(job.trigger, IntervalTrigger):
-        msg += f"Interval: {job.trigger.interval}"
+        msg += f"Interval: {job.trigger.interval}\n"
+
+    # ID: d8a4e850245f4b06bcc04e53f13ccbbb
+    channel_id: int = job_kwargs.get("channel_id", 0)
     if channel_id:
         msg += f"Channel: <#{channel_id}>\n"
-    if author_id:
-        msg += f"Author: <@{author_id}>"
 
-    return discord.Embed(title=embed_title, description=msg, color=discord.Color.blue())
+    # Author: @TheLovinator
+    author_id: int = job_kwargs.get("author_id", 0)
+    if author_id:
+        msg += f"Created by: <@{author_id}>"
+
+    embed = discord.Embed(description=msg, color=discord.Color.blue())
+    embed.set_footer(text=f"{job.id}. Only jobs in the current guild are shown.")
+
+    # Set the title of the embed to the message of the job
+    message: str = job_kwargs.get("message", "N/A")
+    embed_title: str = f"{message[:256]}..." if len(message) > 256 else message
+    embed.title = embed_title
+
+    return embed
 
 
 class JobSelector(Select):
