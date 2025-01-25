@@ -158,23 +158,41 @@ def create_job_embed(job: Job) -> discord.Embed:
 class JobSelector(Select):
     """Select menu for selecting a job to manage."""
 
-    def __init__(self, scheduler: AsyncIOScheduler) -> None:
+    def __init__(self, scheduler: AsyncIOScheduler, guild: discord.Guild) -> None:
         """Initialize the job selector.
 
         Args:
             scheduler: The scheduler to get the jobs from.
+            guild: The guild this view is for.
         """
         self.scheduler: AsyncIOScheduler = scheduler
+        self.guild: discord.Guild = guild
+
         options: list[discord.SelectOption] = []
         jobs: list[Job] = scheduler.get_jobs()
+
+        jobs_in_guild: list[Job] = []
+        list_of_channels_in_current_guild: list[int] = [c.id for c in guild.channels]
+        for job in jobs:
+            # If the job has guild_id and it's not the current guild, skip it
+            if job.kwargs.get("guild_id") and job.kwargs.get("guild_id") != guild.id:
+                logger.debug("Skipping job: %s because it's not in the current guild.", job.id)
+                continue
+
+            # If the job has channel_id and it's not in the current guild, skip it
+            if job.kwargs.get("channel_id") and job.kwargs.get("channel_id") not in list_of_channels_in_current_guild:
+                logger.debug("Skipping job: %s because it's not in the current guild's channels.", job.id)
+                continue
+
+            jobs_in_guild.append(job)
 
         # Only 25 options are allowed in a select menu.
         # TODO(TheLovinator): Add pagination for more than 25 jobs.  # noqa: TD003
         max_jobs: int = 25
-        if len(jobs) > max_jobs:
-            jobs = jobs[:max_jobs]
+        if len(jobs_in_guild) > max_jobs:
+            jobs_in_guild = jobs_in_guild[:max_jobs]
 
-        for job in jobs:
+        for job in jobs_in_guild:
             label_prefix: str = ""
             label_prefix = "Paused: " if job.next_run_time is None else label_prefix
             label_prefix = "Interval: " if isinstance(job.trigger, IntervalTrigger) else label_prefix
@@ -198,24 +216,27 @@ class JobSelector(Select):
         job: Job | None = self.scheduler.get_job(self.values[0])
         if job:
             embed: discord.Embed = create_job_embed(job)
-            view = JobManagementView(job, self.scheduler)
+            view = JobManagementView(job, self.scheduler, guild=self.guild)
             await interaction.response.edit_message(embed=embed, view=view)
 
 
 class JobManagementView(discord.ui.View):
     """View for managing jobs."""
 
-    def __init__(self, job: Job, scheduler: AsyncIOScheduler) -> None:
+    def __init__(self, job: Job, scheduler: AsyncIOScheduler, guild: discord.Guild) -> None:
         """Initialize the job management view.
 
         Args:
             job: The job to manage.
             scheduler: The scheduler to manage the job with.
+            guild: The guild this view is for.
         """
         super().__init__(timeout=None)
         self.job: Job = job
         self.scheduler: AsyncIOScheduler = scheduler
-        self.add_item(JobSelector(scheduler))
+        self.guild: discord.Guild = guild
+
+        self.add_item(JobSelector(scheduler, self.guild))
         self.update_buttons()
 
         logger.debug("JobManagementView created for job: %s", job.id)
@@ -305,6 +326,7 @@ class JobManagementView(discord.ui.View):
                 status = "paused"
                 button.label = "Resume"
         else:
+            logger.error("Got a job without a next_run_time: %s", self.job.id)
             status: str = f"What is this? {self.job.__getstate__()}"
             button.label = "What?"
 

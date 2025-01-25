@@ -268,8 +268,29 @@ class RemindGroup(discord.app_commands.Group):
             await interaction.followup.send(content="No scheduled jobs found in the database.", ephemeral=True)
             return
 
-        embed: discord.Embed = create_job_embed(job=jobs[0])
-        view = JobManagementView(job=jobs[0], scheduler=scheduler)
+        guild: discord.Guild | None = interaction.guild
+        if not guild:
+            await interaction.followup.send(content="Failed to get guild.", ephemeral=True)
+            return
+
+        # Only get jobs that are in the current guild
+        jobs_in_guild: list[Job] = []
+        list_of_channels_in_current_guild: list[int] = [c.id for c in guild.channels]
+        for job in jobs:
+            # If the job has guild_id and it's not the current guild, skip it
+            if job.kwargs.get("guild_id") and job.kwargs.get("guild_id") != guild.id:
+                logger.debug("Skipping job: %s because it's not in the current guild.", job.id)
+                continue
+
+            # If the job has channel_id and it's not in the current guild, skip it
+            if job.kwargs.get("channel_id") and job.kwargs.get("channel_id") not in list_of_channels_in_current_guild:
+                logger.debug("Skipping job: %s because it's not in the current guild's channels.", job.id)
+                continue
+
+            jobs_in_guild.append(job)
+
+        embed: discord.Embed = create_job_embed(job=jobs_in_guild[0])
+        view = JobManagementView(job=jobs_in_guild[0], scheduler=scheduler, guild=guild)
 
         await interaction.followup.send(embed=embed, view=view)
 
