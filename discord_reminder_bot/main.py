@@ -26,10 +26,12 @@ if TYPE_CHECKING:
 
 logger: logging.Logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+logging.getLogger("discord.client").setLevel(logging.INFO)
 
 GUILD_ID = discord.Object(id=341001473661992962)
 
 scheduler: settings.AsyncIOScheduler = get_scheduler()
+msg_to_cleanup: list[discord.InteractionMessage] = []
 
 
 class RemindBotClient(discord.Client):
@@ -47,6 +49,23 @@ class RemindBotClient(discord.Client):
     async def on_ready(self) -> None:
         """Log when the bot is ready."""
         logger.info("Logged in as %s (%s)", self.user, self.user.id if self.user else "N/A ID")
+
+    async def close(self) -> None:
+        """Close the bot and cleanup views."""
+        logger.info("Closing bot and cleaning up views.")
+        for msg in msg_to_cleanup:
+            logger.debug("Removing view: %s", msg.id)
+            try:
+                # If the message is "/remind list timed out.", skip it
+                if msg.content == "/remind list timed out.":
+                    logger.debug("Message %s is a timeout message. Skipping.", msg.id)
+                    continue
+
+                await msg.delete()
+            except discord.HTTPException as e:
+                logger.error("Failed to remove view: %s", e)  # noqa: TRY400
+
+        return await super().close()
 
     async def setup_hook(self) -> None:
         """Setup the bot."""
@@ -289,8 +308,13 @@ class RemindGroup(discord.app_commands.Group):
 
             jobs_in_guild.append(job)
 
+        message: discord.InteractionMessage = await interaction.original_response()
+
         embed: discord.Embed = create_job_embed(job=jobs_in_guild[0])
-        view = JobManagementView(job=jobs_in_guild[0], scheduler=scheduler, guild=guild)
+        view = JobManagementView(job=jobs_in_guild[0], scheduler=scheduler, guild=guild, message=message)
+
+        msg_to_cleanup.append(message)
+        logger.debug("Views to cleanup: %s", msg_to_cleanup)
 
         await interaction.followup.send(embed=embed, view=view)
 

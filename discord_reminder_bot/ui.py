@@ -233,23 +233,34 @@ class JobSelector(Select):
 class JobManagementView(discord.ui.View):
     """View for managing jobs."""
 
-    def __init__(self, job: Job, scheduler: AsyncIOScheduler, guild: discord.Guild) -> None:
+    def __init__(self, job: Job, scheduler: AsyncIOScheduler, guild: discord.Guild, message: discord.Message | None = None) -> None:
         """Initialize the job management view.
 
         Args:
             job: The job to manage.
             scheduler: The scheduler to manage the job with.
             guild: The guild this view is for.
+            message: The message to manage.
         """
-        super().__init__(timeout=None)
+        super().__init__(timeout=30)
         self.job: Job = job
         self.scheduler: AsyncIOScheduler = scheduler
         self.guild: discord.Guild = guild
+        self.message: discord.Message | None = message
 
         self.add_item(JobSelector(scheduler, self.guild))
         self.update_buttons()
 
         logger.debug("JobManagementView created for job: %s", job.id)
+
+    async def on_timeout(self) -> None:
+        """Handle the view timeout."""
+        logger.info("JobManagementView timed out for job: %s", self.job.id)
+        if self.message:
+            await self.message.edit(content="`/remind list` timed out.", embed=None, view=None)
+        else:
+            logger.debug("No message to edit for job: %s", self.job.id)
+        self.stop()
 
     @discord.ui.button(label="Delete", style=discord.ButtonStyle.danger)
     async def delete_button(self, interaction: discord.Interaction, button: Button) -> None:  # noqa: ARG002
@@ -373,5 +384,11 @@ class JobManagementView(discord.ui.View):
         Returns:
             bool: Whether the interaction is valid.
         """
+        logger.info("Interaction check for job: %s", self.job.id)
+        logger.debug("Timeout was %s before interaction check", self.timeout)
+
+        self.timeout = 30
+        logger.debug("Checking interaction for job: %s", self.job.id)
+
         self.update_buttons()
         return True
