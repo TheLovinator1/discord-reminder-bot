@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 import discord
@@ -10,6 +9,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from discord.ui import Button, Select
+from loguru import logger
 
 from discord_reminder_bot.misc import DateTrigger, calc_time, calculate
 from discord_reminder_bot.parser import parse_time
@@ -19,9 +19,6 @@ if TYPE_CHECKING:
 
     from apscheduler.job import Job
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
-
-logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
@@ -53,12 +50,12 @@ class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
         self.job_name.placeholder = self.job.kwargs.get("message", "No message found")
         self.job_date.placeholder = self.job.next_run_time.strftime("%Y-%m-%d %H:%M:%S %Z")
 
-        logger.info("Job '%s' Modal created", self.job.name)
-        logger.info("\tCurrent date: '%s'", self.job.next_run_time)
-        logger.info("\tCurrent message: '%s'", self.job.kwargs.get("message", "N/A"))
+        logger.info(f"Job '{job_name_label}' modified: Initializing modal")
+        logger.info(f"\tCurrent date: '{self.job.next_run_time}'")
+        logger.info(f"\tCurrent message: '{self.job.kwargs.get('message', 'No message found')}")
 
-        logger.info("\tName label: '%s'", self.job_name.label)
-        logger.info("\tDate label: '%s'", self.job_date.label)
+        logger.info(f"\tName label: '{self.job_name.label}'")
+        logger.info(f"\tDate label: '{self.job_date.label}'")
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         """Submit the job modifications.
@@ -66,27 +63,29 @@ class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
         Args:
             interaction: The interaction object for the command.
         """
-        logger.info("Job '%s' modified: Submitting changes", self.job.name)
+        job_msg: str = self.job.kwargs.get("message", "No message found")
+        logger.info(f"Job '{job_msg}' modified: Submitting changes")
         new_name: str = self.job_name.value
         new_date_str: str = self.job_date.value
         old_date: datetime.datetime = self.job.next_run_time
 
         # if both are empty, do nothing
         if not new_name and not new_date_str:
-            logger.info("Job '%s' modified: No changes submitted", self.job.name)
+            logger.info(f"Job '{job_msg}' modified: No changes submitted.")
 
             await interaction.response.send_message(
-                content=f"Job **{self.job.name}** was not modified by {interaction.user.mention}.\nNo changes submitted.",
+                content=f"Job **{job_msg}**.\nNo changes submitted.",
+                ephemeral=True,
             )
             return
 
         if new_date_str and new_date_str != old_date.strftime("%Y-%m-%d %H:%M:%S %Z"):
             new_date: datetime.datetime | None = parse_time(new_date_str)
             if not new_date:
-                logger.error("Job '%s' modified: Failed to parse date: '%s'", self.job.name, new_date_str)
+                logger.error(f"Job '{job_msg}' modified: Failed to parse date: '{new_date_str}'")
                 await interaction.response.send_message(
                     content=(
-                        f"Failed modifying job **{self.job.name}**\n"
+                        f"Failed modifying job **{job_msg}**\n"
                         f"Job ID: **{self.job.id}**\n"
                         f"Failed to parse date: **{new_date_str}**\n"
                         f"Defaulting to old date: **{old_date.strftime('%Y-%m-%d %H:%M:%S')}** {calc_time(old_date)}"
@@ -94,8 +93,8 @@ class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
                 )
                 return
 
-            logger.info("Job '%s' modified: New date: '%s'", self.job.name, new_date)
-            logger.info("Job '%s' modified: Old date: '%s'", self.job.name, old_date)
+            logger.info(f"Job '{job_msg}' modified: New date: '{new_date}'")
+            logger.info(f"Job '{job_msg}' modified: Old date: '{old_date}'")
             self.job.modify(next_run_time=new_date)
 
             old_date_str: str = old_date.strftime("%Y-%m-%d %H:%M:%S")
@@ -103,16 +102,16 @@ class ModifyJobModal(discord.ui.Modal, title="Modify Job"):
 
             await interaction.response.send_message(
                 content=(
-                    f"Job **{self.job.name}** was modified by {interaction.user.mention}:\n"
+                    f"Job **{job_msg}** was modified by {interaction.user.mention}:\n"
                     f"Job ID: **{self.job.id}**\n"
                     f"Old date: **{old_date_str}** {calculate(self.job)} {calc_time(old_date)}\n"
                     f"New date: **{new_date_str}** {calculate(self.job)} {calc_time(new_date)}"
                 ),
             )
 
-        if self.job_name.value and self.job.name != new_name:
-            logger.info("Job '%s' modified: New name: '%s'", self.job.name, new_name)
-            logger.info("Job '%s' modified: Old name: '%s'", self.job.name, self.job.name)
+        if self.job_name.value and job_msg != new_name:
+            logger.info(f"Job '{job_msg}' modified: New name: '{new_name}'")
+            logger.info(f"Job '{job_msg}' modified: Old name: '{job_msg}'")
             self.job.modify(name=new_name)
 
             await interaction.response.send_message(
@@ -187,12 +186,12 @@ class JobSelector(Select):
         for job in jobs:
             # If the job has guild_id and it's not the current guild, skip it
             if job.kwargs.get("guild_id") and job.kwargs.get("guild_id") != guild.id:
-                logger.debug("Skipping job: %s because it's not in the current guild.", job.id)
+                logger.debug(f"Skipping job: {job.id} because it's not in the current guild.")
                 continue
 
             # If the job has channel_id and it's not in the current guild, skip it
             if job.kwargs.get("channel_id") and job.kwargs.get("channel_id") not in list_of_channels_in_current_guild:
-                logger.debug("Skipping job: %s because it's not in the current guild's channels.", job.id)
+                logger.debug(f"Skipping job: {job.id} because it's not from a channel in the current guild.")
                 continue
 
             jobs_in_guild.append(job)
@@ -252,14 +251,14 @@ class JobManagementView(discord.ui.View):
         self.add_item(JobSelector(scheduler, self.guild))
         self.update_buttons()
 
-        logger.debug("JobManagementView created for job: %s", job.id)
+        logger.debug(f"JobManagementView created for job: {self.job.id}")
 
     async def on_timeout(self) -> None:
         """Handle the view timeout."""
         if self.message:
             await self.message.edit(content="`/remind list` timed out.", embed=None, view=None)
         else:
-            logger.debug("No message to edit for job: %s", self.job.id)
+            logger.debug(f"No message to edit for job: {self.job.id}")
         self.stop()
 
     async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item) -> None:
@@ -312,9 +311,9 @@ class JobManagementView(discord.ui.View):
         """
         job_kwargs: dict = self.job.kwargs or {}
 
-        logger.info("Deleting job: %s because %s clicked the button.", self.job.id, interaction.user.name)
+        logger.info(f"Deleting job: {self.job.id}. Clicked by {interaction.user.name}")
         if hasattr(self.job, "__getstate__"):
-            logger.debug("State: %s", self.job.__getstate__() if hasattr(self.job, "__getstate__") else "No state")
+            logger.debug(f"State: {self.job.__getstate__() if hasattr(self.job, '__getstate__') else 'No state'}")
 
         job_msg: str | int = job_kwargs.get("message", "No message found")
         msg: str = f"**Job '{job_msg}' has been deleted.**\n"
@@ -346,7 +345,7 @@ class JobManagementView(discord.ui.View):
         if job_kwargs.get("guild_id"):
             msg += f"**Guild**: {job_kwargs.get('guild_id')}\n"
 
-        logger.debug("Deletion message: %s", msg)
+        logger.debug(f"Deletion message: {msg}")
 
         self.job.remove()
         await interaction.response.send_message(msg)
@@ -360,9 +359,9 @@ class JobManagementView(discord.ui.View):
             interaction: The interaction object for the command.
             button: The button that was clicked.
         """
-        logger.info("Modifying job: %s. Clicked by %s", self.job.id, interaction.user.name)
+        logger.info(f"Modifying job: {self.job.id}. Clicked by {interaction.user.name}")
         if hasattr(self.job, "__getstate__"):
-            logger.debug("State: %s", self.job.__getstate__() if hasattr(self.job, "__getstate__") else "No state")
+            logger.debug(f"State: {self.job.__getstate__() if hasattr(self.job, '__getstate__') else 'No state'}")
 
         modal = ModifyJobModal(self.job, self.scheduler)
         await interaction.response.send_modal(modal)
@@ -377,17 +376,17 @@ class JobManagementView(discord.ui.View):
         """
         if hasattr(self.job, "next_run_time"):
             if self.job.next_run_time is None:
-                logger.info("State: %s", self.job.__getstate__())
+                logger.info(f"State: {self.job.__getstate__() if hasattr(self.job, '__getstate__') else 'No state'}")
                 self.job.resume()
                 status = "resumed"
                 button.label = "Pause"
             else:
-                logger.info("State: %s", self.job.__getstate__())
+                logger.info(f"State: {self.job.__getstate__() if hasattr(self.job, '__getstate__') else 'No state'}")
                 self.job.pause()
                 status = "paused"
                 button.label = "Resume"
         else:
-            logger.error("Got a job without a next_run_time: %s", self.job.id)
+            logger.error(f"Got a job without a next_run_time: {self.job.id}")
             status: str = f"What is this? {self.job.__getstate__()}"
             button.label = "What?"
 
@@ -409,11 +408,11 @@ class JobManagementView(discord.ui.View):
 
     def update_buttons(self) -> None:
         """Update the visibility of buttons based on job status."""
-        logger.debug("Updating buttons for job: %s", self.job.id)
+        logger.debug(f"Updating buttons for job: {self.job.id}")
         self.pause_button.label = "Resume" if self.job.next_run_time is None else "Pause"
 
-        logger.debug("Pause button disabled: %s", self.pause_button.disabled)
-        logger.debug("Pause button label: %s", self.pause_button.label)
+        logger.debug(f"Pause button disabled: {self.pause_button.disabled}")
+        logger.debug(f"Pause button label: {self.pause_button.label}")
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:  # noqa: ARG002
         """Check the interaction and update buttons before responding.
@@ -424,11 +423,11 @@ class JobManagementView(discord.ui.View):
         Returns:
             bool: Whether the interaction is valid.
         """
-        logger.info("Interaction check for job: %s", self.job.id)
-        logger.debug("Timeout was %s before interaction check", self.timeout)
+        logger.info(f"Interaction check for job: {self.job.id}")
+        logger.debug(f"Timeout was {self.timeout} before interaction check.")
 
         self.timeout = 30
-        logger.debug("Checking interaction for job: %s", self.job.id)
+        logger.debug(f"Checking interaction for job: {self.job.id}")
 
         self.update_buttons()
         return True

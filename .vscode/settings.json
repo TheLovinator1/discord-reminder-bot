@@ -18,6 +18,7 @@
         "jobstore",
         "jobstores",
         "levelname",
+        "loguru",
         "Lovinator",
         "pycodestyle",
         "pydocstyle",

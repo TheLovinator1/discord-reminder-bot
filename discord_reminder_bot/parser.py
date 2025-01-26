@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import datetime
-import logging
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import dateparser
+from loguru import logger
 
 from discord_reminder_bot.settings import get_timezone
-
-logger: logging.Logger = logging.getLogger(__name__)
 
 
 def parse_time(date_to_parse: str | None, timezone: str | None = None, use_dotenv: bool = True) -> datetime.datetime | None:  # noqa: FBT001, FBT002
@@ -22,7 +20,7 @@ def parse_time(date_to_parse: str | None, timezone: str | None = None, use_doten
     Returns:
         datetime.datetime: The parsed datetime object.
     """
-    logger.info("Parsing date: '%s' with timezone: '%s'", date_to_parse, timezone)
+    logger.info(f"Parsing date: '{date_to_parse}' with timezone: '{timezone}'")
 
     if not date_to_parse:
         logger.error("No date provided to parse.")
@@ -35,7 +33,7 @@ def parse_time(date_to_parse: str | None, timezone: str | None = None, use_doten
     try:
         tz = ZoneInfo(timezone)
     except (ZoneInfoNotFoundError, ModuleNotFoundError):
-        logger.error("Invalid timezone provided: '%s'. Using default timezone: '%s'", timezone, get_timezone(use_dotenv))  # noqa: TRY400
+        logger.error(f"Invalid timezone provided: '{timezone}'. Using {get_timezone(use_dotenv)} instead.")
         tz = ZoneInfo("UTC")
 
     try:
@@ -50,5 +48,7 @@ def parse_time(date_to_parse: str | None, timezone: str | None = None, use_doten
         )
     except (ValueError, TypeError):
         return None
+
+    logger.debug(f"Parsed date: {parsed_date} from '{date_to_parse}'")
 
     return parsed_date

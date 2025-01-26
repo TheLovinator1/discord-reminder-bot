@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from apscheduler.triggers.date import DateTrigger
+from loguru import logger
 
 if TYPE_CHECKING:
     import datetime
 
     from apscheduler.job import Job
-
-logger: logging.Logger = logging.getLogger(__name__)
 
 
 def calculate(job: Job) -> str | None:
@@ -26,8 +24,8 @@ def calculate(job: Job) -> str | None:
 
     # Check if the job is paused
     if trigger_time is None:
-        logger.error("Couldn't calculate time for job: %s: %s", job.id, job.name)
-        logger.error("State: %s", job.__getstate__() if hasattr(job, "__getstate__") else "No state")
+        logger.error(f"Couldn't calculate time for job: {job.id}")
+        logger.error(f"State: {job.__getstate__() if hasattr(job, '__getstate__') else 'No state'}")
         return None
 
     return f"<t:{int(trigger_time.timestamp())}:R>"

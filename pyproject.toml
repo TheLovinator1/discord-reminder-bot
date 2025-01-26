@@ -30,6 +30,9 @@ dependencies = [
 
     # For error tracking
     "sentry-sdk>=2.20.0,<3.0.0", # https://github.com/getsentry/sentry-python
+
+    # For logging
+    "loguru>=0.7.3,<1.0.0", # https://github.com/Delgan/loguru
 ]
 
 [dependency-groups]
@@ -75,8 +78,13 @@ discord-webhook = {version = ">=1.3.1,<2.0.0"}
 # For loading environment variables from a .env file
 python-dotenv = {version = ">=1.0.1,<2.0.0"}
 
+# https://github.com/getsentry/sentry-python
 # For error tracking
 sentry-sdk = {version = ">=2.20.0,<3.0.0"}
+
+# https://github.com/Delgan/loguru
+# For logging
+loguru = {version = ">=0.7.3,<1.0.0"}
 
 [tool.poetry.dev-dependencies]
 pytest = "*"

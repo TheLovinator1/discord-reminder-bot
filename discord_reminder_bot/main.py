@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import datetime
 import json
-import logging
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -13,6 +12,7 @@ import sentry_sdk
 from apscheduler.job import Job
 from discord.abc import PrivateChannel
 from discord_webhook import DiscordWebhook
+from loguru import logger
 
 from discord_reminder_bot.misc import calc_time, calculate
 from discord_reminder_bot.parser import parse_time
@@ -28,16 +28,12 @@ if TYPE_CHECKING:
 
     from discord_reminder_bot import settings
 
-logger: logging.Logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logging.getLogger("discord.client").setLevel(logging.INFO)
 
 sentry_sdk.init(
     dsn="https://c4c61a52838be9b5042144420fba5aaa@o4505228040339456.ingest.us.sentry.io/4508707268984832",
     traces_sample_rate=1.0,
+    send_default_pii=True,
 )
-
-GUILD_ID = discord.Object(id=341001473661992962)
 
 scheduler: settings.AsyncIOScheduler = get_scheduler()
 msg_to_cleanup: list[discord.InteractionMessage] = []
@@ -58,7 +54,7 @@ class RemindBotClient(discord.Client):
     async def on_error(self, event_method: str, *args: list[Any], **kwargs: dict[str, Any]) -> None:
         """Log errors that occur in the bot."""
         # Log the error
-        logger.exception("An error occurred in %s", event_method)
+        logger.exception(f"An error occurred in {event_method} with args: {args} and kwargs: {kwargs}")
 
         # Add context to Sentry
         with sentry_sdk.push_scope() as scope:
@@ -100,26 +96,26 @@ class RemindBotClient(discord.Client):
 
     async def on_ready(self) -> None:
         """Log when the bot is ready."""
-        logger.info("Logged in as %s (%s)", self.user, self.user.id if self.user else "N/A ID")
+        logger.info(f"Logged in as {self.user} ({self.user.id if self.user else 'Unknown'})")
 
     async def close(self) -> None:
         """Close the bot and cleanup views."""
         logger.info("Closing bot and cleaning up views.")
         for msg in msg_to_cleanup:
-            logger.debug("Removing view: %s", msg.id)
+            logger.debug(f"Removing view: {msg.id}")
             try:
                 # If the message is "/remind list timed out.", skip it
-                if "/remind list timed out." in msg.content:
-                    logger.debug("Message %s is a timeout message. Skipping.", msg.id)
+                if "`/remind list` timed out." in msg.content:
+                    logger.debug(f"Message {msg.id} is a timeout message. Skipping.")
                     continue
 
                 await msg.delete()
             except discord.HTTPException as e:
                 if e.status != 401:
                     # Skip if the webhook token is invalid
-                    logger.error("Failed to remove view: %s", e)  # noqa: TRY400
+                    logger.error(f"Failed to remove view: {msg.id} - {e.text} - {e.status} - {e.code}")
             except asyncio.exceptions.CancelledError:
-                logger.error("Failed to remove view: Task was cancelled.")  # noqa: TRY400
+                logger.error("Failed to remove view: Task was cancelled.")
 
         return await super().close()
 
@@ -138,13 +134,12 @@ class RemindBotClient(discord.Client):
                 time: str = "Paused"
                 if hasattr(job, "next_run_time") and job.next_run_time and isinstance(job.next_run_time, datetime.datetime):
                     time = job.next_run_time.strftime("%Y-%m-%d %H:%M:%S")
+                logger.info(rf"\t{job.id}: {job.name} - {time} - {msg}")
 
-                logger.info("\t%s: %s (%s)", msg[:50] or "No message", time, job.id)
-        except Exception:
+        except (AttributeError, LookupError):
             logger.exception("Failed to loop through jobs")
 
-        self.tree.copy_global_to(guild=GUILD_ID)
-        await self.tree.sync(guild=GUILD_ID)
+        await self.tree.sync()
 
 
 class RemindGroup(discord.app_commands.Group):
@@ -178,8 +173,8 @@ class RemindGroup(discord.app_commands.Group):
         # TODO(TheLovinator): Check if we have access to the channel and user # noqa: TD003
         await interaction.response.defer()
 
-        logger.info("New reminder from %s (%s) in %s", interaction.user, interaction.user.id, interaction.channel)
-        logger.info("Arguments: %s", {k: v for k, v in locals().items() if k != "self" and v is not None})
+        logger.info(f"New reminder from {interaction.user} ({interaction.user.id}) in {interaction.channel}")
+        logger.info(f"Arguments: {locals()}")
 
         # Check if we have access to the specified channel or the current channel
         target_channel: InteractionChannel | None = channel or interaction.channel
@@ -218,7 +213,7 @@ class RemindGroup(discord.app_commands.Group):
                     "message": message,
                 },
             )
-            logger.info("User reminder job created: %s for %s at %s", user_reminder, user.id, time)
+            logger.info(f"User reminder job created: {user_reminder} for {user.id} at {parsed_time}")
 
             dm_message = f" and a DM to {user.display_name}"
             if not dm_and_current_channel:
@@ -239,7 +234,7 @@ class RemindGroup(discord.app_commands.Group):
                 "author_id": interaction.user.id,
             },
         )
-        logger.info("Channel reminder job created: %s for %s at %s", channel_job, channel_id, time)
+        logger.info(f"Channel reminder job created: {channel_job} for {channel_id}")
 
         msg: str = (
             f"Hello {interaction.user.display_name},\n"
@@ -251,7 +246,7 @@ class RemindGroup(discord.app_commands.Group):
 
     # /remind event
     @discord.app_commands.command(name="event", description="Add a new Discord event.")
-    async def add_event(  # noqa: PLR0913, PLR0917, PLR6301
+    async def add_event(  # noqa: C901, PLR0913, PLR0917, PLR6301
         self,
         interaction: discord.Interaction,
         message: str,
@@ -272,8 +267,8 @@ class RemindGroup(discord.app_commands.Group):
         """
         await interaction.response.defer()
 
-        logger.info("New event from %s (%s) in %s", interaction.user, interaction.user.id, interaction.channel)
-        logger.info("Arguments: %s", {k: v for k, v in locals().items() if k != "self" and v is not None})
+        logger.info(f"New event from {interaction.user} ({interaction.user.id}) in {interaction.channel}")
+        logger.info(f"Arguments: {locals()}")
 
         guild: discord.Guild | None = interaction.guild
         if not guild:
@@ -296,15 +291,19 @@ class RemindGroup(discord.app_commands.Group):
 
         reason_msg: str = f"Event created by {interaction.user} ({interaction.user.id})."
 
-        event: discord.ScheduledEvent = await guild.create_scheduled_event(
-            name=message,
-            start_time=event_start_time,
-            entity_type=discord.EntityType.external,
-            privacy_level=discord.PrivacyLevel.guild_only,
-            end_time=event_end_time,
-            reason=reason or reason_msg,
-            location=location,
-        )
+        try:
+            event: discord.ScheduledEvent = await guild.create_scheduled_event(
+                name=message,
+                start_time=event_start_time,
+                entity_type=discord.EntityType.external,
+                privacy_level=discord.PrivacyLevel.guild_only,
+                end_time=event_end_time,
+                reason=reason or reason_msg,
+                location=location,
+            )
+        except discord.Forbidden as e:
+            await interaction.followup.send(content=f"I don't have permission to create events in this guild: {e}", ephemeral=True)
+            return
 
         if start_immediately:
             await event.start()
@@ -354,12 +353,12 @@ class RemindGroup(discord.app_commands.Group):
         for job in jobs:
             # If the job has guild_id and it's not the current guild, skip it
             if job.kwargs.get("guild_id") and job.kwargs.get("guild_id") != guild.id:
-                logger.debug("Skipping job: %s because it's not in the current guild.", job.id)
+                logger.debug(f"Skipping job: {job.id} because it's not in the current guild.")
                 continue
 
             # If the job has channel_id and it's not in the current guild, skip it
             if job.kwargs.get("channel_id") and job.kwargs.get("channel_id") not in list_of_channels_in_current_guild:
-                logger.debug("Skipping job: %s because it's not in the current guild's channels.", job.id)
+                logger.debug(f"Skipping job: {job.id} because it's not in the current guild.")
                 continue
 
             jobs_in_guild.append(job)
@@ -421,15 +420,15 @@ class RemindGroup(discord.app_commands.Group):
         try:
             await interaction.response.defer()
         except discord.HTTPException as e:
-            logger.exception("Failed to defer interaction: text=%s, status=%s, code=%s", e.text, e.status, e.code)
+            logger.exception(f"Failed to defer interaction: {e.text=}, {e.status=}, {e.code=}")
             return
         except discord.InteractionResponded as e:
-            logger.exception("Interaction already responded to - interaction: %s", e.interaction)
+            logger.exception(f"Interaction already responded to - interaction: {interaction}, {e}")
             return
 
         # Log kwargs
-        logger.info("New cron job from %s (%s) in %s", interaction.user, interaction.user.id, interaction.channel)
-        logger.info("Cron job arguments: %s", {k: v for k, v in locals().items() if k != "self" and v is not None})
+        logger.info(f"New cron job from {interaction.user} ({interaction.user.id}) in {interaction.channel}")
+        logger.info(f"Cron job arguments: {locals()}")
 
         # Get the channel ID
         channel_id: int | None = channel.id if channel else (interaction.channel.id if interaction.channel else None)
@@ -548,8 +547,8 @@ class RemindGroup(discord.app_commands.Group):
         """  # noqa: E501
         await interaction.response.defer()
 
-        logger.info("New interval job from %s (%s) in %s", interaction.user, interaction.user.id, interaction.channel)
-        logger.info("Arguments: %s", {k: v for k, v in locals().items() if k != "self" and v is not None})
+        logger.info(f"New interval job from {interaction.user} ({interaction.user.id}) in {interaction.channel}")
+        logger.info(f"Arguments: {locals()}")
 
         # Only allow intervals of 30 seconds or more so we don't spam the channel
         if weeks == days == hours == minutes == 0 and seconds < 30:
@@ -673,18 +672,18 @@ class RemindGroup(discord.app_commands.Group):
             # Can't be 0 because that's the default value for jobs without a guild
             guild_id: int = interaction.guild.id if interaction.guild else -1
             channels_in_this_guild: list[int] = [c.id for c in interaction.guild.channels] if interaction.guild else []
-            logger.debug("Guild ID: %s, Channels in this guild: %s", guild_id, channels_in_this_guild)
+            logger.debug(f"Guild ID: {guild_id}")
 
             for job in jobs_data.get("jobs", []):
                 # Check if the job is in the current guild
                 job_guild_id = job.get("kwargs", {}).get("guild_id", 0)
                 if job_guild_id and job_guild_id != guild_id:
-                    logger.debug("Removing job: %s because it's not in the current guild. %s vs %s", job.get("id"), job_guild_id, guild_id)
+                    logger.debug(f"Removing job: {job.get('id')} because it's not in the current guild.")
                     jobs_data["jobs"].remove(job)
 
                 # Check if the channel is in the current guild
                 if job.get("kwargs", {}).get("channel_id") not in channels_in_this_guild:
-                    logger.debug("Removing job: %s because it's not in the current guild's channels.", job.get("id"))
+                    logger.debug(f"Removing job: {job.get('id')} because it's not in the current guild.")
                     jobs_data["jobs"].remove(job)
 
         msg: str = "All reminders in this server have been backed up." if not all_servers else "All reminders have been backed up."
@@ -712,7 +711,7 @@ class RemindGroup(discord.app_commands.Group):
         """
         await interaction.response.defer()
 
-        logger.info("Restoring reminders from file for %s (%s) in %s", interaction.user, interaction.user.id, interaction.channel)
+        logger.info(f"Restoring reminders from file for {interaction.user} ({interaction.user.id}) in {interaction.channel}")
 
         # Get the old jobs
         old_jobs: list[Job] = scheduler.get_jobs()
@@ -755,7 +754,7 @@ class RemindGroup(discord.app_commands.Group):
 
         # Save the file to a temporary file and import the jobs
         with tempfile.NamedTemporaryFile(mode="w+", delete=False, encoding="utf-8", suffix=".json") as temp_file:
-            logger.info("Saving attachment to %s", temp_file.name)
+            logger.info(f"Saving attachment to {temp_file.name}")
             await attachment.save(Path(temp_file.name))
 
             # Load the jobs data from the file
@@ -763,7 +762,7 @@ class RemindGroup(discord.app_commands.Group):
             jobs_data: dict = json.load(temp_file)
 
             logger.info("Importing jobs from file")
-            logger.debug("Jobs data: %s", jobs_data)
+            logger.debug(f"Jobs data: {jobs_data}")
 
             with tempfile.NamedTemporaryFile(mode="w+", delete=False, encoding="utf-8", suffix=".json") as temp_import_file:
                 # We can't import jobs with the same ID so remove them from the JSON
@@ -771,10 +770,10 @@ class RemindGroup(discord.app_commands.Group):
                 jobs_already_exist = [job.get("id") for job in jobs_data.get("jobs", []) if scheduler.get_job(job.get("id"))]
                 jobs_data["jobs"] = jobs
                 for job_id in jobs_already_exist:
-                    logger.debug("Removed job: %s because it already exists.", job_id)
+                    logger.debug(f"Removed job: {job_id} because it already exists.")
 
-                logger.debug("Jobs data after removing existing jobs: %s", jobs_data)
-                logger.info("Jobs already exist: %s", jobs_already_exist)
+                logger.debug(f"Jobs data after removing existing jobs: {jobs_data}")
+                logger.info(f"Jobs already exist: {jobs_already_exist}")
 
                 # Write the new data to a temporary file
                 json.dump(jobs_data, temp_import_file)
@@ -823,7 +822,7 @@ def send_webhook(url: str = "", message: str = "") -> None:
 
     if not url:
         url = get_webhook_url()
-        logger.error("No webhook URL provided. Using the one from settings.")
+        logger.error(f"No webhook URL provided. Using the one from settings: {url}")
         webhook: DiscordWebhook = DiscordWebhook(
             url=url,
             username="discord-reminder-bot",
@@ -851,7 +850,7 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
 
     # Channels we can't send messages to
     if isinstance(channel, discord.ForumChannel | discord.CategoryChannel | PrivateChannel):
-        logger.warning("We haven't implemented sending messages to this channel type (%s)", type(channel))
+        logger.warning(f"We haven't implemented sending messages to this channel type {type(channel)}")
         return
 
     await channel.send(f"<@{author_id}>\n{message}")
@@ -865,17 +864,17 @@ async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
         guild_id: The guild ID to get the user from.
         message: The message to send.
     """
-    logger.info("Sending message to user %s in guild %s:\n%s", user_id, guild_id, message)
+    logger.info(f"Sending message to user {user_id} in guild {guild_id}")
     try:
         guild: discord.Guild | None = bot.get_guild(guild_id)
         if guild is None:
             guild = await bot.fetch_guild(guild_id)
     except discord.NotFound:
         current_guilds: Sequence[discord.Guild] = bot.guilds
-        logger.exception("Guild not found. Current guilds: %s", current_guilds)
+        logger.exception(f"Guild not found. Current guilds: {current_guilds}")
         return
     except discord.HTTPException:
-        logger.exception("Failed to fetch guild")
+        logger.exception(f"Failed to fetch guild {guild_id}")
         return
 
     try:
@@ -883,21 +882,21 @@ async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
         if member is None:
             member = await guild.fetch_member(user_id)
     except discord.Forbidden:
-        logger.exception("We do not have access to the guild. Guild: %s, User: %s", guild_id, user_id)
+        logger.exception(f"We do not have access to the guild. Guild: {guild_id}, User: {user_id}")
         return
     except discord.NotFound:
-        logger.exception("Member not found. Guild: %s, User: %s", guild_id, user_id)
+        logger.exception(f"Member not found. Guild: {guild_id}, User: {user_id}")
         return
     except discord.HTTPException:
-        logger.exception("Fetching the member failed. Guild: %s, User: %s", guild_id, user_id)
+        logger.exception(f"Fetching the member failed. Guild: {guild_id}, User: {user_id}")
         return
 
     try:
         await member.send(message)
     except discord.HTTPException:
-        logger.exception("Failed to send message (%s) to user (%s) in guild (%s)", message, user_id, guild_id)
+        logger.exception(f"Failed to send message '{message}' to user '{user_id}' in guild '{guild_id}'")
 
 
 if __name__ == "__main__":
     bot_token: str = get_bot_token()
-    bot.run(bot_token, root_logger=True)
+    bot.run(bot_token)
