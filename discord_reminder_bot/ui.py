@@ -256,7 +256,6 @@ class JobManagementView(discord.ui.View):
 
     async def on_timeout(self) -> None:
         """Handle the view timeout."""
-        logger.info("JobManagementView timed out for job: %s", self.job.id)
         if self.message:
             await self.message.edit(content="`/remind list` timed out.", embed=None, view=None)
         else:
