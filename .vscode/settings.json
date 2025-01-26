@@ -5,6 +5,7 @@
         "asctime",
         "asyncio",
         "audioop",
+        "autouse",
         "botuser",
         "cookiejar",
         "dateparser",

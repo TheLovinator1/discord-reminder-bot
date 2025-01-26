@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import datetime
 import json
+import os
+import platform
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -29,8 +31,10 @@ if TYPE_CHECKING:
     from discord_reminder_bot import settings
 
 
+default_sentry_dsn: str = "https://c4c61a52838be9b5042144420fba5aaa@o4505228040339456.ingest.us.sentry.io/4508707268984832"
 sentry_sdk.init(
-    dsn="https://c4c61a52838be9b5042144420fba5aaa@o4505228040339456.ingest.us.sentry.io/4508707268984832",
+    dsn=os.getenv("SENTRY_DSN", default_sentry_dsn),
+    environment=platform.node() or "Unknown",
     traces_sample_rate=1.0,
     send_default_pii=True,
 )
