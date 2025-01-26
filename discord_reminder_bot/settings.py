@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pytz
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
@@ -24,14 +25,25 @@ def get_settings(use_dotenv: bool = True) -> dict[str, str | dict[str, SQLAlchem
         load_dotenv(verbose=True)
 
     sqlite_location: str = os.getenv("SQLITE_LOCATION", default="/jobs.sqlite")
-    config_timezone: str = os.getenv("TIMEZONE", default="UTC")
-    bot_token: str = os.getenv("BOT_TOKEN", default="")
     log_level: str = os.getenv("LOG_LEVEL", default="INFO")
     webhook_url: str = os.getenv("WEBHOOK_URL", default="")
 
+    bot_token: str = os.getenv("BOT_TOKEN", default="")
     if not bot_token:
         msg = "Missing bot token. Please set the BOT_TOKEN environment variable."
         raise ValueError(msg)
+
+    config_timezone: str | None = os.getenv("TIMEZONE")
+    if not config_timezone:
+        msg = "Missing timezone. Please set the TIMEZONE environment variable."
+        raise ValueError(msg)
+
+    # Test if the timezone is valid
+    try:
+        ZoneInfo(config_timezone)
+    except (ZoneInfoNotFoundError, ModuleNotFoundError) as e:
+        msg: str = f"Invalid timezone: {config_timezone}. Error: {e}"
+        raise ValueError(msg) from e
 
     jobstores: dict[str, SQLAlchemyJobStore] = {"default": SQLAlchemyJobStore(url=f"sqlite://{sqlite_location}")}
     job_defaults: dict[str, bool] = {"coalesce": True}
@@ -127,30 +139,4 @@ def get_webhook_url(use_dotenv: bool = True) -> str:  # noqa: FBT001, FBT002
         return webhook_url
 
     msg = "The webhook URL is missing from the settings."
-    raise KeyError(msg)
-
-
-def get_timezone(use_dotenv: bool = True) -> str:  # noqa: FBT001, FBT002
-    """Return the timezone.
-
-    Args:
-        use_dotenv (bool, optional): Whether to load environment variables from a .env file. Defaults to True
-
-    Raises:
-        TypeError: If the timezone is not a string.
-        KeyError: If the timezone is missing from the settings.
-
-    Returns:
-        str: The timezone.
-    """
-    settings: dict[str, str | dict[str, SQLAlchemyJobStore] | dict[str, bool] | AsyncIOScheduler] = get_settings(use_dotenv)
-
-    if config_timezone := settings.get("config_timezone"):
-        if not isinstance(config_timezone, str):
-            msg = "The timezone is not a string."
-            raise TypeError(msg)
-
-        return config_timezone
-
-    msg = "The timezone is missing from the settings."
     raise KeyError(msg)

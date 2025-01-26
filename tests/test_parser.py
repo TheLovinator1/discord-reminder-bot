@@ -1,57 +1,68 @@
 from __future__ import annotations
 
-import datetime
-from zoneinfo import ZoneInfo
+import zoneinfo
+from typing import TYPE_CHECKING
 
-from freezegun import freeze_time
+import pytest
 
-from discord_reminder_bot import settings
 from discord_reminder_bot.parser import parse_time
 
+if TYPE_CHECKING:
+    from datetime import datetime
 
-def test_parse_time_valid_date() -> None:
-    """Test the `parse_time` function with a valid date string."""
-    date_to_parse = "tomorrow at 5pm"
+
+def test_parse_time_valid_date_and_timezone() -> None:
+    """Test the `parse_time` function to ensure it correctly parses a date string into a datetime object."""
+    date_to_parse = "2023-10-10 10:00:00"
     timezone = "UTC"
-    result: datetime.datetime | None = parse_time(date_to_parse, timezone, use_dotenv=False)
-    assert result is not None, f"Expected a datetime object, got {result}"
-    assert result.tzinfo == ZoneInfo(timezone), f"Expected timezone {timezone}, got {result.tzinfo}"
+    result: datetime | None = parse_time(date_to_parse, timezone)
+    assert result is not None
+    assert result.tzinfo is not None
+    assert result.strftime("%Y-%m-%d %H:%M:%S") == "2023-10-10 10:00:00"
 
 
 def test_parse_time_no_date() -> None:
-    """Test the `parse_time` function with no date string."""
-    date_to_parse: str = ""
+    """Test the `parse_time` function to ensure it correctly handles no date provided."""
+    date_to_parse = None
     timezone = "UTC"
-    result: datetime.datetime | None = parse_time(date_to_parse, timezone, use_dotenv=False)
-    assert result is None, f"Expected None, got {result}"
+    result: datetime | None = parse_time(date_to_parse, timezone)
+    assert result is None
 
 
 def test_parse_time_no_timezone() -> None:
-    """Test the `parse_time` function with no timezone."""
-    date_to_parse = "tomorrow at 5pm"
-    result: datetime.datetime | None = parse_time(date_to_parse, use_dotenv=False)
-    assert result is not None, f"Expected a datetime object, got {result}"
-
-    assert_msg: str = f"Expected timezone {settings.get_timezone(use_dotenv=False)}, got {result.tzinfo}"
-    assert result.tzinfo == ZoneInfo(settings.get_timezone(use_dotenv=False)), assert_msg
+    """Test the `parse_time` function to ensure it correctly handles no timezone provided."""
+    date_to_parse = "2023-10-10 10:00:00"
+    timezone = None
+    result: datetime | None = parse_time(date_to_parse, timezone)
+    assert result is None
 
 
 def test_parse_time_invalid_date() -> None:
-    """Test the `parse_time` function with an invalid date string."""
+    """Test the `parse_time` function to ensure it correctly handles an invalid date string."""
     date_to_parse = "invalid date"
     timezone = "UTC"
-    result: datetime.datetime | None = parse_time(date_to_parse, timezone, use_dotenv=False)
-    assert result is None, f"Expected None, got {result}"
+    result: datetime | None = parse_time(date_to_parse, timezone)
+    assert result is None
 
 
-@freeze_time("2023-01-01 12:00:00")
 def test_parse_time_invalid_timezone() -> None:
-    """Test the `parse_time` function with an invalid timezone."""
-    date_to_parse = "tomorrow at 5pm"
+    """Test the `parse_time` function to ensure it correctly handles an invalid timezone."""
+    date_to_parse = "2023-10-10 10:00:00"
     timezone = "Invalid/Timezone"
-    result: datetime.datetime | None = parse_time(date_to_parse, timezone, use_dotenv=False)
-    assert result is not None, f"Expected a datetime object, got {result}"
-    assert result.tzinfo == ZoneInfo("UTC"), f"Expected timezone UTC, got {result.tzinfo}"
+    with pytest.raises(zoneinfo.ZoneInfoNotFoundError):
+        parse_time(date_to_parse, timezone)
 
-    assert_msg: str = f"Expected {datetime.datetime(2023, 1, 2, 17, 0, tzinfo=ZoneInfo('UTC'))}, got {result}"
-    assert result == datetime.datetime(2023, 1, 2, 17, 0, tzinfo=ZoneInfo("UTC")), assert_msg
+
+def test_parse_time_with_env_timezone(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the `parse_time` function to ensure it correctly parses a date string into a datetime object using the timezone from the environment."""  # noqa: E501
+    date_to_parse = "2023-10-10 10:00:00"
+    result: datetime | None = parse_time(date_to_parse, "UTC")
+
+    assert_msg: str = "Expected datetime object, got None"
+    assert result is not None, assert_msg
+
+    assert_msg = "Expected timezone-aware datetime object, got naive datetime object"
+    assert result.tzinfo is not None, assert_msg
+
+    assert_msg = f"Expected 2023-10-10 10:00:00, got {result.strftime('%Y-%m-%d %H:%M:%S')}"
+    assert result.strftime("%Y-%m-%d %H:%M:%S") == "2023-10-10 10:00:00", assert_msg

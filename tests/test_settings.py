@@ -57,6 +57,7 @@ def test_get_settings_default_values(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("LOG_LEVEL", raising=False)
     monkeypatch.delenv("WEBHOOK_URL", raising=False)
     monkeypatch.setenv("BOT_TOKEN", "default_token")
+    monkeypatch.setenv("TIMEZONE", "UTC")
 
     settings: dict[str, str | dict[str, SQLAlchemyJobStore] | dict[str, bool] | AsyncIOScheduler] = get_settings(use_dotenv=False)
 
