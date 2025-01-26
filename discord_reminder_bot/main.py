@@ -211,7 +211,7 @@ class RemindGroup(discord.app_commands.Group):
                 func=send_to_user,
                 trigger="date",
                 run_date=parsed_time,
-                job_kwargs={
+                kwargs={
                     "user_id": user.id,
                     "guild_id": guild.id,
                     "message": message,
@@ -232,7 +232,7 @@ class RemindGroup(discord.app_commands.Group):
         # Create channel reminder job
         channel_job: Job = scheduler.add_job(
             func=send_to_discord,
-            job_kwargs={
+            kwargs={
                 "channel_id": channel_id,
                 "message": message,
                 "author_id": interaction.user.id,
