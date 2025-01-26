@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import datetime
 import json
 import logging
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import discord
+import sentry_sdk
 from apscheduler.job import Job
 from discord.abc import PrivateChannel
 from discord_webhook import DiscordWebhook
@@ -18,6 +20,8 @@ from discord_reminder_bot.settings import get_bot_token, get_scheduler, get_webh
 from discord_reminder_bot.ui import JobManagementView, create_job_embed
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from apscheduler.job import Job
     from discord.guild import GuildChannel
     from discord.interactions import InteractionChannel
@@ -27,6 +31,11 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logging.getLogger("discord.client").setLevel(logging.INFO)
+
+sentry_sdk.init(
+    dsn="https://c4c61a52838be9b5042144420fba5aaa@o4505228040339456.ingest.us.sentry.io/4508707268984832",
+    traces_sample_rate=1.0,
+)
 
 GUILD_ID = discord.Object(id=341001473661992962)
 
@@ -46,6 +55,49 @@ class RemindBotClient(discord.Client):
         super().__init__(intents=intents)
         self.tree = discord.app_commands.CommandTree(self)
 
+    async def on_error(self, event_method: str, *args: list[Any], **kwargs: dict[str, Any]) -> None:
+        """Log errors that occur in the bot."""
+        # Log the error
+        logger.exception("An error occurred in %s", event_method)
+
+        # Add context to Sentry
+        with sentry_sdk.push_scope() as scope:
+            # Add event details
+            scope.set_tag("event_method", event_method)
+            scope.set_extra("args", args)
+            scope.set_extra("kwargs", kwargs)
+
+            # Add bot state
+            scope.set_tag("bot_user_id", self.user.id if self.user else "Unknown")
+            scope.set_tag("bot_user_name", str(self.user) if self.user else "Unknown")
+            scope.set_tag("bot_latency", self.latency)
+
+            # If specific arguments are available, extract and add details
+            if args:
+                interaction = next((arg for arg in args if isinstance(arg, discord.Interaction)), None)
+                if interaction:
+                    scope.set_extra("interaction_id", interaction.id)
+                    scope.set_extra("interaction_user", interaction.user.id)
+                    scope.set_extra("interaction_user_tag", str(interaction.user))
+                    scope.set_extra("interaction_command", interaction.command.name if interaction.command else None)
+                    scope.set_extra("interaction_channel", str(interaction.channel))
+                    scope.set_extra("interaction_guild", str(interaction.guild) if interaction.guild else None)
+
+                    # Add Sentry tags for interaction details
+                    scope.set_tag("interaction_id", interaction.id)
+                    scope.set_tag("interaction_user_id", interaction.user.id)
+                    scope.set_tag("interaction_user_tag", str(interaction.user))
+                    scope.set_tag("interaction_command", interaction.command.name if interaction.command else "None")
+                    scope.set_tag("interaction_channel_id", interaction.channel.id if interaction.channel else "None")
+                    scope.set_tag("interaction_channel_name", str(interaction.channel))
+                    scope.set_tag("interaction_guild_id", interaction.guild.id if interaction.guild else "None")
+                    scope.set_tag("interaction_guild_name", str(interaction.guild) if interaction.guild else "None")
+
+            # Add APScheduler context
+            scope.set_extra("scheduler_jobs", [job.id for job in scheduler.get_jobs()])
+
+            sentry_sdk.capture_exception()
+
     async def on_ready(self) -> None:
         """Log when the bot is ready."""
         logger.info("Logged in as %s (%s)", self.user, self.user.id if self.user else "N/A ID")
@@ -64,6 +116,8 @@ class RemindBotClient(discord.Client):
                 await msg.delete()
             except discord.HTTPException as e:
                 logger.error("Failed to remove view: %s", e)  # noqa: TRY400
+            except asyncio.exceptions.CancelledError:
+                logger.error("Failed to remove view: Task was cancelled.")  # noqa: TRY400
 
         return await super().close()
 
@@ -314,7 +368,6 @@ class RemindGroup(discord.app_commands.Group):
         view = JobManagementView(job=jobs_in_guild[0], scheduler=scheduler, guild=guild, message=message)
 
         msg_to_cleanup.append(message)
-        logger.debug("Views to cleanup: %s", msg_to_cleanup)
 
         await interaction.followup.send(embed=embed, view=view)
 
@@ -810,16 +863,37 @@ async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
         guild_id: The guild ID to get the user from.
         message: The message to send.
     """
-    # TODO(TheLovinator): Add try/except for all of these await calls  # noqa: TD003
-    guild: discord.Guild | None = bot.get_guild(guild_id)
-    if guild is None:
-        guild = await bot.fetch_guild(guild_id)
+    logger.info("Sending message to user %s in guild %s:\n%s", user_id, guild_id, message)
+    try:
+        guild: discord.Guild | None = bot.get_guild(guild_id)
+        if guild is None:
+            guild = await bot.fetch_guild(guild_id)
+    except discord.NotFound:
+        current_guilds: Sequence[discord.Guild] = bot.guilds
+        logger.exception("Guild not found. Current guilds: %s", current_guilds)
+        return
+    except discord.HTTPException:
+        logger.exception("Failed to fetch guild")
+        return
 
-    member: discord.Member | None = guild.get_member(user_id)
-    if member is None:
-        member = await guild.fetch_member(user_id)
+    try:
+        member: discord.Member | None = guild.get_member(user_id)
+        if member is None:
+            member = await guild.fetch_member(user_id)
+    except discord.Forbidden:
+        logger.exception("We do not have access to the guild. Guild: %s, User: %s", guild_id, user_id)
+        return
+    except discord.NotFound:
+        logger.exception("Member not found. Guild: %s, User: %s", guild_id, user_id)
+        return
+    except discord.HTTPException:
+        logger.exception("Fetching the member failed. Guild: %s, User: %s", guild_id, user_id)
+        return
 
-    await member.send(message)
+    try:
+        await member.send(message)
+    except discord.HTTPException:
+        logger.exception("Failed to send message (%s) to user (%s) in guild (%s)", message, user_id, guild_id)
 
 
 if __name__ == "__main__":

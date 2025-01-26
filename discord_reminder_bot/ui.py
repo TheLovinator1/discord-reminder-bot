@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 import discord
+import sentry_sdk
 from apscheduler.job import Job
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -261,6 +262,46 @@ class JobManagementView(discord.ui.View):
         else:
             logger.debug("No message to edit for job: %s", self.job.id)
         self.stop()
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item) -> None:
+        """Handle errors that occur within the view.
+
+        Args:
+            interaction: The interaction object for the command.
+            error: The exception that was raised.
+            item: The item that caused the error.
+        """
+        with sentry_sdk.push_scope() as scope:
+            # Interaction-related context
+            scope.set_extra("interaction_id", interaction.id)
+            scope.set_extra("interaction_user", interaction.user.id)
+            scope.set_extra("interaction_user_tag", str(interaction.user))
+            scope.set_extra("interaction_command", interaction.command.name if interaction.command else None)
+            scope.set_extra("interaction_channel", str(interaction.channel))
+            scope.set_extra("interaction_guild", str(interaction.guild) if interaction.guild else None)
+
+            # Item-related context
+            scope.set_extra("item_type", type(item).__name__)
+            scope.set_extra("item_label", getattr(item, "label", None))
+
+            # Job and scheduler context
+            scope.set_extra("job_id", self.job.id if self.job else None)
+            scope.set_extra("job_kwargs", self.job.kwargs if self.job else None)
+
+            # Guild and message context
+            scope.set_extra("guild_id", self.guild.id if self.guild else None)
+            scope.set_extra("guild_name", self.guild.name if self.guild else None)
+            scope.set_extra("message_id", self.message.id if self.message else None)
+            scope.set_extra("message_content", self.message.content if self.message else None)
+
+            # Tags for categorization
+            scope.set_tag("error_type", type(error).__name__)
+            scope.set_tag("interaction_type", "command" if interaction.command else "other")
+            if interaction.guild:
+                scope.set_tag("guild_id", interaction.guild.id)
+                scope.set_tag("guild_name", interaction.guild.name)
+
+            sentry_sdk.capture_exception(error)
 
     @discord.ui.button(label="Delete", style=discord.ButtonStyle.danger)
     async def delete_button(self, interaction: discord.Interaction, button: Button) -> None:  # noqa: ARG002
