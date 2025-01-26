@@ -109,13 +109,15 @@ class RemindBotClient(discord.Client):
             logger.debug("Removing view: %s", msg.id)
             try:
                 # If the message is "/remind list timed out.", skip it
-                if msg.content == "/remind list timed out.":
+                if "/remind list timed out." in msg.content:
                     logger.debug("Message %s is a timeout message. Skipping.", msg.id)
                     continue
 
                 await msg.delete()
             except discord.HTTPException as e:
-                logger.error("Failed to remove view: %s", e)  # noqa: TRY400
+                if e.status != 401:
+                    # Skip if the webhook token is invalid
+                    logger.error("Failed to remove view: %s", e)  # noqa: TRY400
             except asyncio.exceptions.CancelledError:
                 logger.error("Failed to remove view: Task was cancelled.")  # noqa: TRY400
 
