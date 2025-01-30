@@ -1,13 +1,9 @@
-# TODO(TheLovinator): Add GitHub Actions workflow for installing and running with Poetry
-# TODO(TheLovinator): Add GitHub Actions workflow for installing and running with uv
-# TODO(TheLovinator): Test bot on linux/windows/macOS with different Python versions and architectures
-
 [project]
 name = "discord-reminder-bot"
 version = "2.0.0"
 description = "Discord bot that allows you to set date, cron and interval reminders."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
     # The Discord bot library uses discord.py
     # legacy-cgi and audioop-lts are because Python 3.13 removed cgi module and audioop module
@@ -36,7 +32,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest", "ruff", "pre-commit", "pytest-asyncio", "freezegun"]
+dev = ["pytest"]
 
 [tool.poetry]
 name = "discord-reminder-bot"
@@ -49,7 +45,7 @@ license = "GPL-3.0-or-later"
 bot = "discord_reminder_bot.main:start"
 
 [tool.poetry.dependencies]
-python = "^3.13"
+python = "^3.10"
 
 # https://github.com/agronholm/apscheduler
 # https://github.com/sqlalchemy/sqlalchemy
@@ -88,10 +84,6 @@ loguru = {version = ">=0.7.3,<1.0.0"}
 
 [tool.poetry.dev-dependencies]
 pytest = "*"
-pre-commit = "*"
-ruff = "*"
-pytest-asyncio = "*"
-freezegun = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

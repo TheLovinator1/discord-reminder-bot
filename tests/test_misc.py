@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -14,22 +14,22 @@ if TYPE_CHECKING:
 
 def test_calc_time() -> None:
     """Test the calc_time function with various datetime inputs."""
-    test_datetime: datetime = datetime(2023, 10, 1, 12, 0, 0, tzinfo=UTC)
+    test_datetime: datetime = datetime(2023, 10, 1, 12, 0, 0, tzinfo=timezone.utc)
     expected_timestamp: str = f"<t:{int(test_datetime.timestamp())}:R>"
     assert_msg = f"Expected {expected_timestamp}, got {calc_time(test_datetime)}"
     assert calc_time(test_datetime) == expected_timestamp, assert_msg
 
-    now: datetime = datetime.now(tz=UTC)
+    now: datetime = datetime.now(tz=timezone.utc)
     expected_timestamp_now: str = f"<t:{int(now.timestamp())}:R>"
     assert_msg = f"Expected {expected_timestamp_now}, got {calc_time(now)}"
     assert calc_time(now) == expected_timestamp_now, assert_msg
 
-    past_datetime: datetime = datetime(2000, 1, 1, 0, 0, 0, tzinfo=UTC)
+    past_datetime: datetime = datetime(2000, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     expected_timestamp_past: str = f"<t:{int(past_datetime.timestamp())}:R>"
     assert_msg = f"Expected {expected_timestamp_past}, got {calc_time(past_datetime)}"
     assert calc_time(past_datetime) == expected_timestamp_past, assert_msg
 
-    future_datetime: datetime = datetime(2100, 1, 1, 0, 0, 0, tzinfo=UTC)
+    future_datetime: datetime = datetime(2100, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     expected_timestamp_future: str = f"<t:{int(future_datetime.timestamp())}:R>"
     assert_msg: str = f"Expected {expected_timestamp_future}, got {calc_time(future_datetime)}"
     assert calc_time(future_datetime) == expected_timestamp_future, assert_msg
@@ -69,7 +69,7 @@ def test_calculate() -> None:
     scheduler.start()
 
     # Create a job with a DateTrigger
-    run_date = datetime(2270, 10, 1, 12, 0, 0, tzinfo=UTC)
+    run_date = datetime(2270, 10, 1, 12, 0, 0, tzinfo=timezone.utc)
     job: Job = scheduler.add_job(lambda: None, trigger=DateTrigger(run_date=run_date), id="test_job", name="Test Job")
 
     expected_output = "<t:9490737600:R>"
