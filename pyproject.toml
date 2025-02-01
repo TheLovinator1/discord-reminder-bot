@@ -144,6 +144,3 @@ log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 filterwarnings = ["ignore::DeprecationWarning:aiohttp.cookiejar"]
-
-# [tool.uv.sources]
-# discord-py = {git = "https://github.com/Rapptz/discord.py"}

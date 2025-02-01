@@ -1,0 +1,41 @@
+name: uv
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
+
+env:
+  BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+  TIMEZONE: Europe/Stockholm
+  LOG_LEVEL: Info
+  SQLITE_LOCATION: /data/jobs.sqlite
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  test-on-uv:
+    name: Install with uv and run tests on Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+    - run: |
+          if [ -z "${{ env.BOT_TOKEN }}" ]; then
+            echo "BOT_TOKEN not set"
+            exit 1
+          fi
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Install uv and set the python version to ${{ matrix.python-version }}
+      uses: astral-sh/setup-uv@v5
+      with:
+          python-version: ${{ matrix.python-version }}
+          version: "latest"
+    - name: Install dependencies
+      run: uv sync --all-extras --dev
+    - name: Run tests
+      run: uv run pytest

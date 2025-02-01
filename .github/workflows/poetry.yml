@@ -1,0 +1,38 @@
+name: Poetry
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
+
+env:
+  BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+  TIMEZONE: Europe/Stockholm
+  LOG_LEVEL: Info
+  SQLITE_LOCATION: /data/jobs.sqlite
+
+jobs:
+  test-on-poetry:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        poetry-version: ["latest", "main"]
+    steps:
+    - run: |
+        if [ -z "${{ env.BOT_TOKEN }}" ]; then
+          echo "BOT_TOKEN not set"
+          exit 1
+        fi
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - uses: abatilo/actions-poetry@v4
+      with:
+        poetry-version: ${{ matrix.poetry-version }}
+    - run: poetry install
+    - run: poetry run pytest
