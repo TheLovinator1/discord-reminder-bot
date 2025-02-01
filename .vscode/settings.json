@@ -26,6 +26,7 @@
         "pycodestyle",
         "pydocstyle",
         "pyproject",
+        "pypy",
         "PYTHONDONTWRITEBYTECODE",
         "PYTHONUNBUFFERED",
         "pyupgrade",
