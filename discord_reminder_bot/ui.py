@@ -242,7 +242,7 @@ class JobManagementView(discord.ui.View):
             guild: The guild this view is for.
             message: The message to manage.
         """
-        super().__init__(timeout=30)
+        super().__init__(timeout=None)
         self.job: Job = job
         self.scheduler: AsyncIOScheduler = scheduler
         self.guild: discord.Guild = guild
@@ -252,14 +252,6 @@ class JobManagementView(discord.ui.View):
         self.update_buttons()
 
         logger.debug(f"JobManagementView created for job: {self.job.id}")
-
-    async def on_timeout(self) -> None:
-        """Handle the view timeout."""
-        if self.message:
-            await self.message.edit(content="`/remind list` timed out.", embed=None, view=None)
-        else:
-            logger.debug(f"No message to edit for job: {self.job.id}")
-        self.stop()
 
     async def on_error(self, interaction: discord.Interaction, error: Exception, item: discord.ui.Item) -> None:
         """Handle errors that occur within the view.
@@ -423,11 +415,6 @@ class JobManagementView(discord.ui.View):
         Returns:
             bool: Whether the interaction is valid.
         """
-        logger.info(f"Interaction check for job: {self.job.id}")
-        logger.debug(f"Timeout was {self.timeout} before interaction check.")
-
-        self.timeout = 30
-        logger.debug(f"Checking interaction for job: {self.job.id}")
-
+        logger.info(f"Checking interaction for job: {self.job.id}")
         self.update_buttons()
         return True
