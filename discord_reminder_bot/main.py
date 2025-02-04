@@ -22,8 +22,6 @@ from discord_reminder_bot.settings import get_bot_token, get_scheduler, get_webh
 from discord_reminder_bot.ui import JobManagementView, create_job_embed
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from apscheduler.job import Job
     from discord.guild import GuildChannel
     from discord.interactions import InteractionChannel
@@ -232,6 +230,8 @@ class RemindGroup(discord.app_commands.Group):
         # Create channel reminder job
         channel_job: Job = scheduler.add_job(
             func=send_to_discord,
+            trigger="date",
+            run_date=parse_time(date_to_parse=time),
             kwargs={
                 "channel_id": channel_id,
                 "message": message,
@@ -421,14 +421,7 @@ class RemindGroup(discord.app_commands.Group):
             user (discord.User, optional): Send reminder as a DM to this user. Defaults to None.
             dm_and_current_channel (bool, optional): If user is provided, send reminder as a DM to the user and in this channel. Defaults to only the user.
         """  # noqa: E501
-        try:
-            await interaction.response.defer()
-        except discord.HTTPException as e:
-            logger.exception(f"Failed to defer interaction: {e.text=}, {e.status=}, {e.code=}")
-            return
-        except discord.InteractionResponded as e:
-            logger.exception(f"Interaction already responded to - interaction: {interaction}, {e}")
-            return
+        await interaction.response.defer()
 
         # Log kwargs
         logger.info(f"New cron job from {interaction.user} ({interaction.user.id}) in {interaction.channel}")
@@ -874,8 +867,7 @@ async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
         if guild is None:
             guild = await bot.fetch_guild(guild_id)
     except discord.NotFound:
-        current_guilds: Sequence[discord.Guild] = bot.guilds
-        logger.exception(f"Guild not found. Current guilds: {current_guilds}")
+        logger.exception(f"Guild not found. Current guilds: {bot.guilds}")
         return
     except discord.HTTPException:
         logger.exception(f"Failed to fetch guild {guild_id}")
