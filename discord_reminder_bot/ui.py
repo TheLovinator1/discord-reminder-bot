@@ -11,7 +11,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from discord.ui import Button, Select
 from loguru import logger
 
-from discord_reminder_bot.misc import DateTrigger, calc_time, calculate
+from discord_reminder_bot.misc import calc_time, calculate
 from discord_reminder_bot.parser import parse_time
 
 if TYPE_CHECKING:
@@ -309,33 +309,33 @@ class JobManagementView(discord.ui.View):
 
         job_msg: str | int = job_kwargs.get("message", "No message found")
         msg: str = f"**Job '{job_msg}' has been deleted.**\n"
-        msg += f"**Job ID**: {self.job.id}\n"
+        msg += f"**Job ID**: {self.job.id}"
 
         # The time the job was supposed to run
         if hasattr(self.job, "next_run_time"):
             if self.job.next_run_time:
-                msg += f"**Next run time**: {self.job.next_run_time} ({calculate(self.job)})\n"
+                msg += f"\n**Next run time**: {self.job.next_run_time} ({calculate(self.job)})"
             else:
-                msg += "**Next run time**: Paused\n"
-                msg += f"**Trigger**: {self.job.trigger}\n"
+                msg += "\n**Next run time**: Paused"
+                msg += f"\n**Trigger**: {self.job.trigger}"
         else:
-            msg += "**Next run time**: Pending\n"
+            msg += "\n**Next run time**: Pending\n"
 
         # The Discord user who created the job
         if job_kwargs.get("author_id"):
-            msg += f"**Created by**: <@{job_kwargs.get('author_id')}>\n"
+            msg += f"\n**Created by**: <@{job_kwargs.get('author_id')}>"
 
         # The Discord channel to send the message to
         if job_kwargs.get("channel_id"):
-            msg += f"**Channel**: <#{job_kwargs.get('channel_id')}>\n"
+            msg += f"\n**Channel**: <#{job_kwargs.get('channel_id')}>"
 
         # The Discord user to send the message to
         if job_kwargs.get("user_id"):
-            msg += f"**User**: <@{job_kwargs.get('user_id')}>\n"
+            msg += f"\n**User**: <@{job_kwargs.get('user_id')}>"
 
         # The Discord guild to send the message to
         if job_kwargs.get("guild_id"):
-            msg += f"**Guild**: {job_kwargs.get('guild_id')}\n"
+            msg += f"\n**Guild**: {job_kwargs.get('guild_id')}"
 
         logger.debug(f"Deletion message: {msg}")
 
@@ -390,11 +390,15 @@ class JobManagementView(discord.ui.View):
         job_author: int = job_kwargs.get("author_id", 0)
         msg: str = f"Job '{job_msg}' has been {status} by <@{interaction.user.id}>. Job was created by <@{job_author}>."
 
+        # The time the job was supposed to run
         if hasattr(self.job, "next_run_time"):
-            trigger_time: datetime.datetime | None = (
-                self.job.trigger.run_date if isinstance(self.job.trigger, DateTrigger) else self.job.next_run_time
-            )
-            msg += f"\nNext run time: {trigger_time} {calculate(self.job)}"
+            if self.job.next_run_time:
+                msg += f"\n**Next run time**: {self.job.next_run_time} ({calculate(self.job)})"
+            else:
+                msg += "\n**Next run time**: Paused"
+                msg += f"\n**Trigger**: {self.job.trigger}"
+        else:
+            msg += "\n**Next run time**: Pending"
 
         await interaction.followup.send(msg)
 
@@ -416,5 +420,5 @@ class JobManagementView(discord.ui.View):
             bool: Whether the interaction is valid.
         """
         logger.info(f"Checking interaction for job: {self.job.id}")
-        self.update_buttons()
+        # self.update_buttons()
         return True

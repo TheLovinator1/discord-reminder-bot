@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import sentry_sdk
 from apscheduler.triggers.date import DateTrigger
 from loguru import logger
 
@@ -24,9 +25,17 @@ def calculate(job: Job) -> str | None:
 
     # Check if the job is paused
     if trigger_time is None:
-        logger.error(f"Couldn't calculate time for job: {job.id}")
-        logger.error(f"State: {job.__getstate__() if hasattr(job, '__getstate__') else 'No state'}")
-        return None
+        with sentry_sdk.push_scope() as scope:
+            scope.set_tag("job_id", job.id)
+            scope.set_extra("job_state", job.__getstate__() if hasattr(job, "__getstate__") else "No state")
+            sentry_sdk.capture_exception(Exception("Couldn't calculate time for job"))
+
+            msg: str = f"Couldn't calculate time for job: {job.id}"
+            if hasattr(job, "__getstate__"):
+                msg += f"State: {job.__getstate__()}"
+
+            logger.error(msg)
+            return None
 
     return f"<t:{int(trigger_time.timestamp())}:R>"
 

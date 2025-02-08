@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Any
 
 import discord
 import sentry_sdk
+from apscheduler import events
+from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, JobExecutionEvent
 from apscheduler.job import Job
 from discord.abc import PrivateChannel
 from discord_webhook import DiscordWebhook
@@ -39,6 +41,27 @@ sentry_sdk.init(
 
 scheduler: settings.AsyncIOScheduler = get_scheduler()
 msg_to_cleanup: list[discord.InteractionMessage] = []
+
+
+def my_listener(event: JobExecutionEvent) -> None:
+    """Listener for job events.
+
+    Args:
+        event: The event that occurred.
+    """
+    if event.code == events.EVENT_JOB_MISSED:
+        scheduled_time: str = event.scheduled_run_time.strftime("%Y-%m-%d %H:%M:%S")
+        msg: str = f"Job {event.job_id} was missed! Was scheduled at {scheduled_time}"
+        send_webhook(message=msg)
+
+    if event.exception:
+        with sentry_sdk.push_scope() as scope:
+            scope.set_extra("job_id", event.job_id)
+            scope.set_extra("scheduled_run_time", event.scheduled_run_time.isoformat() if event.scheduled_run_time else "None")
+            scope.set_extra("event_code", event.code)
+            sentry_sdk.capture_exception(event.exception)
+
+        send_webhook(f"discord-reminder-bot failed to send message to Discord\n{event}")
 
 
 class RemindBotClient(discord.Client):
@@ -124,6 +147,7 @@ class RemindBotClient(discord.Client):
     async def setup_hook(self) -> None:
         """Setup the bot."""
         scheduler.start()
+        scheduler.add_listener(my_listener, EVENT_JOB_MISSED | EVENT_JOB_ERROR)
         jobs: list[Job] = scheduler.get_jobs()
         if not jobs:
             logger.info("No jobs available.")
