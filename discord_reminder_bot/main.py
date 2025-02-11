@@ -700,14 +700,14 @@ class RemindGroup(discord.app_commands.Group):
 
             for job in jobs_data.get("jobs", []):
                 # Check if the job is in the current guild
-                job_guild_id = job.get("kwargs", {}).get("guild_id", 0)
+                job_guild_id = int(job.get("kwargs", {}).get("guild_id", 0))
                 if job_guild_id and job_guild_id != guild_id:
-                    logger.debug(f"Removing job: {job.get('id')} because it's not in the current guild.")
+                    logger.debug(f"Skipping job: {job.get('id')} because it's not in the current guild.")
                     jobs_data["jobs"].remove(job)
 
                 # Check if the channel is in the current guild
                 if job.get("kwargs", {}).get("channel_id") not in channels_in_this_guild:
-                    logger.debug(f"Removing job: {job.get('id')} because it's not in the current guild.")
+                    logger.debug(f"Skipping job: {job.get('id')} because it's not in the current guild.")
                     jobs_data["jobs"].remove(job)
 
         msg: str = "All reminders in this server have been backed up." if not all_servers else "All reminders have been backed up."
@@ -715,11 +715,13 @@ class RemindGroup(discord.app_commands.Group):
 
         if not all_servers:
             msg += f"\nAmount of jobs on all servers: {amount_of_jobs}, in this server: {len(jobs_data.get('jobs', []))}"
-            msg += "\nYou can use /remind backup all_servers:True to backup all servers."
+            msg += "\nYou can use `/remind backup all_servers:True` to backup all servers."
+        else:
+            msg += f"\nAmount of jobs: {amount_of_jobs}"
 
         # Write the data to a new file
         with tempfile.NamedTemporaryFile(mode="w", delete=False, encoding="utf-8", suffix=".json") as output_file:
-            file_name = f"reminders-backup-{datetime.datetime.now(tz=scheduler.timezone)}.json"
+            file_name: str = f"reminders-backup-{datetime.datetime.now(tz=scheduler.timezone)}.json"
             json.dump(jobs_data, output_file, indent=4)
             output_file.seek(0)
 
@@ -737,21 +739,19 @@ class RemindGroup(discord.app_commands.Group):
 
         logger.info(f"Restoring reminders from file for {interaction.user} ({interaction.user.id}) in {interaction.channel}")
 
-        # Get the old jobs
-        old_jobs: list[Job] = scheduler.get_jobs()
-
         # Tell to reply with the file to this message
         await interaction.followup.send(content="Please reply to this message with the backup file.")
 
+        # Get the old jobs
+        old_jobs: list[Job] = scheduler.get_jobs()
+
+        # Wait for the reply
         while True:
-            # Wait for the reply
             try:
                 reply: discord.Message | None = await bot.wait_for("message", timeout=60, check=lambda m: m.author == interaction.user)
             except TimeoutError:
-                # Modify the original message to say we timed out
-                await interaction.edit_original_response(
-                    content=("~~Please reply to this message with the backup file.~~\nTimed out after 60 seconds."),
-                )
+                edit_msg = "~~Please reply to this message with the backup file.~~\nTimed out after 60 seconds."
+                await interaction.edit_original_response(content=edit_msg)
                 return
 
             if not reply.channel:
@@ -794,9 +794,9 @@ class RemindGroup(discord.app_commands.Group):
                 jobs_already_exist = [job.get("id") for job in jobs_data.get("jobs", []) if scheduler.get_job(job.get("id"))]
                 jobs_data["jobs"] = jobs
                 for job_id in jobs_already_exist:
-                    logger.debug(f"Removed job: {job_id} because it already exists.")
+                    logger.debug(f"Skipping importing '{job_id}' because it already exists in the db.")
 
-                logger.debug(f"Jobs data after removing existing jobs: {jobs_data}")
+                logger.debug(f"Jobs data after filtering: {jobs_data}")
                 logger.info(f"Jobs already exist: {jobs_already_exist}")
 
                 # Write the new data to a temporary file
@@ -813,14 +813,13 @@ class RemindGroup(discord.app_commands.Group):
         added_jobs: list[Job] = [job for job in new_jobs if job not in old_jobs]
 
         if added_jobs:
-            job_info: str = ""
+            msg: str = "Reminders restored successfully.\nAdded jobs:\n"
             for j in added_jobs:
-                job_info += f"\n• Message: {j.kwargs.get('message', 'No message found')} | Countdown: {calculate(j) or 'N/A'}"
+                msg += f"* Message: **{j.kwargs.get('message', 'No message found')}** {calculate(j) or 'N/A'}\n"
 
-            msg: str = f"Reminders restored successfully.\nAdded jobs:\n{job_info}"
             await interaction.followup.send(content=msg)
         else:
-            await interaction.followup.send(content="No new reminders were added. Note that only jobs for this server will be restored.")
+            await interaction.followup.send(content="No new reminders were added.")
 
 
 intents: discord.Intents = discord.Intents.default()
