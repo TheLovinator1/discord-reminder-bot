@@ -124,7 +124,6 @@ lint.ignore = [
     "W191",   # Checks for indentation that uses tabs.
 ]
 
-
 [tool.ruff.format]
 docstring-code-format = true
 docstring-code-line-length = 20

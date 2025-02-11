@@ -245,6 +245,7 @@ class RemindGroup(discord.app_commands.Group):
             if not dm_and_current_channel:
                 msg = (
                     f"Hello {interaction.user.display_name},\n"
+                    f"I parsed `{time}` as `{parsed_time}`. Timezone: `{scheduler.timezone}`\n"
                     f"I will send a DM to {user.display_name} at:\n"
                     f"First run in {calculate(user_reminder)} with the message:\n**{message}**."
                 )
@@ -252,10 +253,11 @@ class RemindGroup(discord.app_commands.Group):
                 return
 
         # Create channel reminder job
+        parsed_time: datetime.datetime | None = parse_time(date_to_parse=time)
         channel_job: Job = scheduler.add_job(
             func=send_to_discord,
             trigger="date",
-            run_date=parse_time(date_to_parse=time),
+            run_date=parsed_time,
             kwargs={
                 "channel_id": channel_id,
                 "message": message,
@@ -266,6 +268,7 @@ class RemindGroup(discord.app_commands.Group):
 
         msg: str = (
             f"Hello {interaction.user.display_name},\n"
+            f"I parsed `{time}` as `{parsed_time}`. Timezone: `{scheduler.timezone}`\n"
             f"I will notify you in <#{channel_id}>{dm_message}.\n"
             f"First run in {calculate(channel_job)} with the message:\n**{message}**."
         )
