@@ -160,7 +160,7 @@ class RemindBotClient(discord.Client):
                 time: str = "Paused"
                 if hasattr(job, "next_run_time") and job.next_run_time and isinstance(job.next_run_time, datetime.datetime):
                     time = job.next_run_time.strftime("%Y-%m-%d %H:%M:%S")
-                logger.info(rf"\t{job.id}: {job.name} - {time} - {msg}")
+                logger.info(f"\t{job.id}: {job.name} - {time} - {msg}")
 
         except (AttributeError, LookupError):
             logger.exception("Failed to loop through jobs")
