@@ -3,8 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
+from apscheduler.job import Job
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from discord_reminder_bot.misc import calc_time, calculate, get_human_time
 
@@ -63,6 +66,10 @@ def test_get_human_time() -> None:
     assert get_human_time(test_timedelta) == expected_output, assert_msg
 
 
+def dummy_job() -> None:
+    """Dummy job function for testing."""
+
+
 def test_calculate() -> None:
     """Test the calculate function with various job inputs."""
     scheduler = BackgroundScheduler()
@@ -70,7 +77,7 @@ def test_calculate() -> None:
 
     # Create a job with a DateTrigger
     run_date = datetime(2270, 10, 1, 12, 0, 0, tzinfo=timezone.utc)
-    job: Job = scheduler.add_job(lambda: None, trigger=DateTrigger(run_date=run_date), id="test_job", name="Test Job")
+    job: Job = scheduler.add_job(dummy_job, trigger=DateTrigger(run_date=run_date), id="test_job", name="Test Job")
 
     expected_output = "<t:9490737600:R>"
     assert_msg: str = f"Expected {expected_output}, got {calculate(job)}"
@@ -78,10 +85,60 @@ def test_calculate() -> None:
 
     # Modify the job to have a next_run_time
     job.modify(next_run_time=run_date)
+    assert_msg: str = f"Expected {expected_output}, got {calculate(job)}"
     assert calculate(job) == expected_output, assert_msg
 
     # Paused job should still return the same output
     job.pause()
-    assert calculate(job) == expected_output, assert_msg
+    assert_msg: str = f"Expected None, got {calculate(job)}"
+    assert not calculate(job), assert_msg
 
+    scheduler.shutdown()
+
+
+def test_calculate_cronjob() -> None:
+    """Test the calculate function with a CronTrigger job."""
+    scheduler = BackgroundScheduler()
+    scheduler.start()
+
+    run_date = datetime(2270, 10, 1, 12, 0, 0, tzinfo=timezone.utc)
+    job: Job = scheduler.add_job(
+        dummy_job,
+        trigger=CronTrigger(
+            second=run_date.second,
+            minute=run_date.minute,
+            hour=run_date.hour,
+            day=run_date.day,
+            month=run_date.month,
+            year=run_date.year,
+        ),
+    )
+    # Force next_run_time to expected value for testing
+    job.modify(next_run_time=run_date)
+
+    expected_output: str = f"<t:{int(run_date.timestamp())}:R>"
+    assert calculate(job) == expected_output, f"Expected {expected_output}, got {calculate(job)}"
+
+    # You can't pause a CronTrigger job so this should return the same output
+    job.pause()
+    assert calculate(job) == expected_output, f"Expected {expected_output}, got {calculate(job)}"
+    scheduler.shutdown()
+
+
+def test_calculate_intervaljob() -> None:
+    """Test the calculate function with an IntervalTrigger job."""
+    scheduler = BackgroundScheduler()
+    scheduler.start()
+
+    run_date = datetime(2270, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+    job = scheduler.add_job(dummy_job, trigger=IntervalTrigger(seconds=3600), id="test_interval_job", name="Test Interval Job")
+    # Force next_run_time to expected value for testing
+    job.modify(next_run_time=run_date)
+
+    expected_output = f"<t:{int(run_date.timestamp())}:R>"
+    assert calculate(job) == expected_output, f"Expected {expected_output}, got {calculate(job)}"
+
+    # Paused job should return False
+    job.pause()
+    assert not calculate(job), f"Expected None, got {calculate(job)}"
     scheduler.shutdown()

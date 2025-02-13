@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import datetime
 import json
 import os
@@ -21,7 +20,6 @@ from loguru import logger
 from discord_reminder_bot.misc import calc_time, calculate
 from discord_reminder_bot.parser import parse_time
 from discord_reminder_bot.settings import get_bot_token, get_scheduler, get_webhook_url
-from discord_reminder_bot.ui import JobManagementView, create_job_embed
 
 if TYPE_CHECKING:
     from apscheduler.job import Job
@@ -40,7 +38,6 @@ sentry_sdk.init(
 )
 
 scheduler: settings.AsyncIOScheduler = get_scheduler()
-msg_to_cleanup: list[discord.InteractionMessage] = []
 
 
 def my_listener(event: JobExecutionEvent) -> None:
@@ -123,27 +120,6 @@ class RemindBotClient(discord.Client):
         """Log when the bot is ready."""
         logger.info(f"Logged in as {self.user} ({self.user.id if self.user else 'Unknown'})")
 
-    async def close(self) -> None:
-        """Close the bot and cleanup views."""
-        logger.info("Closing bot and cleaning up views.")
-        for msg in msg_to_cleanup:
-            logger.debug(f"Removing view: {msg.id}")
-            try:
-                # If the message is "/remind list timed out.", skip it
-                if "`/remind list` timed out." in msg.content:
-                    logger.debug(f"Message {msg.id} is a timeout message. Skipping.")
-                    continue
-
-                await msg.delete()
-            except discord.HTTPException as e:
-                if e.status != 401:
-                    # Skip if the webhook token is invalid
-                    logger.error(f"Failed to remove view: {msg.id} - {e.text} - {e.status} - {e.code}")
-            except asyncio.exceptions.CancelledError:
-                logger.error("Failed to remove view: Task was cancelled.")
-
-        return await super().close()
-
     async def setup_hook(self) -> None:
         """Setup the bot."""
         scheduler.start()
@@ -166,6 +142,59 @@ class RemindBotClient(discord.Client):
             logger.exception("Failed to loop through jobs")
 
         await self.tree.sync()
+
+
+def generate_reminder_summary() -> list[str]:
+    """Create a message with all the jobs.
+
+    Returns:
+        list[str]: A list of messages with all the jobs.
+    """
+    jobs: list[Job] = scheduler.get_jobs()
+    msgs: list[str] = []
+
+    if not jobs:
+        return ["No scheduled jobs found in the database."]
+
+    header = (
+        "You can use the following commands to manage reminders:\n"
+        "`/remind pause <job_id>` - Pause a reminder\n"
+        "`/remind unpause <job_id>` - Unpause a reminder\n"
+        "`/remind remove <job_id>` - Remove a reminder\n\n"
+        "`/remind modify <job_id>` - Modify the time of a reminder\n\n"
+        "List of all reminders:\n\n"
+    )
+
+    current_msg = header
+
+    for job in jobs:
+        # Build job-specific message
+        job_msg: str = f"### {job.kwargs.get('message', '')}\n"
+        job_msg += f"**id:** {job.id}\n"
+        job_msg += f"**Job type:** {job.trigger}\n"
+        job_msg += f"**Next run time:** {calculate(job)}\n\n"
+
+        if job.kwargs.get("user_id"):
+            job_msg += f"**User:** <@{job.kwargs.get('user_id')}>\n"
+        if job.kwargs.get("channel_id"):
+            job_msg += f"**Channel:** <#{job.kwargs.get('channel_id')}>\n"
+        if job.kwargs.get("guild_id"):
+            job_msg += f"**Guild:** {job.kwargs.get('guild_id')}\n"
+
+        job_msg += "\n"  # Extra newline for separation
+
+        # If adding this job exceeds 2000 characters, push the current message and start a new one.
+        if len(current_msg) + len(job_msg) > 2000:
+            msgs.append(current_msg)
+            current_msg = job_msg
+        else:
+            current_msg += job_msg
+
+    # Append any remaining content in current_msg.
+    if current_msg:
+        msgs.append(current_msg)
+
+    return msgs
 
 
 class RemindGroup(discord.app_commands.Group):
@@ -245,7 +274,6 @@ class RemindGroup(discord.app_commands.Group):
             if not dm_and_current_channel:
                 msg = (
                     f"Hello {interaction.user.display_name},\n"
-                    f"I parsed `{time}` as `{parsed_time}`. Timezone: `{scheduler.timezone}`\n"
                     f"I will send a DM to {user.display_name} at:\n"
                     f"First run in {calculate(user_reminder)} with the message:\n**{message}**."
                 )
@@ -253,11 +281,10 @@ class RemindGroup(discord.app_commands.Group):
                 return
 
         # Create channel reminder job
-        parsed_time: datetime.datetime | None = parse_time(date_to_parse=time)
         channel_job: Job = scheduler.add_job(
             func=send_to_discord,
             trigger="date",
-            run_date=parsed_time,
+            run_date=parse_time(date_to_parse=time),
             kwargs={
                 "channel_id": channel_id,
                 "message": message,
@@ -268,7 +295,6 @@ class RemindGroup(discord.app_commands.Group):
 
         msg: str = (
             f"Hello {interaction.user.display_name},\n"
-            f"I parsed `{time}` as `{parsed_time}`. Timezone: `{scheduler.timezone}`\n"
             f"I will notify you in <#{channel_id}>{dm_message}.\n"
             f"First run in {calculate(channel_job)} with the message:\n**{message}**."
         )
@@ -396,12 +422,13 @@ class RemindGroup(discord.app_commands.Group):
 
         message: discord.InteractionMessage = await interaction.original_response()
 
-        embed: discord.Embed = create_job_embed(job=jobs_in_guild[0])
-        view = JobManagementView(job=jobs_in_guild[0], scheduler=scheduler, guild=guild, message=message)
+        job_summary: list[str] = generate_reminder_summary()
 
-        msg_to_cleanup.append(message)
-
-        await interaction.followup.send(embed=embed, view=view)
+        for i, msg in enumerate(job_summary):
+            if i == 0:
+                await message.edit(content=msg)
+            else:
+                await interaction.followup.send(content=msg)
 
     # /remind cron
     @discord.app_commands.command(name="cron", description="Create new cron job. Works like UNIX cron.")
