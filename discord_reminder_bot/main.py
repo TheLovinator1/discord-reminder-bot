@@ -165,7 +165,7 @@ def generate_reminder_summary() -> list[str]:
         "List of all reminders:\n\n"
     )
 
-    current_msg = header
+    current_msg: str = header
 
     for job in jobs:
         # Build job-specific message
@@ -225,19 +225,15 @@ class RemindGroup(discord.app_commands.Group):
             user (discord.User, optional): Send reminder as a DM to this user. Defaults to None.
             dm_and_current_channel (bool, optional): Send reminder as a DM to the user and in this channel. Defaults to False.
         """
-        # TODO(TheLovinator): Check if we have access to the channel and user # noqa: TD003
         await interaction.response.defer()
 
         logger.info(f"New reminder from {interaction.user} ({interaction.user.id}) in {interaction.channel}")
         logger.info(f"Arguments: {locals()}")
 
         # Check if we have access to the specified channel or the current channel
-        target_channel: InteractionChannel | None = channel or interaction.channel
+        target_channel: InteractionChannel | discord.TextChannel | None = channel or interaction.channel
         if target_channel and interaction.guild and not target_channel.permissions_for(interaction.guild.me).send_messages:
-            await interaction.followup.send(
-                content=f"I don't have permission to send messages in <#{target_channel.id}>.",
-                ephemeral=True,
-            )
+            await interaction.followup.send(content=f"I don't have permission to send messages in <#{target_channel.id}>.", ephemeral=True)
 
         # Get the channel ID
         channel_id: int | None = channel.id if channel else (interaction.channel.id if interaction.channel else None)
@@ -327,9 +323,15 @@ class RemindGroup(discord.app_commands.Group):
         logger.info(f"New event from {interaction.user} ({interaction.user.id}) in {interaction.channel}")
         logger.info(f"Arguments: {locals()}")
 
+        # Check if we have a valid guild
         guild: discord.Guild | None = interaction.guild
         if not guild:
-            await interaction.followup.send(content="Failed to get guild.", ephemeral=True)
+            await interaction.followup.send(content="This command can only be used in a server.", ephemeral=True)
+            return
+
+        # Check if we have permission to create events
+        if not guild.me.guild_permissions.create_events:
+            await interaction.followup.send(content="I don't have permission to create events in this guild.", ephemeral=True)
             return
 
         event_start_time: datetime.datetime | None = parse_time(date_to_parse=event_start)
@@ -348,19 +350,15 @@ class RemindGroup(discord.app_commands.Group):
 
         reason_msg: str = f"Event created by {interaction.user} ({interaction.user.id})."
 
-        try:
-            event: discord.ScheduledEvent = await guild.create_scheduled_event(
-                name=message,
-                start_time=event_start_time,
-                entity_type=discord.EntityType.external,
-                privacy_level=discord.PrivacyLevel.guild_only,
-                end_time=event_end_time,
-                reason=reason or reason_msg,
-                location=location,
-            )
-        except discord.Forbidden as e:
-            await interaction.followup.send(content=f"I don't have permission to create events in this guild: {e}", ephemeral=True)
-            return
+        event: discord.ScheduledEvent = await guild.create_scheduled_event(
+            name=message,
+            start_time=event_start_time,
+            entity_type=discord.EntityType.external,
+            privacy_level=discord.PrivacyLevel.guild_only,
+            end_time=event_end_time,
+            reason=reason or reason_msg,
+            location=location,
+        )
 
         if start_immediately:
             await event.start()
