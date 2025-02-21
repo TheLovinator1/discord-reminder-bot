@@ -6,29 +6,26 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     # The Discord bot library uses discord.py
-    # legacy-cgi and audioop-lts are because Python 3.13 removed cgi module and audioop module
-    "discord-py[speed]>=2.4.0,<3.0.0",                     # https://github.com/Rapptz/discord.py
-    "legacy-cgi>=2.6.2,<3.0.0; python_version >= '3.13'",  # https://github.com/jackrosenthal/legacy-cgi
-    "audioop-lts>=0.2.1,<1.0.0; python_version >= '3.13'", # https://github.com/AbstractUmbra/audioop
+    "discord-py[speed]>=2.5.0", # https://github.com/Rapptz/discord.py
 
     # For parsing dates and times in /remind commands
     "dateparser>=1.0.0", # https://github.com/scrapinghub/dateparser
 
     # For sending webhook messages to Discord
-    "discord-webhook>=1.3.1,<2.0.0", # https://github.com/lovvskillz/python-discord-webhook
+    "discord-webhook>=1.3.1", # https://github.com/lovvskillz/python-discord-webhook
 
     # For scheduling reminders, sqlalchemy is needed for storing reminders in a database
-    "apscheduler>=3.11.0,<4.0.0", # https://github.com/agronholm/apscheduler
-    "sqlalchemy>=2.0.37,<3.0.0",  # https://github.com/sqlalchemy/sqlalchemy
+    "apscheduler>=3.11.0", # https://github.com/agronholm/apscheduler
+    "sqlalchemy>=2.0.37",  # https://github.com/sqlalchemy/sqlalchemy
 
     # For loading environment variables from a .env file
-    "python-dotenv>=1.0.1,<2.0.0", # https://github.com/theskumar/python-dotenv
+    "python-dotenv>=1.0.1", # https://github.com/theskumar/python-dotenv
 
     # For error tracking
-    "sentry-sdk>=2.20.0,<3.0.0", # https://github.com/getsentry/sentry-python
+    "sentry-sdk>=2.20.0", # https://github.com/getsentry/sentry-python
 
     # For logging
-    "loguru>=0.7.3,<1.0.0", # https://github.com/Delgan/loguru
+    "loguru>=0.7.3", # https://github.com/Delgan/loguru
 ]
 
 [dependency-groups]
@@ -142,4 +139,7 @@ log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
-filterwarnings = ["ignore::DeprecationWarning:aiohttp.cookiejar"]
+filterwarnings = [
+    "ignore:Parsing dates involving a day of month without a year specified is ambiguious:DeprecationWarning:dateparser\\.utils\\.strptime",
+    "ignore::DeprecationWarning:aiohttp.cookiejar",
+]

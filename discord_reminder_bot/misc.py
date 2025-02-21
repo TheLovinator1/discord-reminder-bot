@@ -6,12 +6,13 @@ from typing import TYPE_CHECKING
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from loguru import logger
 
 if TYPE_CHECKING:
     from apscheduler.job import Job
 
 
-def calculate(job: Job) -> str | None:
+def calculate(job: Job) -> str:
     """Calculate the time left for a job.
 
     Args:
@@ -22,11 +23,19 @@ def calculate(job: Job) -> str | None:
     """
     trigger_time = None
     if isinstance(job.trigger, DateTrigger | IntervalTrigger):
-        trigger_time = job.next_run_time if hasattr(job, "next_run_time") else None
+        trigger_time = job.next_run_time or None
+
     elif isinstance(job.trigger, CronTrigger):
+        if not job.next_run_time:
+            logger.debug("No next run time found so probably paused?")
+            return "Paused"
+
         trigger_time = job.trigger.get_next_fire_time(None, datetime.datetime.now(tz=job._scheduler.timezone))  # noqa: SLF001
 
+    logger.debug(f"{type(job.trigger)=}, {trigger_time=}")
+
     if not trigger_time:
+        logger.debug("No trigger time found")
         return "Paused"
 
     return f"<t:{int(trigger_time.timestamp())}:R>"
@@ -69,5 +78,11 @@ def calc_time(time: datetime.datetime | None) -> str:
     """
     if not time:
         return "None"
+
+    if time.tzinfo is None or time.tzinfo.utcoffset(time) is None:
+        logger.warning(f"Time is not timezone-aware: {time}")
+
+    if time < datetime.datetime.now(tz=time.tzinfo):
+        logger.warning(f"Time is in the past: {time}")
 
     return f"<t:{int(time.timestamp())}:R>"
