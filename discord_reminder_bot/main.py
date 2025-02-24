@@ -244,14 +244,14 @@ class RemindGroup(discord.app_commands.Group):
 
     # /remind add
     @discord.app_commands.command(name="add", description="Add a new reminder")
-    async def add(  # noqa: PLR0913, PLR0917, PLR6301
+    async def add(
         self,
         interaction: discord.Interaction,
         message: str,
         time: str,
         channel: discord.TextChannel | None = None,
         user: discord.User | None = None,
-        dm_and_current_channel: bool | None = None,  # noqa: FBT001
+        dm_and_current_channel: bool | None = None,
     ) -> None:
         """Add a new reminder.
 
@@ -337,7 +337,7 @@ class RemindGroup(discord.app_commands.Group):
 
     # /remind event
     @discord.app_commands.command(name="event", description="Add a new Discord event.")
-    async def add_event(  # noqa: C901, PLR0913, PLR0917, PLR6301
+    async def add_event(
         self,
         interaction: discord.Interaction,
         message: str,
@@ -422,7 +422,7 @@ class RemindGroup(discord.app_commands.Group):
 
     # /remind list
     @discord.app_commands.command(name="list", description="List, pause, unpause, and remove reminders.")
-    async def list(self, interaction: discord.Interaction) -> None:  # noqa: PLR6301
+    async def list(self, interaction: discord.Interaction) -> None:
         """List all reminders with pagination and buttons for deleting and modifying jobs.
 
         Args:
@@ -471,7 +471,7 @@ class RemindGroup(discord.app_commands.Group):
 
     # /remind cron
     @discord.app_commands.command(name="cron", description="Create new cron job. Works like UNIX cron.")
-    async def cron(  # noqa: PLR0913, PLR0917, PLR6301
+    async def cron(
         self,
         interaction: discord.Interaction,
         message: str,
@@ -489,7 +489,7 @@ class RemindGroup(discord.app_commands.Group):
         jitter: int | None = None,
         channel: discord.TextChannel | None = None,
         user: discord.User | None = None,
-        dm_and_current_channel: bool | None = None,  # noqa: FBT001
+        dm_and_current_channel: bool | None = None,
     ) -> None:
         """Create a new cron job.
 
@@ -513,7 +513,7 @@ class RemindGroup(discord.app_commands.Group):
             channel (discord.TextChannel, optional): The channel to send the reminder to. Defaults to current channel.
             user (discord.User, optional): Send reminder as a DM to this user. Defaults to None.
             dm_and_current_channel (bool, optional): If user is provided, send reminder as a DM to the user and in this channel. Defaults to only the user.
-        """  # noqa: E501
+        """
         await interaction.response.defer()
 
         # Log kwargs
@@ -600,7 +600,7 @@ class RemindGroup(discord.app_commands.Group):
         name="interval",
         description="Create a new reminder that triggers based on an interval.",
     )
-    async def interval(  # noqa: PLR0913, PLR0917, PLR6301
+    async def interval(
         self,
         interaction: discord.Interaction,
         message: str,
@@ -615,7 +615,7 @@ class RemindGroup(discord.app_commands.Group):
         jitter: int | None = None,
         channel: discord.TextChannel | None = None,
         user: discord.User | None = None,
-        dm_and_current_channel: bool | None = None,  # noqa: FBT001
+        dm_and_current_channel: bool | None = None,
     ) -> None:
         """Create a new reminder that triggers based on an interval.
 
@@ -634,7 +634,7 @@ class RemindGroup(discord.app_commands.Group):
             channel (discord.TextChannel, optional): The channel to send the reminder to. Defaults to current channel.
             user (discord.User, optional): Send reminder as a DM to this user. Defaults to None.
             dm_and_current_channel (bool, optional): If user is provided, send reminder as a DM to the user and in this channel. Defaults to only the user.
-        """  # noqa: E501
+        """
         await interaction.response.defer()
 
         logger.info(f"New interval job from {interaction.user} ({interaction.user.id}) in {interaction.channel}")
@@ -723,7 +723,7 @@ class RemindGroup(discord.app_commands.Group):
 
     # /remind backup
     @discord.app_commands.command(name="backup", description="Backup all reminders to a file.")
-    async def backup(self, interaction: discord.Interaction, all_servers: bool = False) -> None:  # noqa: FBT001, FBT002, PLR6301
+    async def backup(self, interaction: discord.Interaction, all_servers: bool = False) -> None:
         """Backup all reminders to a file.
 
         Args:
@@ -798,7 +798,7 @@ class RemindGroup(discord.app_commands.Group):
 
     # /remind restore
     @discord.app_commands.command(name="restore", description="Restore reminders from a file.")
-    async def restore(self, interaction: discord.Interaction) -> None:  # noqa: PLR6301
+    async def restore(self, interaction: discord.Interaction) -> None:
         """Restore reminders from a file.
 
         Args:

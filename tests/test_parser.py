@@ -54,7 +54,7 @@ def test_parse_time_invalid_timezone() -> None:
 
 
 def test_parse_time_with_env_timezone(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the `parse_time` function to ensure it correctly parses a date string into a datetime object using the timezone from the environment."""  # noqa: E501
+    """Test the `parse_time` function to ensure it correctly parses a date string into a datetime object using the timezone from the environment."""
     date_to_parse = "2023-10-10 10:00:00"
     result: datetime | None = parse_time(date_to_parse, "UTC")
 

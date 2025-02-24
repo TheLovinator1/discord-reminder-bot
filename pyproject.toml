@@ -95,13 +95,20 @@ lint.isort.required-imports = ["from __future__ import annotations"]
 lint.pycodestyle.ignore-overlong-task-comments = true
 
 lint.ignore = [
+    "C901",    # Checks for functions with a high McCabe complexity.
     "CPY001",  # Checks for the absence of copyright notices within Python files.
     "D100",    # Checks for undocumented public module definitions.
     "D104",    # Checks for undocumented public package definitions.
     "D106",    # Checks for undocumented public class definitions, for nested classes.
+    "E501",    # Checks for lines that exceed the specified maximum character length.
     "ERA001",  # Checks for commented-out Python code.
+    "FBT001",  # Checks for the use of boolean positional arguments in function definitions, as determined by the presence of a bool type hint.
+    "FBT002",  # Checks for the use of boolean positional arguments in function definitions, as determined by the presence of a boolean default value.
     "FIX002",  # Checks for "TODO" comments.
+    "PLR0913", # Checks for function definitions that include too many arguments.
+    "PLR0917", # Checks for function definitions that include too many positional arguments.
     "PLR2004", # Checks for magic values used in comparison.
+    "PLR6301", # Checks for the presence of unused self parameter in methods definitions.
 
     # Conflicting lint rules when using Ruff's formatter
     # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
