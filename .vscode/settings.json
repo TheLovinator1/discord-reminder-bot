@@ -20,6 +20,7 @@
         "isort",
         "jobstore",
         "jobstores",
+        "Jocke",
         "levelname",
         "loguru",
         "Lovinator",
