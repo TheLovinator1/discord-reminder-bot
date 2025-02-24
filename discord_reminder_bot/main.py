@@ -430,6 +430,9 @@ class RemindGroup(discord.app_commands.Group):
         """
         await interaction.response.defer()
 
+        logger.info(f"Listing reminders for {interaction.user} ({interaction.user.id}) in {interaction.channel}")
+        logger.info(f"Arguments: {locals()}")
+
         jobs: list[Job] = scheduler.get_jobs()
         if not jobs:
             await interaction.followup.send(content="No scheduled jobs found in the database.", ephemeral=True)
@@ -729,6 +732,9 @@ class RemindGroup(discord.app_commands.Group):
         """
         await interaction.response.defer()
 
+        logger.info(f"Backing up reminders for {interaction.user} ({interaction.user.id}) in {interaction.channel}")
+        logger.info(f"Arguments: {locals()}")
+
         # Retrieve all jobs
         with tempfile.NamedTemporaryFile(mode="r+", delete=False, encoding="utf-8", suffix=".json") as temp_file:
             # Export jobs to a temporary file
@@ -801,6 +807,7 @@ class RemindGroup(discord.app_commands.Group):
         await interaction.response.defer()
 
         logger.info(f"Restoring reminders from file for {interaction.user} ({interaction.user.id}) in {interaction.channel}")
+        logger.info(f"Arguments: {locals()}")
 
         # Tell to reply with the file to this message
         await interaction.followup.send(content="Please reply to this message with the backup file.")
@@ -902,6 +909,8 @@ def send_webhook(custom_url: str = "", message: str = "") -> None:
         custom_url: The custom webhook URL to send the message to. Defaults to the environment variable.
         message: The message that will be sent to Discord.
     """
+    logger.info(f"Sending webhook to '{custom_url}' with message: '{message}'")
+
     if not message:
         logger.error("No message provided.")
         message = "No message provided."
@@ -926,6 +935,8 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
         message: The message.
         author_id: User we should ping.
     """
+    logger.info(f"Sending message to channel '{channel_id}' with message: '{message}'")
+
     channel: GuildChannel | discord.Thread | PrivateChannel | None = bot.get_channel(channel_id)
     if channel is None:
         channel = await bot.fetch_channel(channel_id)
@@ -984,4 +995,5 @@ if __name__ == "__main__":
         msg = "Missing bot token. Please set the BOT_TOKEN environment variable. Read the README for more information."
         raise ValueError(msg)
 
+    logger.info("Starting bot.")
     bot.run(bot_token)
