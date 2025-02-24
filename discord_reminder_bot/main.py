@@ -5,29 +5,35 @@ import json
 import os
 import platform
 import tempfile
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import discord
+import pytz
 import sentry_sdk
 from apscheduler import events
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, JobExecutionEvent
 from apscheduler.job import Job
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord.abc import PrivateChannel
 from discord_webhook import DiscordWebhook
+from dotenv import load_dotenv
 from loguru import logger
 
-from discord_reminder_bot.misc import calc_time, calculate
+from discord_reminder_bot.misc import calculate
 from discord_reminder_bot.parser import parse_time
-from discord_reminder_bot.settings import get_bot_token, get_scheduler, get_webhook_url
 
 if TYPE_CHECKING:
     from apscheduler.job import Job
     from discord.guild import GuildChannel
     from discord.interactions import InteractionChannel
+    from requests import Response
 
-    from discord_reminder_bot import settings
 
+load_dotenv()
 
 default_sentry_dsn: str = "https://c4c61a52838be9b5042144420fba5aaa@o4505228040339456.ingest.us.sentry.io/4508707268984832"
 sentry_sdk.init(
@@ -37,7 +43,39 @@ sentry_sdk.init(
     send_default_pii=True,
 )
 
-scheduler: settings.AsyncIOScheduler = get_scheduler()
+
+@lru_cache(maxsize=1)
+def get_scheduler() -> AsyncIOScheduler:
+    """Return the scheduler instance.
+
+    Raises:
+        ValueError: If the timezone is missing or invalid.
+
+    Returns:
+        AsyncIOScheduler: The scheduler instance.
+    """
+    config_timezone: str | None = os.getenv("TIMEZONE")
+    if not config_timezone:
+        msg = "Missing timezone. Please set the TIMEZONE environment variable."
+        raise ValueError(msg)
+
+    # Test if the timezone is valid
+    try:
+        ZoneInfo(config_timezone)
+    except (ZoneInfoNotFoundError, ModuleNotFoundError) as e:
+        msg: str = f"Invalid timezone: {config_timezone}. Error: {e}"
+        raise ValueError(msg) from e
+
+    sqlite_location: str = os.getenv("SQLITE_LOCATION", default="/jobs.sqlite")
+    logger.info(f"Using SQLite database at: {sqlite_location}")
+
+    jobstores: dict[str, SQLAlchemyJobStore] = {"default": SQLAlchemyJobStore(url=f"sqlite://{sqlite_location}")}
+    job_defaults: dict[str, bool] = {"coalesce": True}
+    timezone = pytz.timezone(config_timezone)
+    return AsyncIOScheduler(jobstores=jobstores, timezone=timezone, job_defaults=job_defaults)
+
+
+scheduler: AsyncIOScheduler = get_scheduler()
 
 
 def my_listener(event: JobExecutionEvent) -> None:
@@ -366,10 +404,10 @@ class RemindGroup(discord.app_commands.Group):
         msg: str = f"Event '{event.name}' created successfully!\n"
 
         if event.start_time:
-            msg += f"Start Time: {calc_time(event.start_time)}\n"
+            msg += f"Start Time: <t:{int(event.start_time.timestamp())}:R>\n"
 
         if event.end_time:
-            msg += f"End Time: {calc_time(event.end_time)}\n"
+            msg += f"End Time: <t:{int(event.end_time.timestamp())}:R>\n"
 
         if event.channel_id:
             msg += f"Channel: <#{event.channel_id}>\n"
@@ -857,31 +895,27 @@ remind_group = RemindGroup()
 bot.tree.add_command(remind_group)
 
 
-def send_webhook(url: str = "", message: str = "") -> None:
+def send_webhook(custom_url: str = "", message: str = "") -> None:
     """Send a webhook to Discord.
 
     Args:
-        url: Our webhook url, defaults to the one from settings.
+        custom_url: The custom webhook URL to send the message to. Defaults to the environment variable.
         message: The message that will be sent to Discord.
     """
     if not message:
         logger.error("No message provided.")
         message = "No message provided."
 
+    webhook_url: str = os.getenv("WEBHOOK_URL", default="")
+    url: str = custom_url or webhook_url
     if not url:
-        url = get_webhook_url()
-        logger.error(f"No webhook URL provided. Using the one from settings: {url}")
-        webhook: DiscordWebhook = DiscordWebhook(
-            url=url,
-            username="discord-reminder-bot",
-            content="No webhook URL provided. Using the one from settings.",
-            rate_limit_retry=True,
-        )
-        webhook.execute()
+        logger.error("No webhook URL provided.")
         return
 
-    webhook: DiscordWebhook = DiscordWebhook(url=url, content=message, rate_limit_retry=True)
-    webhook.execute()
+    webhook: DiscordWebhook = DiscordWebhook(url=custom_url, content=message, rate_limit_retry=True)
+    webhook_response: Response = webhook.execute()
+
+    logger.info(f"Webhook response: {webhook_response}")
 
 
 async def send_to_discord(channel_id: int, message: str, author_id: int) -> None:
@@ -945,5 +979,9 @@ async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
 
 
 if __name__ == "__main__":
-    bot_token: str = get_bot_token()
+    bot_token: str = os.getenv("BOT_TOKEN", default="")
+    if not bot_token:
+        msg = "Missing bot token. Please set the BOT_TOKEN environment variable. Read the README for more information."
+        raise ValueError(msg)
+
     bot.run(bot_token)

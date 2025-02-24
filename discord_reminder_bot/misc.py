@@ -65,24 +65,3 @@ def get_human_time(time: datetime.timedelta) -> str:
         time_str += f"{int(seconds)}s"
 
     return time_str
-
-
-def calc_time(time: datetime.datetime | None) -> str:
-    """Convert a datetime object to a Discord timestamp.
-
-    Args:
-        time: The datetime object to convert.
-
-    Returns:
-        str: The Discord timestamp.
-    """
-    if not time:
-        return "None"
-
-    if time.tzinfo is None or time.tzinfo.utcoffset(time) is None:
-        logger.warning(f"Time is not timezone-aware: {time}")
-
-    if time < datetime.datetime.now(tz=time.tzinfo):
-        logger.warning(f"Time is in the past: {time}")
-
-    return f"<t:{int(time.timestamp())}:R>"
