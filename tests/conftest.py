@@ -4,5 +4,5 @@ import os
 
 
 def pytest_configure() -> None:
-    """Ignore Sentry when running tests."""
+    """Disable Sentry in tests."""
     os.environ["SENTRY_DSN"] = ""
