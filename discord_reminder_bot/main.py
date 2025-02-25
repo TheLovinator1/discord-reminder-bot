@@ -18,12 +18,14 @@ from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, JobExecutionEv
 from apscheduler.job import Job
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from discord.abc import PrivateChannel
 from discord_webhook import DiscordWebhook
 from dotenv import load_dotenv
 from loguru import logger
 
-from discord_reminder_bot.misc import calculate
 from discord_reminder_bot.parser import parse_time
 
 if TYPE_CHECKING:
@@ -42,6 +44,35 @@ sentry_sdk.init(
     traces_sample_rate=1.0,
     send_default_pii=True,
 )
+
+
+def calculate(job: Job) -> str:
+    """Calculate the time left for a job.
+
+    Args:
+        job: The job to calculate the time for.
+
+    Returns:
+        str: The time left for the job.
+    """
+    trigger_time = None
+    if isinstance(job.trigger, DateTrigger | IntervalTrigger):
+        trigger_time = job.next_run_time or None
+
+    elif isinstance(job.trigger, CronTrigger):
+        if not job.next_run_time:
+            logger.debug(f"No next run time found for '{job.id}', probably paused? {job.__getstate__()}")
+            return "Paused"
+
+        trigger_time = job.trigger.get_next_fire_time(None, datetime.datetime.now(tz=job._scheduler.timezone))  # noqa: SLF001
+
+    logger.debug(f"{type(job.trigger)=}, {trigger_time=}")
+
+    if not trigger_time:
+        logger.debug("No trigger time found")
+        return "Paused"
+
+    return f"<t:{int(trigger_time.timestamp())}:R>"
 
 
 @lru_cache(maxsize=1)
