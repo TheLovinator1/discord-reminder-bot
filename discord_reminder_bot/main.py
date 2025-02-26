@@ -50,7 +50,7 @@ def parse_time(date_to_parse: str | None, timezone: str | None = os.getenv("TIME
 
     Args:
         date_to_parse(str): The date string to parse.
-        timezone(str, optional): The timezone to use. Defaults timezone from settings.
+        timezone(str, optional): The timezone to use. Defaults to the TIMEZONE environment variable.
 
     Returns:
         datetime.datetime: The parsed datetime object.
@@ -91,7 +91,7 @@ def calculate(job: Job) -> str:
         job: The job to calculate the time for.
 
     Returns:
-        str: The time left for the job.
+        str: The time left for the job or "Paused" if the job is paused or has no next run time.
     """
     trigger_time = None
     if isinstance(job.trigger, DateTrigger | IntervalTrigger):
@@ -116,6 +116,8 @@ def calculate(job: Job) -> str:
 @lru_cache(maxsize=1)
 def get_scheduler() -> AsyncIOScheduler:
     """Return the scheduler instance.
+
+    Uses the SQLITE_LOCATION environment variable for the SQLite database location.
 
     Raises:
         ValueError: If the timezone is missing or invalid.
@@ -169,10 +171,10 @@ def my_listener(event: JobExecutionEvent) -> None:
 
 
 class RemindBotClient(discord.Client):
-    """Custom client class for the bot."""
+    """The bot client for the Discord Reminder Bot."""
 
     def __init__(self, *, intents: discord.Intents) -> None:
-        """Initialize the bot client.
+        """Initialize the bot client and command tree.
 
         Args:
             intents: The intents to use.
@@ -252,7 +254,7 @@ class RemindBotClient(discord.Client):
 
 
 def generate_reminder_summary() -> list[str]:
-    """Create a message with all the jobs.
+    """Create a message with all the jobs, splitting messages into chunks of up to 2000 characters.
 
     Returns:
         list[str]: A list of messages with all the jobs.
@@ -305,11 +307,12 @@ def generate_reminder_summary() -> list[str]:
 
 
 class RemindGroup(discord.app_commands.Group):
-    """Group for remind commands."""
+    """Base class for the /remind commands."""
 
     def __init__(self) -> None:
         """Initialize the remind group."""
         super().__init__(name="remind", description="Group for remind commands")
+        """Group for remind commands."""
 
     # /remind add
     @discord.app_commands.command(name="add", description="Add a new reminder")
@@ -975,7 +978,7 @@ def send_webhook(custom_url: str = "", message: str = "") -> None:
     """Send a webhook to Discord.
 
     Args:
-        custom_url: The custom webhook URL to send the message to. Defaults to the environment variable.
+        custom_url: The custom webhook URL to send the message to. If not provided, uses the WEBHOOK_URL environment variable.
         message: The message that will be sent to Discord.
     """
     logger.info(f"Sending webhook to '{custom_url}' with message: '{message}'")
