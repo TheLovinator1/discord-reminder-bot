@@ -993,7 +993,7 @@ def send_webhook(custom_url: str = "", message: str = "") -> None:
         logger.error("No webhook URL provided.")
         return
 
-    webhook: DiscordWebhook = DiscordWebhook(url=custom_url, content=message, rate_limit_retry=True)
+    webhook: DiscordWebhook = DiscordWebhook(url=url, content=message, rate_limit_retry=True)
     webhook_response: Response = webhook.execute()
 
     logger.info(f"Webhook response: {webhook_response}")
