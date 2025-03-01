@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from apscheduler.job import Job
     from discord.guild import GuildChannel
     from discord.interactions import InteractionChannel
+    from discord.types.channel import _BaseChannel
     from requests import Response
 
 
@@ -253,8 +254,11 @@ class RemindBotClient(discord.Client):
         await self.tree.sync()
 
 
-def generate_reminder_summary() -> list[str]:
+def generate_reminder_summary(ctx: discord.Interaction) -> list[str]:  # noqa: PLR0912
     """Create a message with all the jobs, splitting messages into chunks of up to 2000 characters.
+
+    Args:
+        ctx (discord.Interaction): The context of the interaction.
 
     Returns:
         list[str]: A list of messages with all the jobs.
@@ -262,35 +266,64 @@ def generate_reminder_summary() -> list[str]:
     jobs: list[Job] = scheduler.get_jobs()
     msgs: list[str] = []
 
+    guild: discord.Guild | None = None
+    if isinstance(ctx.channel, discord.abc.GuildChannel):
+        guild = ctx.channel.guild
+
+    channels: list[GuildChannel] | list[_BaseChannel] = list(guild.channels) if guild else []
+    list_of_channels_in_current_guild: list[int] = [c.id for c in channels]
+    jobs_in_guild: list[Job] = []
+    for job in jobs:
+        guild_id: int = guild.id if guild else 0
+
+        guild_id_from_kwargs: int | None = job.kwargs.get("guild_id")
+        channel_id_from_kwargs: int | None = job.kwargs.get("channel_id")
+
+        if guild_id_from_kwargs != guild_id:
+            logger.debug(f"Skipping job: {job.id} because it's not in the current guild.")
+            continue
+
+        if channel_id_from_kwargs not in list_of_channels_in_current_guild:
+            logger.debug(f"Skipping job: {job.id} because it's not in the current guild.")
+            continue
+
+        jobs_in_guild.append(job)
+
+    if len(jobs) != len(jobs_in_guild):
+        logger.info(f"Filtered out {len(jobs) - len(jobs_in_guild)} jobs that are not in the current guild.")
+
+    jobs = jobs_in_guild
+
     if not jobs:
         return ["No scheduled jobs found in the database."]
 
     header = (
         "You can use the following commands to manage reminders:\n"
+        "Only jobs in the current guild are shown.\n"
         "`/remind pause <job_id>` - Pause a reminder\n"
         "`/remind unpause <job_id>` - Unpause a reminder\n"
-        "`/remind remove <job_id>` - Remove a reminder\n\n"
-        "`/remind modify <job_id>` - Modify the time of a reminder\n\n"
-        "List of all reminders:\n\n"
+        "`/remind remove <job_id>` - Remove a reminder\n"
+        "`/remind modify <job_id>` - Modify the time of a reminder\n"
+        "List of all reminders:\n"
     )
 
     current_msg: str = header
 
     for job in jobs:
         # Build job-specific message
-        job_msg: str = f"### {job.kwargs.get('message', '')}\n"
-        job_msg += f"**id:** {job.id}\n"
-        job_msg += f"**Job type:** {job.trigger}\n"
-        job_msg += f"**Next run time:** {calculate(job)}\n\n"
+        job_msg: str = "```md\n"
+        job_msg += f"# {job.kwargs.get('message', '')}\n"
+        job_msg += f"   * {job.id}\n"
+        job_msg += f"   * {job.trigger} {calculate(job)}"
 
         if job.kwargs.get("user_id"):
-            job_msg += f"**User:** <@{job.kwargs.get('user_id')}>\n"
+            job_msg += f" <@{job.kwargs.get('user_id')}>"
         if job.kwargs.get("channel_id"):
-            job_msg += f"**Channel:** <#{job.kwargs.get('channel_id')}>\n"
+            job_msg += f" <#{job.kwargs.get('channel_id')}>"
         if job.kwargs.get("guild_id"):
-            job_msg += f"**Guild:** {job.kwargs.get('guild_id')}\n"
+            job_msg += f" {job.kwargs.get('guild_id')}"
 
-        job_msg += "\n"  # Extra newline for separation
+        job_msg += "```"
 
         # If adding this job exceeds 2000 characters, push the current message and start a new one.
         if len(current_msg) + len(job_msg) > 2000:
@@ -502,7 +535,17 @@ class RemindGroup(discord.app_commands.Group):
         """
         await interaction.response.defer()
 
-        logger.info(f"Listing reminders for {interaction.user} ({interaction.user.id}) in {interaction.channel}")
+        user: discord.User | discord.Member = interaction.user
+        if not isinstance(user, discord.Member):
+            await interaction.followup.send(content="This command can only be used in a server.", ephemeral=True)
+            return
+
+        channel = interaction.channel
+        if not isinstance(channel, discord.TextChannel):
+            await interaction.followup.send(content="This command can only be used in a text channel.", ephemeral=True)
+            return
+
+        logger.info(f"Listing reminders for {user} ({user.id}) in {interaction.channel}")
         logger.info(f"Arguments: {locals()}")
 
         jobs: list[Job] = scheduler.get_jobs()
@@ -515,25 +558,9 @@ class RemindGroup(discord.app_commands.Group):
             await interaction.followup.send(content="Failed to get guild.", ephemeral=True)
             return
 
-        # Only get jobs that are in the current guild
-        jobs_in_guild: list[Job] = []
-        list_of_channels_in_current_guild: list[int] = [c.id for c in guild.channels]
-        for job in jobs:
-            # If the job has guild_id and it's not the current guild, skip it
-            if job.kwargs.get("guild_id") and job.kwargs.get("guild_id") != guild.id:
-                logger.debug(f"Skipping job: {job.id} because it's not in the current guild.")
-                continue
-
-            # If the job has channel_id and it's not in the current guild, skip it
-            if job.kwargs.get("channel_id") and job.kwargs.get("channel_id") not in list_of_channels_in_current_guild:
-                logger.debug(f"Skipping job: {job.id} because it's not in the current guild.")
-                continue
-
-            jobs_in_guild.append(job)
-
         message: discord.InteractionMessage = await interaction.original_response()
 
-        job_summary: list[str] = generate_reminder_summary()
+        job_summary: list[str] = generate_reminder_summary(ctx=interaction)
 
         for i, msg in enumerate(job_summary):
             if i == 0:
