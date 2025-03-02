@@ -1,30 +1,55 @@
-# GitHub Copilot Instructions
+This project uses Discord.py.
 
-- This project uses Discord.py.
-- It is a Discord bot that allows you to set date, cron and interval reminders.
-- We use uv for dependency management, so all examples and code snippets should use uv.
-- Use type annotation for all Python code examples. Ensure to include type hints for function arguments and return values.
-- Assume that the reader has an advanced understanding of Python.
-- Use try-except blocks for error handling in all Python code examples.
-- Add logging to all Python code examples.
-- Write docstrings for all Python functions and classes.
-- When using assert, ensure to include a helpful message to assist in debugging. Use f-strings for easier readability and to format error messages dynamically.
-- Docstrings that doesn't return anything should not have a return section.
-- Multi-line docstring summary should start at the first line.
-- A function docstring should describe the function's behavior, arguments, side effects, exceptions, return values, and any other information that may be relevant to the user. Ensure to follow Google style docstrings and use type hints extensively in our codebase.
-- Public functions should be documented via docstrings to outline their purpose and behavior.
-- When testing for membership in a static sequence, prefer a set literal over a list or tuple, as Python optimizes set membership tests.
-- When logging exceptions via logging.exception, the exception object is logged automatically. Including the exception object in the log message is redundant and can lead to excessive logging.
-- For version control, assume we use Git with GitHub, and provide examples using Git best practices.
-- Reminders are managed with APScheduler.
-- Channel reminders have the following kwargs: channel_id, message, author_id.
-- User DM reminders have the following kwargs: user_id, guild_id, message.
-- Dates will be parsed using dateparser.
-- Bot has the following commands:
-    - "/remind add message:<str> time:<str> dm_and_current_channel:<bool> user:<user> channel:<channel>"
-    - "/remind remove id:<job_id>"
-    - "/remind edit id:<job_id>"
-    - "/remind pause_unpause id:<job_id>"
-    - "/remind list"
-    - "/remind cron message:<str> year:<int> month:<int> day:<int> week:<int> day_of_week:<str> hour:<int> minute:<int> second:<int> start_date:<str> end_date:<str> timezone:<str> jitter:<int> channel:<channel> user:<user> dm_and_current_channel:<bool>"
-    - "/remind interval message:<str> weeks:<int> days:<int> hours:<int> minutes:<int> seconds:<int> start_date:<str> end_date:<str> timezone:<str> jitter:<int> channel:<channel> user:<user> dm_and_current_channel:<bool>"
+It is a Discord bot that allows you to set date, cron and interval reminders.
+
+We use uv for dependency management, so all examples and code snippets should use uv.
+
+Use type annotation for all Python code examples. Ensure to include type hints for function arguments and return values.
+
+Assume that the reader has an advanced understanding of Python.
+
+Use try-except blocks for error handling in all Python code examples.
+
+Add logging to all Python code examples.
+
+Write docstrings for all Python functions and classes.
+
+When using assert, ensure to include a helpful message to assist in debugging. Use f-strings for easier readability and to format error messages dynamically.
+
+Docstrings that doesn't return anything should not have a return section.
+
+Multi-line docstring summary should start at the first line.
+
+A function docstring should describe the function's behavior, arguments, side effects, exceptions, return values, and any other information that may be relevant to the user. Ensure to follow Google style docstrings and use type hints extensively in our codebase.
+
+Public functions should be documented via docstrings to outline their purpose and behavior.
+
+When testing for membership in a static sequence, prefer a set literal over a list or tuple, as Python optimizes set membership tests.
+
+When logging exceptions via logging.exception, the exception object is logged automatically. Including the exception object in the log message is redundant and can lead to excessive logging.
+
+For version control, assume we use Git with GitHub, and provide examples using Git best practices.
+
+Reminders are managed with APScheduler.
+
+Channel reminders have the following kwargs: channel_id, message, author_id.
+
+User DM reminders have the following kwargs: user_id, guild_id, message.
+
+Dates will be parsed using dateparser.
+
+Bot has the following commands:
+
+"/remind add message:<str> time:<str> dm_and_current_channel:<bool> user:<user> channel:<channel>"
+
+"/remind remove id:<job_id>"
+
+"/remind edit id:<job_id>"
+
+"/remind pause_unpause id:<job_id>"
+
+"/remind list"
+
+"/remind cron message:<str> year:<int> month:<int> day:<int> week:<int> day_of_week:<str> hour:<int> minute:<int> second:<int> start_date:<str> end_date:<str> timezone:<str> jitter:<int> channel:<channel> user:<user> dm_and_current_channel:<bool>"
+
+"/remind interval message:<str> weeks:<int> days:<int> hours:<int> minutes:<int> seconds:<int> start_date:<str> end_date:<str> timezone:<str> jitter:<int> channel:<channel> user:<user> dm_and_current_channel:<bool>"
