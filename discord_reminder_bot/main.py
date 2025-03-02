@@ -114,6 +114,33 @@ def calculate(job: Job) -> str:
     return f"<t:{int(trigger_time.timestamp())}:R>"
 
 
+def get_human_readable_time(job: Job) -> str:
+    """Get the human-readable time for a job.
+
+    Args:
+        job: The job to get the time for.
+
+    Returns:
+        str: The human-readable time.
+    """
+    trigger_time = None
+    if isinstance(job.trigger, DateTrigger | IntervalTrigger):
+        trigger_time = job.next_run_time or None
+
+    elif isinstance(job.trigger, CronTrigger):
+        if not job.next_run_time:
+            logger.debug(f"No next run time found for '{job.id}', probably paused? {job.__getstate__()}")
+            return "Paused"
+
+        trigger_time = job.trigger.get_next_fire_time(None, datetime.datetime.now(tz=job._scheduler.timezone))  # noqa: SLF001
+
+    if not trigger_time:
+        logger.debug("No trigger time found")
+        return "Paused"
+
+    return trigger_time.strftime("%Y-%m-%d %H:%M:%S")
+
+
 @lru_cache(maxsize=1)
 def get_scheduler() -> AsyncIOScheduler:
     """Return the scheduler instance.
@@ -271,22 +298,22 @@ def generate_reminder_summary(ctx: discord.Interaction) -> list[str]:  # noqa: P
         guild = ctx.channel.guild
 
     channels: list[GuildChannel] | list[_BaseChannel] = list(guild.channels) if guild else []
-    list_of_channels_in_current_guild: list[int] = [c.id for c in channels]
+    channels_in_this_guild: list[int] = [c.id for c in channels]
     jobs_in_guild: list[Job] = []
     for job in jobs:
-        guild_id: int = guild.id if guild else 0
+        guild_id: int = guild.id if guild else -1
 
-        guild_id_from_kwargs: int | None = job.kwargs.get("guild_id")
-        channel_id_from_kwargs: int | None = job.kwargs.get("channel_id")
+        guild_id_from_kwargs = int(job.kwargs.get("guild_id", 0))
 
-        if guild_id_from_kwargs != guild_id:
+        if guild_id_from_kwargs and guild_id_from_kwargs != guild_id:
             logger.debug(f"Skipping job: {job.id} because it's not in the current guild.")
             continue
 
-        if channel_id_from_kwargs not in list_of_channels_in_current_guild:
+        if job.kwargs.get("channel_id") not in channels_in_this_guild:
             logger.debug(f"Skipping job: {job.id} because it's not in the current guild.")
             continue
 
+        logger.debug(f"Adding job: {job.id} to the list.")
         jobs_in_guild.append(job)
 
     if len(jobs) != len(jobs_in_guild):
@@ -314,13 +341,19 @@ def generate_reminder_summary(ctx: discord.Interaction) -> list[str]:  # noqa: P
         job_msg: str = "```md\n"
         job_msg += f"# {job.kwargs.get('message', '')}\n"
         job_msg += f"   * {job.id}\n"
-        job_msg += f"   * {job.trigger} {calculate(job)}"
+        job_msg += f"   * {job.trigger} {get_human_readable_time(job)}"
 
         if job.kwargs.get("user_id"):
             job_msg += f" <@{job.kwargs.get('user_id')}>"
         if job.kwargs.get("channel_id"):
-            job_msg += f" <#{job.kwargs.get('channel_id')}>"
+            channel = bot.get_channel(job.kwargs.get("channel_id"))
+            if channel and isinstance(channel, discord.abc.GuildChannel | discord.Thread):
+                job_msg += f" in #{channel.name}"
+
         if job.kwargs.get("guild_id"):
+            guild = bot.get_guild(job.kwargs.get("guild_id"))
+            if guild:
+                job_msg += f" in {guild.name}"
             job_msg += f" {job.kwargs.get('guild_id')}"
 
         job_msg += "```"
