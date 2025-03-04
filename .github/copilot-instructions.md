@@ -1,14 +1,8 @@
 This is a Discord.py bot that allows you to set date, cron and interval reminders with APScheduler. Dates are parsed using dateparser.
 
-Use type annotation/hints.
+Use try-except blocks, type hints, f-strings, logging, and Google style docstrings.
 
-Use try-except blocks.
-
-Add logging.
-
-Write Google style docstrings.
-
-Add helpful message when using assert. Use f-strings.
+Add helpful message when using assert in tests.
 
 Docstrings that doesn't return anything should not have a return section.
 
@@ -16,7 +10,7 @@ A function docstring should describe the function's behavior, arguments, side ef
 
 Including the exception object in the log message is redundant.
 
-We use Github.
+We use GitHub.
 
 Channel reminders have the following kwargs: "channel_id", "message", "author_id".
 
