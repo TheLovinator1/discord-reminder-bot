@@ -17,6 +17,7 @@ import sentry_sdk
 from apscheduler import events
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, JobExecutionEvent
 from apscheduler.job import Job
+from apscheduler.jobstores.base import JobLookupError
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -27,8 +28,9 @@ from discord_webhook import DiscordWebhook
 from dotenv import load_dotenv
 from loguru import logger
 
+from interactions.api.models.misc import Snowflake
+
 if TYPE_CHECKING:
-    from apscheduler.job import Job
     from discord.guild import GuildChannel
     from discord.interactions import InteractionChannel
     from discord.types.channel import _BaseChannel
@@ -44,6 +46,42 @@ sentry_sdk.init(
     traces_sample_rate=1.0,
     send_default_pii=True,
 )
+
+
+def generate_markdown_state(state: dict[str, Any]) -> str:
+    """Format the __getstate__ dictionary for Discord markdown.
+
+    Args:
+        state (dict): The __getstate__ dictionary.
+
+    Returns:
+        str: The formatted string.
+    """
+    if not state:
+        return "```json\nNo state found.\n```"
+
+    # discord.app_commands.errors.CommandInvokeError: Command 'remove' raised an exception: TypeError: Object of type IntervalTrigger is not JSON serializable
+
+    # Convert the IntervalTrigger to a string representation
+    for key, value in state.items():
+        if isinstance(value, IntervalTrigger):
+            state[key] = "IntervalTrigger"
+        elif isinstance(value, DateTrigger):
+            state[key] = "DateTrigger"
+        elif isinstance(value, Job):
+            state[key] = "Job"
+        elif isinstance(value, Snowflake):
+            state[key] = str(value)
+
+    try:
+        msg: str = json.dumps(state, indent=4, default=str)
+    except TypeError as e:
+        e.add_note("This is likely due to a non-serializable object in the state. Please check the state for any non-serializable objects.")
+        e.add_note(f"{state=}")
+        logger.error(f"Failed to serialize state: {e}")
+        return "```json\nFailed to serialize state.\n```"
+
+    return "```json\n" + msg + "\n```"
 
 
 def parse_time(date_to_parse: str | None, timezone: str | None = os.getenv("TIMEZONE")) -> datetime.datetime | None:
@@ -1022,6 +1060,36 @@ class RemindGroup(discord.app_commands.Group):
             await interaction.followup.send(content=msg)
         else:
             await interaction.followup.send(content="No new reminders were added.")
+
+    # /remind remove
+    @discord.app_commands.command(name="remove", description="Remove a reminder")
+    async def remove(self, interaction: discord.Interaction, job_id: str) -> None:
+        """Remove a scheduled reminder.
+
+        Args:
+            interaction (discord.Interaction): The interaction object for the command.
+            job_id (str): The identifier of the job to remove.
+        """
+        await interaction.response.defer()
+
+        logger.debug(f"Removing reminder with ID {job_id} for {interaction.user} ({interaction.user.id}) in {interaction.channel}")
+        logger.debug(f"Arguments: {locals()}")
+
+        try:
+            job: Job | None = scheduler.get_job(job_id)
+            if not job:
+                await interaction.followup.send(content=f"Reminder with ID {job_id} not found.", ephemeral=True)
+                return
+            scheduler.remove_job(job_id)
+            logger.info(f"Removed job {job_id}. {job.__getstate__()}")
+            await interaction.followup.send(
+                content=f"Reminder with ID {job_id} removed successfully.\n{generate_markdown_state(job.__getstate__())}",
+            )
+        except JobLookupError as e:
+            logger.exception(f"Failed to remove job {job_id}")
+            await interaction.followup.send(content=f"Failed to remove reminder with ID {job_id}. {e}", ephemeral=True)
+
+        logger.info(f"Job {job_id} removed from the scheduler.")
 
 
 intents: discord.Intents = discord.Intents.default()
