@@ -172,3 +172,4 @@ cython_debug/
 
 # SQLite
 *.sqlite
+*.sqlite.*
