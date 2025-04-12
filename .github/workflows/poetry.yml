@@ -1,11 +1,11 @@
 name: Poetry
 
 on:
-  push:
-  pull_request:
+  # push:
+  # pull_request:
   workflow_dispatch:
-  schedule:
-    - cron: "0 6 * * *"
+  # schedule:
+  #   - cron: "0 6 * * *"
 
 env:
   BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
