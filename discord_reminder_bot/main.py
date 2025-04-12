@@ -1091,6 +1091,62 @@ class RemindGroup(discord.app_commands.Group):
 
         logger.info(f"Job {job_id} removed from the scheduler.")
 
+    # /remind pause
+    @discord.app_commands.command(name="pause", description="Pause a reminder")
+    async def pause(self, interaction: discord.Interaction, job_id: str) -> None:
+        """Pause a scheduled reminder.
+
+        Args:
+            interaction (discord.Interaction): The interaction object for the command.
+            job_id (str): The identifier of the job to pause.
+        """
+        await interaction.response.defer()
+
+        logger.debug(f"Pausing reminder with ID {job_id} for {interaction.user} ({interaction.user.id}) in {interaction.channel}")
+        logger.debug(f"Arguments: {locals()}")
+
+        try:
+            job: Job | None = scheduler.get_job(job_id)
+            if not job:
+                await interaction.followup.send(content=f"Reminder with ID {job_id} not found.", ephemeral=True)
+                return
+            scheduler.pause_job(job_id)
+            logger.info(f"Paused job {job_id}.")
+            await interaction.followup.send(content=f"Reminder with ID {job_id} paused successfully.")
+        except JobLookupError as e:
+            logger.exception(f"Failed to pause job {job_id}")
+            await interaction.followup.send(content=f"Failed to pause reminder with ID {job_id}. {e}", ephemeral=True)
+
+        logger.info(f"Job {job_id} paused in the scheduler.")
+
+    # /remind unpause
+    @discord.app_commands.command(name="unpause", description="Unpause a reminder")
+    async def unpause(self, interaction: discord.Interaction, job_id: str) -> None:
+        """Unpause a scheduled reminder.
+
+        Args:
+            interaction (discord.Interaction): The interaction object for the command.
+            job_id (str): The identifier of the job to unpause.
+        """
+        await interaction.response.defer()
+
+        logger.debug(f"Unpausing reminder with ID {job_id} for {interaction.user} ({interaction.user.id}) in {interaction.channel}")
+        logger.debug(f"Arguments: {locals()}")
+
+        try:
+            job: Job | None = scheduler.get_job(job_id)
+            if not job:
+                await interaction.followup.send(content=f"Reminder with ID {job_id} not found.", ephemeral=True)
+                return
+            scheduler.resume_job(job_id)
+            logger.info(f"Unpaused job {job_id}.")
+            await interaction.followup.send(content=f"Reminder with ID {job_id} unpaused successfully.")
+        except JobLookupError as e:
+            logger.exception(f"Failed to unpause job {job_id}")
+            await interaction.followup.send(content=f"Failed to unpause reminder with ID {job_id}. {e}", ephemeral=True)
+
+        logger.info(f"Job {job_id} unpaused in the scheduler.")
+
 
 intents: discord.Intents = discord.Intents.default()
 intents.guild_scheduled_events = True
