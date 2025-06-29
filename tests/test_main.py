@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import zoneinfo
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -25,7 +25,7 @@ def dummy_job() -> None:
 def test_calculate() -> None:
     """Test the calculate function with various job inputs."""
     scheduler = BackgroundScheduler()
-    scheduler.timezone = timezone.utc
+    scheduler.timezone = UTC
     scheduler.start()
 
     # Create a job with a DateTrigger
