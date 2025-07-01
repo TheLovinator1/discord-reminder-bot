@@ -73,10 +73,6 @@ lint.ignore = [
     "W191",   # Checks for indentation that uses tabs.
 ]
 
-[tool.ruff.format]
-docstring-code-format = true
-docstring-code-line-length = 20
-
 [tool.ruff.lint.per-file-ignores]
 "**/test_*.py" = [
     "ARG",     # Unused function args -> fixtures nevertheless are functionally relevant...

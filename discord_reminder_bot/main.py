@@ -5,7 +5,6 @@ import json
 import os
 import platform
 import tempfile
-from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -179,7 +178,6 @@ def get_human_readable_time(job: Job) -> str:
     return trigger_time.strftime("%Y-%m-%d %H:%M:%S")
 
 
-@lru_cache(maxsize=1)
 def get_scheduler() -> AsyncIOScheduler:
     """Return the scheduler instance.
 
@@ -250,46 +248,8 @@ class RemindBotClient(discord.Client):
 
     async def on_error(self, event_method: str, *args: list[Any], **kwargs: dict[str, Any]) -> None:
         """Log errors that occur in the bot."""
-        # Log the error
         logger.exception(f"An error occurred in {event_method} with args: {args} and kwargs: {kwargs}")
-
-        # Add context to Sentry
-        with sentry_sdk.push_scope() as scope:
-            # Add event details
-            scope.set_tag("event_method", event_method)
-            scope.set_extra("args", args)
-            scope.set_extra("kwargs", kwargs)
-
-            # Add bot state
-            scope.set_tag("bot_user_id", self.user.id if self.user else "Unknown")
-            scope.set_tag("bot_user_name", str(self.user) if self.user else "Unknown")
-            scope.set_tag("bot_latency", self.latency)
-
-            # If specific arguments are available, extract and add details
-            if args:
-                interaction = next((arg for arg in args if isinstance(arg, discord.Interaction)), None)
-                if interaction:
-                    scope.set_extra("interaction_id", interaction.id)
-                    scope.set_extra("interaction_user", interaction.user.id)
-                    scope.set_extra("interaction_user_tag", str(interaction.user))
-                    scope.set_extra("interaction_command", interaction.command.name if interaction.command else None)
-                    scope.set_extra("interaction_channel", str(interaction.channel))
-                    scope.set_extra("interaction_guild", str(interaction.guild) if interaction.guild else None)
-
-                    # Add Sentry tags for interaction details
-                    scope.set_tag("interaction_id", interaction.id)
-                    scope.set_tag("interaction_user_id", interaction.user.id)
-                    scope.set_tag("interaction_user_tag", str(interaction.user))
-                    scope.set_tag("interaction_command", interaction.command.name if interaction.command else "None")
-                    scope.set_tag("interaction_channel_id", interaction.channel.id if interaction.channel else "None")
-                    scope.set_tag("interaction_channel_name", str(interaction.channel))
-                    scope.set_tag("interaction_guild_id", interaction.guild.id if interaction.guild else "None")
-                    scope.set_tag("interaction_guild_name", str(interaction.guild) if interaction.guild else "None")
-
-            # Add APScheduler context
-            scope.set_extra("scheduler_jobs", [job.id for job in scheduler.get_jobs()])
-
-            sentry_sdk.capture_exception()
+        sentry_sdk.capture_exception()  # TODO(TheLovinator): Add more context to the error  # noqa: TD003
 
     async def on_ready(self) -> None:
         """Log when the bot is ready."""
@@ -297,26 +257,28 @@ class RemindBotClient(discord.Client):
 
     async def setup_hook(self) -> None:
         """Setup the bot."""
-        scheduler.start()
+        if not scheduler.running:
+            logger.info("Starting the scheduler...")
+            scheduler.start()
+        else:
+            logger.error("Scheduler is already running.")
+
         scheduler.add_listener(my_listener, EVENT_JOB_MISSED | EVENT_JOB_ERROR)
         jobs: list[Job] = scheduler.get_jobs()
-        if not jobs:
-            logger.info("No jobs available.")
-            return
+        if jobs:
+            logger.info("Jobs available:")
+            try:
+                for job in jobs:
+                    msg: str = job.kwargs.get("message", "") if (job.kwargs and isinstance(job.kwargs, dict)) else ""
+                    time: str = "Paused"
+                    if hasattr(job, "next_run_time") and job.next_run_time and isinstance(job.next_run_time, datetime.datetime):
+                        time = job.next_run_time.strftime("%Y-%m-%d %H:%M:%S")
+                    logger.info(f"\t{job.id}: {job.name} - {time} - {msg}")
 
-        logger.info("Jobs available:")
-        try:
-            for job in jobs:
-                msg: str = job.kwargs.get("message", "") if (job.kwargs and isinstance(job.kwargs, dict)) else ""
-                time: str = "Paused"
-                if hasattr(job, "next_run_time") and job.next_run_time and isinstance(job.next_run_time, datetime.datetime):
-                    time = job.next_run_time.strftime("%Y-%m-%d %H:%M:%S")
-                logger.info(f"\t{job.id}: {job.name} - {time} - {msg}")
+            except (AttributeError, LookupError):
+                logger.exception("Failed to loop through jobs")
 
-        except (AttributeError, LookupError):
-            logger.exception("Failed to loop through jobs")
-
-        await self.tree.sync()
+        await self.tree.sync(guild=None)
 
 
 def generate_reminder_summary(ctx: discord.Interaction) -> list[str]:  # noqa: PLR0912
@@ -933,6 +895,7 @@ class RemindGroup(discord.app_commands.Group):
                 return
 
             # Can't be 0 because that's the default value for jobs without a guild
+            # TODO(TheLovinator): This will probably fuck me in the ass in the future, so should probably not be -1 or 0.  # noqa: TD003
             guild_id: int = interaction.guild.id if interaction.guild else -1
             channels_in_this_guild: list[int] = [c.id for c in interaction.guild.channels] if interaction.guild else []
             logger.debug(f"Guild ID: {guild_id}")
@@ -948,6 +911,12 @@ class RemindGroup(discord.app_commands.Group):
                 if job.get("kwargs", {}).get("channel_id") not in channels_in_this_guild:
                     logger.debug(f"Skipping job: {job.get('id')} because it's not in the current guild.")
                     jobs_data["jobs"].remove(job)
+
+        # If we have no jobs left, return an error message
+        if not jobs_data.get("jobs"):
+            msg: str = "No reminders found in this server." if not all_servers else "No reminders found."
+            await interaction.followup.send(content=msg, ephemeral=True)
+            return
 
         msg: str = "All reminders in this server have been backed up." if not all_servers else "All reminders have been backed up."
         msg += "\nYou can restore them using `/remind restore`."
@@ -1189,9 +1158,9 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
     Args:
         channel_id: The Discord channel ID.
         message: The message.
-        author_id: User we should ping.
+        author_id: User we should mention in the message.
     """
-    logger.info(f"Sending message to channel '{channel_id}' with message: '{message}'")
+    logger.info(f"Sending message to channel '<#{channel_id}>' with message: '{message}'")
 
     channel: GuildChannel | discord.Thread | PrivateChannel | None = bot.get_channel(channel_id)
     if channel is None:
