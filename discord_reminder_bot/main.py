@@ -4,6 +4,7 @@ import datetime
 import json
 import os
 import platform
+import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -253,6 +254,15 @@ class RemindBotClient(discord.Client):
 
     async def on_ready(self) -> None:
         """Log when the bot is ready."""
+        logger_format = (
+            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | {extra[session_id]} | "
+            "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+            "<level>{message}</level>"
+        )
+        logger.configure(extra={"session_id": self.ws.session_id})
+
+        logger.remove()
+        logger.add(sys.stderr, format=logger_format)
         logger.info(f"Logged in as {self.user} ({self.user.id if self.user else 'Unknown'})")
 
     async def setup_hook(self) -> None:
