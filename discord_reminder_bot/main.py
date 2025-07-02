@@ -6,6 +6,7 @@ import os
 import platform
 import sys
 import tempfile
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -24,6 +25,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from discord.abc import PrivateChannel
+from discord.utils import escape_markdown
 from discord_webhook import DiscordWebhook
 from dotenv import load_dotenv
 from loguru import logger
@@ -31,9 +33,11 @@ from loguru import logger
 from interactions.api.models.misc import Snowflake
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from types import CoroutineType
+
     from discord.guild import GuildChannel
     from discord.interactions import InteractionChannel
-    from discord.types.channel import _BaseChannel
     from requests import Response
 
 
@@ -291,95 +295,238 @@ class RemindBotClient(discord.Client):
         await self.tree.sync(guild=None)
 
 
-def generate_reminder_summary(ctx: discord.Interaction) -> list[str]:  # noqa: PLR0912
-    """Create a message with all the jobs, splitting messages into chunks of up to 2000 characters.
+def format_job_for_ui(job: Job) -> str:
+    """Format a single job for display in the UI.
 
     Args:
-        ctx (discord.Interaction): The context of the interaction.
+        job (Job): The job to format.
 
     Returns:
-        list[str]: A list of messages with all the jobs.
+        str: The formatted string.
     """
-    jobs: list[Job] = scheduler.get_jobs()
-    msgs: list[str] = []
+    msg: str = f"**{job.kwargs.get('message', '')}**\n"
+    msg += f"ID: {job.id}\n"
+    msg += f"Trigger: {job.trigger} {get_human_readable_time(job)}\n"
 
-    guild: discord.Guild | None = None
-    if isinstance(ctx.channel, discord.abc.GuildChannel):
-        guild = ctx.channel.guild
+    if job.kwargs.get("user_id"):
+        msg += f"User: <@{job.kwargs.get('user_id')}>\n"
+    if job.kwargs.get("channel_id"):
+        channel = bot.get_channel(job.kwargs.get("channel_id"))
+        if channel and isinstance(channel, discord.abc.GuildChannel | discord.Thread):
+            msg += f"Channel: #{channel.name}\n"
 
-    channels: list[GuildChannel] | list[_BaseChannel] = list(guild.channels) if guild else []
-    channels_in_this_guild: list[int] = [c.id for c in channels]
-    jobs_in_guild: list[Job] = []
-    for job in jobs:
-        guild_id: int = guild.id if guild else -1
+    logger.debug(f"Formatted job for UI: {msg}")
+    return msg
 
-        guild_id_from_kwargs = int(job.kwargs.get("guild_id", 0))
 
-        if guild_id_from_kwargs and guild_id_from_kwargs != guild_id:
-            logger.debug(f"Skipping job: {job.id} because it's not in the current guild.")
-            continue
+class ReminderListView(discord.ui.View):
+    """A view for listing reminders with pagination and action buttons."""
 
-        if job.kwargs.get("channel_id") not in channels_in_this_guild:
-            logger.debug(f"Skipping job: {job.id} because it's not in the current guild.")
-            continue
+    def __init__(self, jobs: list[Job], interaction: discord.Interaction, jobs_per_page: int = 1) -> None:
+        """Initialize the view with a list of jobs and interaction.
 
-        logger.debug(f"Adding job: {job.id} to the list.")
-        jobs_in_guild.append(job)
+        Args:
+            jobs (list[Job]): The list of jobs to display.
+            interaction (discord.Interaction): The interaction that triggered this view.
+            jobs_per_page (int): The number of jobs to display per page. Defaults to 1.
+        """
+        super().__init__(timeout=180)
+        self.jobs: list[Job] = jobs
+        self.interaction: discord.Interaction[discord.Client] = interaction
+        self.jobs_per_page: int = jobs_per_page
+        self.current_page = 0
+        self.message: discord.InteractionMessage | None = None
 
-    if len(jobs) != len(jobs_in_guild):
-        logger.info(f"Filtered out {len(jobs) - len(jobs_in_guild)} jobs that are not in the current guild.")
+        self.update_view()
 
-    jobs = jobs_in_guild
+    @property
+    def total_pages(self) -> int:
+        """Calculate the total number of pages based on the number of jobs and jobs per page."""
+        return max(1, (len(self.jobs) + self.jobs_per_page - 1) // self.jobs_per_page)
 
-    if not jobs:
-        return ["No scheduled jobs found in the database."]
+    def update_view(self) -> None:
+        """Update the buttons and job actions for the current page."""
+        self.clear_items()
 
-    header = (
-        "You can use the following commands to manage reminders:\n"
-        "Only jobs in the current guild are shown.\n"
-        "`/remind pause <job_id>` - Pause a reminder\n"
-        "`/remind unpause <job_id>` - Unpause a reminder\n"
-        "`/remind remove <job_id>` - Remove a reminder\n"
-        "`/remind modify <job_id>` - Modify the time of a reminder\n"
-        "List of all reminders:\n"
-    )
+        # Ensure current_page is in valid bounds
+        self.current_page: int = max(0, min(self.current_page, self.total_pages - 1))
 
-    current_msg: str = header
+        # Pagination buttons
+        buttons: list[tuple[str, Callable[..., CoroutineType[Any, Any, None]], bool] | tuple[str, None, bool]] = [
+            ("⏮️", self.goto_first_page, self.current_page == 0),
+            ("◀️", self.goto_prev_page, self.current_page == 0),
+            (f"{self.current_page + 1}/{self.total_pages}", None, True),
+            ("▶️", self.goto_next_page, self.current_page >= self.total_pages - 1),
+            ("⏭️", self.goto_last_page, self.current_page >= self.total_pages - 1),
+        ]
+        for label, callback, disabled in buttons:
+            btn = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary, disabled=disabled)
+            if callback:
+                btn.callback = callback
+            self.add_item(btn)
 
-    for job in jobs:
-        # Build job-specific message
-        job_msg: str = "```md\n"
-        job_msg += f"# {job.kwargs.get('message', '')}\n"
-        job_msg += f"   * {job.id}\n"
-        job_msg += f"   * {job.trigger} {get_human_readable_time(job)}"
+        # Job action buttons
+        start: int = self.current_page * self.jobs_per_page
+        end: int = min(start + self.jobs_per_page, len(self.jobs))
+        for i, job in enumerate(self.jobs[start:end]):
+            row: int = i + 1  # pagination is row 0
+            job_id = job.id
+            label: str = "▶️ Unpause" if job.next_run_time is None else "⏸️ Pause"
 
-        if job.kwargs.get("user_id"):
-            job_msg += f" <@{job.kwargs.get('user_id')}>"
-        if job.kwargs.get("channel_id"):
-            channel = bot.get_channel(job.kwargs.get("channel_id"))
-            if channel and isinstance(channel, discord.abc.GuildChannel | discord.Thread):
-                job_msg += f" in #{channel.name}"
+            delete = discord.ui.Button(label="🗑️ Delete", style=discord.ButtonStyle.danger, row=row)
+            delete.callback = partial(self.handle_delete, job_id=job_id)
 
-        if job.kwargs.get("guild_id"):
-            guild = bot.get_guild(job.kwargs.get("guild_id"))
-            if guild:
-                job_msg += f" in {guild.name}"
-            job_msg += f" {job.kwargs.get('guild_id')}"
+            modify = discord.ui.Button(label="✏️ Modify", style=discord.ButtonStyle.secondary, row=row)
+            modify.callback = partial(self.handle_modify, job_id=job_id)
 
-        job_msg += "```"
+            pause = discord.ui.Button(label=label, style=discord.ButtonStyle.success, row=row)
+            pause.callback = partial(self.handle_pause_unpause, job_id=job_id)
 
-        # If adding this job exceeds 2000 characters, push the current message and start a new one.
-        if len(current_msg) + len(job_msg) > 2000:
-            msgs.append(current_msg)
-            current_msg = job_msg
+            self.add_item(delete)
+            self.add_item(modify)
+            self.add_item(pause)
+
+    def get_page_content(self) -> str:
+        """Get the content for the current page of reminders.
+
+        Returns:
+            str: The formatted string for the current page.
+        """
+        start: int = self.current_page * self.jobs_per_page
+        end: int = min(start + self.jobs_per_page, len(self.jobs))
+        jobs: list[Job] = self.jobs[start:end]
+
+        if not jobs:
+            return "No reminders found on this page."
+
+        job: Job = jobs[0]
+        idx: int = start + 1
+        return f"**Your Reminder:**\n```{idx}. {format_job_for_ui(job)}```"
+
+    async def refresh(self, interaction: discord.Interaction) -> None:
+        """Refresh the view and update the message with the current page content.
+
+        Args:
+            interaction (discord.Interaction): The interaction that triggered this refresh.
+        """
+        self.update_view()
+        if self.message:
+            await self.message.edit(content=self.get_page_content(), view=self)
         else:
-            current_msg += job_msg
+            await interaction.response.edit_message(content=self.get_page_content(), view=self)
 
-    # Append any remaining content in current_msg.
-    if current_msg:
-        msgs.append(current_msg)
+    async def goto_first_page(self, interaction: discord.Interaction) -> None:
+        """Go to the first page of reminders."""
+        self.current_page = 0
+        await self.refresh(interaction)
 
-    return msgs
+    async def goto_prev_page(self, interaction: discord.Interaction) -> None:
+        """Go to the previous page of reminders."""
+        self.current_page -= 1
+        await self.refresh(interaction)
+
+    async def goto_next_page(self, interaction: discord.Interaction) -> None:
+        """Go to the next page of reminders."""
+        self.current_page += 1
+        await self.refresh(interaction)
+
+    async def goto_last_page(self, interaction: discord.Interaction) -> None:
+        """Go to the last page of reminders."""
+        self.current_page = self.total_pages - 1
+        await self.refresh(interaction)
+
+    async def handle_delete(self, interaction: discord.Interaction, job_id: str) -> None:
+        """Handle the deletion of a reminder job.
+
+        Args:
+            interaction (discord.Interaction): The interaction that triggered this deletion.
+            job_id (str): The ID of the job to delete.
+        """
+        await interaction.response.defer(ephemeral=True)
+        try:
+            scheduler.remove_job(job_id)
+            self.jobs = [job for job in self.jobs if job.id != job_id]
+            await interaction.followup.send(f"Reminder `{escape_markdown(job_id)}` deleted.", ephemeral=True)
+            if (
+                not self.jobs[self.current_page * self.jobs_per_page : (self.current_page + 1) * self.jobs_per_page]
+                and self.current_page > 0
+            ):
+                self.current_page -= 1
+        except JobLookupError:
+            await interaction.followup.send(f"Job `{escape_markdown(job_id)}` not found.", ephemeral=True)
+        except Exception as e:  # noqa: BLE001
+            logger.exception(f"Failed to delete job {job_id}: {e}")
+            await interaction.followup.send(f"Failed to delete job `{escape_markdown(job_id)}`.", ephemeral=True)
+        await self.refresh(interaction)
+
+    async def handle_modify(self, interaction: discord.Interaction, job_id: str) -> None:
+        """Handle the modification of a reminder job.
+
+        Args:
+            interaction (discord.Interaction): The interaction that triggered this modification.
+            job_id (str): The ID of the job to modify.
+        """
+        await interaction.response.send_message(f"Modify job `{escape_markdown(job_id)}` - Not yet implemented.", ephemeral=True)
+
+    async def handle_pause_unpause(self, interaction: discord.Interaction, job_id: str) -> None:
+        """Handle pausing or unpausing a reminder job.
+
+        Args:
+            interaction (discord.Interaction): The interaction that triggered this action.
+            job_id (str): The ID of the job to pause or unpause.
+        """
+        await interaction.response.defer(ephemeral=True)
+        try:
+            job: Job | None = scheduler.get_job(job_id)
+            if not job:
+                await interaction.followup.send(f"Job `{escape_markdown(job_id)}` not found.", ephemeral=True)
+                return
+
+            if job.next_run_time is None:
+                scheduler.resume_job(job_id)
+                msg = f"Reminder `{escape_markdown(job_id)}` unpaused."
+            else:
+                scheduler.pause_job(job_id)
+                msg = f"Reminder `{escape_markdown(job_id)}` paused."
+
+            # Update only the affected job in self.jobs
+            updated_job = scheduler.get_job(job_id)
+            if updated_job:
+                for i, j in enumerate(self.jobs):
+                    if j.id == job_id:
+                        self.jobs[i] = updated_job
+                        break
+
+            await interaction.followup.send(msg, ephemeral=True)
+        except JobLookupError:
+            await interaction.followup.send(f"Job `{escape_markdown(job_id)}` not found.", ephemeral=True)
+        except Exception as e:  # noqa: BLE001
+            logger.exception(f"Failed to pause/unpause job {job_id}: {e}")
+            await interaction.followup.send(f"Failed to pause/unpause job `{escape_markdown(job_id)}`.", ephemeral=True)
+        await self.refresh(interaction)
+
+    async def on_timeout(self) -> None:
+        """Handle the timeout of the view."""
+        logger.info("ReminderListView timed out, disabling buttons.")
+        if self.message:
+            for item in self.children:
+                if isinstance(item, discord.ui.Button):
+                    item.disabled = True
+            await self.message.edit(view=self)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Check if the interaction is valid for this view.
+
+        Args:
+            interaction (discord.Interaction): The interaction to check.
+
+        Returns:
+            bool: True if the interaction is valid, False otherwise.
+        """
+        if interaction.user != self.interaction.user:
+            await interaction.response.send_message("This is not your reminder list!", ephemeral=True)
+            return False
+        return True
 
 
 class RemindGroup(discord.app_commands.Group):
@@ -591,25 +738,33 @@ class RemindGroup(discord.app_commands.Group):
         logger.info(f"Listing reminders for {user} ({user.id}) in {interaction.channel}")
         logger.info(f"Arguments: {locals()}")
 
-        jobs: list[Job] = scheduler.get_jobs()
-        if not jobs:
-            await interaction.followup.send(content="No scheduled jobs found in the database.", ephemeral=True)
-            return
-
+        all_jobs: list[Job] = scheduler.get_jobs()
         guild: discord.Guild | None = interaction.guild
         if not guild:
             await interaction.followup.send(content="Failed to get guild.", ephemeral=True)
             return
 
-        message: discord.InteractionMessage = await interaction.original_response()
+        # Filter jobs by guild
+        guild_jobs: list[Job] = []
+        channels_in_this_guild: list[int] = [c.id for c in guild.channels] if guild else []
+        for job in all_jobs:
+            guild_id_from_kwargs = int(job.kwargs.get("guild_id", 0))
+            if guild_id_from_kwargs and guild_id_from_kwargs != guild.id:
+                continue
 
-        job_summary: list[str] = generate_reminder_summary(ctx=interaction)
+            if job.kwargs.get("channel_id") not in channels_in_this_guild:
+                continue
 
-        for i, msg in enumerate(job_summary):
-            if i == 0:
-                await message.edit(content=msg)
-            else:
-                await interaction.followup.send(content=msg)
+            guild_jobs.append(job)
+
+        if not guild_jobs:
+            await interaction.followup.send(content="No scheduled jobs found in this server.", ephemeral=True)
+            return
+
+        view = ReminderListView(jobs=guild_jobs, interaction=interaction)
+        content = view.get_page_content()
+        message = await interaction.followup.send(content=content, view=view)
+        view.message = message  # Store the message for later edits
 
     # /remind cron
     @discord.app_commands.command(name="cron", description="Create new cron job. Works like UNIX cron.")
@@ -829,13 +984,14 @@ class RemindGroup(discord.app_commands.Group):
                 },
             )
 
-            dm_message = f" and a DM to {user.display_name} "
+            dm_message = f" and a DM to {user.display_name}"
             if not dm_and_current_channel:
                 await interaction.followup.send(
                     content=f"Hello {interaction.user.display_name},\n"
                     f"I will send a DM to {user.display_name} at:\n"
                     f"First run in {calculate(dm_job)} with the message:\n**{message}**.",
                 )
+                return
 
         # Create channel reminder job
         channel_job: Job = scheduler.add_job(
