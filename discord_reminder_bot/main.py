@@ -52,7 +52,7 @@ sentry_sdk.init(
 )
 
 
-def generate_markdown_state(state: dict[str, Any]) -> str:
+def generate_state(state: dict[str, Any]) -> str:
     """Format the __getstate__ dictionary for Discord markdown.
 
     Args:
@@ -62,7 +62,7 @@ def generate_markdown_state(state: dict[str, Any]) -> str:
         str: The formatted string.
     """
     if not state:
-        return "```json\nNo state found.\n```"
+        return "No state found.\n"
 
     # discord.app_commands.errors.CommandInvokeError: Command 'remove' raised an exception: TypeError: Object of type IntervalTrigger is not JSON serializable
 
@@ -83,8 +83,21 @@ def generate_markdown_state(state: dict[str, Any]) -> str:
         e.add_note("This is likely due to a non-serializable object in the state. Please check the state for any non-serializable objects.")
         e.add_note(f"{state=}")
         logger.error(f"Failed to serialize state: {e}")
-        return "```json\nFailed to serialize state.\n```"
+        return "Failed to serialize state."
 
+    return msg
+
+
+def generate_markdown_state(state: dict[str, Any]) -> str:
+    """Format the __getstate__ dictionary for Discord markdown.
+
+    Args:
+        state (dict): The __getstate__ dictionary.
+
+    Returns:
+        str: The formatted string.
+    """
+    msg: str = generate_state(state)
     return "```json\n" + msg + "\n```"
 
 
@@ -304,7 +317,7 @@ def format_job_for_ui(job: Job) -> str:
     Returns:
         str: The formatted string.
     """
-    msg: str = f"**{job.kwargs.get('message', '')}**\n"
+    msg: str = f"{job.kwargs.get('message', '')}\n"
     msg += f"ID: {job.id}\n"
     msg += f"Trigger: {job.trigger} {get_human_readable_time(job)}\n"
 
@@ -314,6 +327,8 @@ def format_job_for_ui(job: Job) -> str:
         channel = bot.get_channel(job.kwargs.get("channel_id"))
         if channel and isinstance(channel, discord.abc.GuildChannel | discord.Thread):
             msg += f"Channel: #{channel.name}\n"
+
+    msg += f"\nData:\n{generate_state(job.__getstate__())}\n"
 
     logger.debug(f"Formatted job for UI: {msg}")
     return msg
@@ -400,8 +415,7 @@ class ReminderListView(discord.ui.View):
             return "No reminders found on this page."
 
         job: Job = jobs[0]
-        idx: int = start + 1
-        return f"**Your Reminder:**\n```{idx}. {format_job_for_ui(job)}```"
+        return f"```{format_job_for_ui(job)}```"
 
     async def refresh(self, interaction: discord.Interaction) -> None:
         """Refresh the view and update the message with the current page content.
@@ -417,21 +431,25 @@ class ReminderListView(discord.ui.View):
 
     async def goto_first_page(self, interaction: discord.Interaction) -> None:
         """Go to the first page of reminders."""
+        await interaction.response.defer()
         self.current_page = 0
         await self.refresh(interaction)
 
     async def goto_prev_page(self, interaction: discord.Interaction) -> None:
         """Go to the previous page of reminders."""
+        await interaction.response.defer()
         self.current_page -= 1
         await self.refresh(interaction)
 
     async def goto_next_page(self, interaction: discord.Interaction) -> None:
         """Go to the next page of reminders."""
+        await interaction.response.defer()
         self.current_page += 1
         await self.refresh(interaction)
 
     async def goto_last_page(self, interaction: discord.Interaction) -> None:
         """Go to the last page of reminders."""
+        await interaction.response.defer()
         self.current_page = self.total_pages - 1
         await self.refresh(interaction)
 
@@ -524,6 +542,7 @@ class ReminderListView(discord.ui.View):
             bool: True if the interaction is valid, False otherwise.
         """
         if interaction.user != self.interaction.user:
+            logger.debug(f"Interaction user {interaction.user} is not the same as the view's interaction user {self.interaction.user}.")
             await interaction.response.send_message("This is not your reminder list!", ephemeral=True)
             return False
         return True
