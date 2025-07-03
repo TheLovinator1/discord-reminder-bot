@@ -219,6 +219,8 @@ def get_scheduler() -> AsyncIOScheduler:
         msg: str = f"Invalid timezone: {config_timezone}. Error: {e}"
         raise ValueError(msg) from e
 
+    logger.info(f"Using timezone: {config_timezone}. If this is incorrect, please set the TIMEZONE environment variable.")
+
     sqlite_location: str = os.getenv("SQLITE_LOCATION", default="/jobs.sqlite")
     logger.info(f"Using SQLite database at: {sqlite_location}")
 
@@ -317,12 +319,18 @@ def format_job_for_ui(job: Job) -> str:
     Returns:
         str: The formatted string.
     """
-    msg: str = f"{job.kwargs.get('message', '')}\n"
+    msg: str = f"\nMessage: {job.kwargs.get('message', '')}\n"
     msg += f"ID: {job.id}\n"
     msg += f"Trigger: {job.trigger} {get_human_readable_time(job)}\n"
 
     if job.kwargs.get("user_id"):
         msg += f"User: <@{job.kwargs.get('user_id')}>\n"
+    if job.kwargs.get("guild_id"):
+        guild_id: int = job.kwargs.get("guild_id")
+        msg += f"Guild: {guild_id}\n"
+    if job.kwargs.get("author_id"):
+        author_id: int = job.kwargs.get("author_id")
+        msg += f"Author: <@{author_id}>\n"
     if job.kwargs.get("channel_id"):
         channel = bot.get_channel(job.kwargs.get("channel_id"))
         if channel and isinstance(channel, discord.abc.GuildChannel | discord.Thread):
