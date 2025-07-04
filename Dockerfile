@@ -10,4 +10,4 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --no-install-project
 VOLUME ["/home/botuser/data/"]
-CMD ["uv", "run", "discord_reminder_bot/main.py"]
+CMD ["uv", "run", "python", "-m", "discord_reminder_bot.main"]
