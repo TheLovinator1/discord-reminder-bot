@@ -286,12 +286,6 @@ class RemindBotClient(discord.Client):
 
     async def setup_hook(self) -> None:
         """Setup the bot."""
-        if not scheduler.running:
-            logger.info("Starting the scheduler...")
-            scheduler.start()
-        else:
-            logger.error("Scheduler is already running.")
-
         scheduler.add_listener(my_listener, EVENT_JOB_MISSED | EVENT_JOB_ERROR)
         jobs: list[Job] = scheduler.get_jobs()
         if jobs:
@@ -308,6 +302,12 @@ class RemindBotClient(discord.Client):
                 logger.exception("Failed to loop through jobs")
 
         await self.tree.sync(guild=None)
+
+        if not scheduler.running:
+            logger.info("Starting the scheduler...")
+            scheduler.start()
+        else:
+            logger.error("Scheduler is already running.")
 
 
 def format_job_for_ui(job: Job) -> str:
