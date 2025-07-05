@@ -3,235 +3,34 @@ from __future__ import annotations
 import datetime
 import json
 import os
-import platform
 import sys
 import tempfile
-import traceback
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-import dateparser
 import discord
-import pytz
 import sentry_sdk
 from apscheduler import events
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED, JobExecutionEvent
-from apscheduler.job import Job
 from apscheduler.jobstores.base import JobLookupError
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.date import DateTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 from discord.abc import PrivateChannel
 from discord.utils import escape_markdown
 from discord_webhook import DiscordWebhook
-from dotenv import load_dotenv
 from loguru import logger
 
-from interactions.api.models.misc import Snowflake
+from discord_reminder_bot.helpers import calculate, generate_markdown_state, generate_state, get_human_readable_time, parse_time
+from discord_reminder_bot.modals import ReminderModifyModal
+from discord_reminder_bot.settings import scheduler
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from types import CoroutineType
 
+    from apscheduler.job import Job
     from discord.guild import GuildChannel
     from discord.interactions import InteractionChannel
     from requests import Response
-
-
-load_dotenv()
-
-default_sentry_dsn: str = "https://c4c61a52838be9b5042144420fba5aaa@o4505228040339456.ingest.us.sentry.io/4508707268984832"
-sentry_sdk.init(
-    dsn=os.getenv("SENTRY_DSN", default_sentry_dsn),
-    environment=platform.node() or "Unknown",
-    traces_sample_rate=1.0,
-    send_default_pii=True,
-)
-
-
-def generate_state(state: dict[str, Any], job: Job) -> str:
-    """Format the __getstate__ dictionary for Discord markdown.
-
-    Args:
-        state (dict): The __getstate__ dictionary.
-        job (Job): The APScheduler job.
-
-    Returns:
-        str: The formatted string.
-    """
-    if not state:
-        logger.error(f"No state found for {job.id}")
-        return "No state found.\n"
-
-    for key, value in state.items():
-        if isinstance(value, IntervalTrigger):
-            state[key] = "IntervalTrigger"
-        elif isinstance(value, DateTrigger):
-            state[key] = "DateTrigger"
-        elif isinstance(value, Job):
-            state[key] = "Job"
-        elif isinstance(value, Snowflake):
-            state[key] = str(value)
-
-    try:
-        msg: str = json.dumps(state, indent=4, default=str)
-    except TypeError as e:
-        e.add_note("This is likely due to a non-serializable object in the state. Please check the state for any non-serializable objects.")
-        e.add_note(f"{state=}")
-        logger.error(f"Failed to serialize state: {e}")
-        return "Failed to serialize state."
-
-    return msg
-
-
-def generate_markdown_state(state: dict[str, Any], job: Job) -> str:
-    """Format the __getstate__ dictionary for Discord markdown.
-
-    Args:
-        state (dict): The __getstate__ dictionary.
-        job (Job): The APScheduler job.
-
-    Returns:
-        str: The formatted string.
-    """
-    msg: str = generate_state(state=state, job=job)
-    return "```json\n" + msg + "\n```"
-
-
-def parse_time(date_to_parse: str | None, timezone: str | None = os.getenv("TIMEZONE")) -> datetime.datetime | None:
-    """Parse a date string into a datetime object.
-
-    Args:
-        date_to_parse(str): The date string to parse.
-        timezone(str, optional): The timezone to use. Defaults to the TIMEZONE environment variable.
-
-    Returns:
-        datetime.datetime: The parsed datetime object.
-    """
-    if not date_to_parse:
-        logger.error("No date provided to parse.")
-        return None
-
-    if not timezone:
-        logger.error("No timezone provided to parse date.")
-        return None
-
-    logger.info(f"Parsing date: '{date_to_parse}' with timezone: '{timezone}'")
-
-    try:
-        parsed_date: datetime.datetime | None = dateparser.parse(
-            date_string=date_to_parse,
-            settings={
-                "PREFER_DATES_FROM": "future",
-                "TIMEZONE": f"{timezone}",
-                "RETURN_AS_TIMEZONE_AWARE": True,
-                "RELATIVE_BASE": datetime.datetime.now(tz=ZoneInfo(str(timezone))),
-            },
-        )
-    except (ValueError, TypeError) as e:
-        logger.error(f"Failed to parse date: '{date_to_parse}' with timezone: '{timezone}'. Error: {e}")
-        return None
-
-    logger.debug(f"Parsed date: {parsed_date} from '{date_to_parse}'")
-
-    return parsed_date
-
-
-def calculate(job: Job) -> str:
-    """Calculate the time left for a job.
-
-    Args:
-        job: The job to calculate the time for.
-
-    Returns:
-        str: The time left for the job or "Paused" if the job is paused or has no next run time.
-    """
-    trigger_time = None
-    if isinstance(job.trigger, DateTrigger | IntervalTrigger):
-        trigger_time = job.next_run_time or None
-
-    elif isinstance(job.trigger, CronTrigger):
-        if not job.next_run_time:
-            logger.debug(f"No next run time found for '{job.id}', probably paused? {job.__getstate__()}")
-            return "Paused"
-
-        trigger_time = job.trigger.get_next_fire_time(None, datetime.datetime.now(tz=job._scheduler.timezone))  # noqa: SLF001
-
-    logger.debug(f"{type(job.trigger)=}, {trigger_time=}")
-
-    if not trigger_time:
-        logger.debug("No trigger time found")
-        return "Paused"
-
-    return f"<t:{int(trigger_time.timestamp())}:R>"
-
-
-def get_human_readable_time(job: Job) -> str:
-    """Get the human-readable time for a job.
-
-    Args:
-        job: The job to get the time for.
-
-    Returns:
-        str: The human-readable time.
-    """
-    trigger_time = None
-    if isinstance(job.trigger, DateTrigger | IntervalTrigger):
-        trigger_time = job.next_run_time or None
-
-    elif isinstance(job.trigger, CronTrigger):
-        if not job.next_run_time:
-            logger.debug(f"No next run time found for '{job.id}', probably paused? {job.__getstate__()}")
-            return "Paused"
-
-        trigger_time = job.trigger.get_next_fire_time(None, datetime.datetime.now(tz=job._scheduler.timezone))  # noqa: SLF001
-
-    if not trigger_time:
-        logger.debug("No trigger time found")
-        return "Paused"
-
-    return trigger_time.strftime("%Y-%m-%d %H:%M:%S")
-
-
-def get_scheduler() -> AsyncIOScheduler:
-    """Return the scheduler instance.
-
-    Uses the SQLITE_LOCATION environment variable for the SQLite database location.
-
-    Raises:
-        ValueError: If the timezone is missing or invalid.
-
-    Returns:
-        AsyncIOScheduler: The scheduler instance.
-    """
-    config_timezone: str | None = os.getenv("TIMEZONE")
-    if not config_timezone:
-        msg = "Missing timezone. Please set the TIMEZONE environment variable."
-        raise ValueError(msg)
-
-    # Test if the timezone is valid
-    try:
-        ZoneInfo(config_timezone)
-    except (ZoneInfoNotFoundError, ModuleNotFoundError) as e:
-        msg: str = f"Invalid timezone: {config_timezone}. Error: {e}"
-        raise ValueError(msg) from e
-
-    logger.info(f"Using timezone: {config_timezone}. If this is incorrect, please set the TIMEZONE environment variable.")
-
-    sqlite_location: str = os.getenv("SQLITE_LOCATION", default="/jobs.sqlite")
-    logger.info(f"Using SQLite database at: {sqlite_location}")
-
-    jobstores: dict[str, SQLAlchemyJobStore] = {"default": SQLAlchemyJobStore(url=f"sqlite://{sqlite_location}")}
-    job_defaults: dict[str, bool] = {"coalesce": True}
-    timezone = pytz.timezone(config_timezone)
-    return AsyncIOScheduler(jobstores=jobstores, timezone=timezone, job_defaults=job_defaults)
-
-
-scheduler: AsyncIOScheduler = get_scheduler()
 
 
 def my_listener(event: JobExecutionEvent) -> None:
@@ -499,127 +298,12 @@ class ReminderListView(discord.ui.View):
             interaction (discord.Interaction): The interaction that triggered this modification.
             job_id (str): The ID of the job to modify.
         """
-
-        class ReminderModifyModal(discord.ui.Modal, title="Modify reminder"):
-            """Modal for modifying a APScheduler job."""
-
-            def __init__(self, job: Job) -> None:
-                """Initialize the modal for modifying a reminder.
-
-                Args:
-                    job (Job): The APScheduler job to modify.
-                """
-                super().__init__(title="Modify Reminder")
-                self.job = job
-                self.job_id = job.id
-
-                self.message_input = discord.ui.TextInput(
-                    label="Reminder message",
-                    default=job.kwargs.get("message", ""),
-                    placeholder="What do you want to be reminded of?",
-                    max_length=200,
-                )
-                self.time_input = discord.ui.TextInput(
-                    label="New time",
-                    placeholder="e.g. tomorrow at 3 PM",
-                    required=True,
-                )
-
-                self.add_item(self.message_input)
-                self.add_item(self.time_input)
-
-            async def on_submit(self, interaction: discord.Interaction) -> None:
-                """Called when the modal is submitted.
-
-                Args:
-                    interaction (discord.Interaction): The Discord interaction where this modal was triggered from.
-                """
-                old_message: str = self.job.kwargs.get("message", "")
-                old_time: datetime.datetime = self.job.next_run_time
-                old_time_countdown: str = calculate(self.job)
-
-                new_message: str = self.message_input.value
-                new_time_str: str = self.time_input.value
-
-                parsed_time: datetime.datetime | None = parse_time(new_time_str)
-                if not parsed_time:
-                    await interaction.response.send_message(f"Invalid time format: `{new_time_str}`", ephemeral=True)
-                    return
-
-                job_to_modify: Job | None = scheduler.get_job(self.job_id)
-                if not job_to_modify:
-                    await interaction.response.send_message(
-                        f"Failed to get job.\n{new_message=}\n{new_time_str=}\n{parsed_time=}",
-                        ephemeral=True,
-                    )
-                    return
-
-                # Defer now that we've validated the input to avoid timeout
-                await interaction.response.defer(ephemeral=True)
-
-                job = scheduler.modify_job(self.job_id)
-                msg: str = f"Modified job `{escape_markdown(self.job_id)}`:\n"
-                changes_made = False
-
-                if parsed_time != old_time:
-                    logger.info(f"Rescheduling job {self.job_id}")
-                    rescheduled_job = scheduler.reschedule_job(self.job_id, trigger="date", run_date=parsed_time)
-
-                    logger.debug(f"Rescheduled job {self.job_id} from {old_time} to {parsed_time}")
-
-                    msg += (
-                        f"Old time: `{old_time.strftime('%Y-%m-%d %H:%M:%S')}` (In {old_time_countdown})\n"
-                        f"New time: `{parsed_time.strftime('%Y-%m-%d %H:%M:%S')}`. (In {calculate(rescheduled_job)})\n"
-                    )
-                    changes_made = True
-
-                if new_message != old_message:
-                    old_kwargs = job.kwargs.copy()
-                    scheduler.modify_job(
-                        self.job_id,
-                        kwargs={
-                            **old_kwargs,
-                            "message": new_message,
-                        },
-                    )
-
-                    logger.debug(f"Modified job {self.job_id} with new message: {new_message}")
-                    logger.debug(f"Old kwargs: {old_kwargs}, New kwargs: {job.kwargs}")
-
-                    msg += f"Old message: `{escape_markdown(old_message)}`\n"
-                    msg += f"New message: `{escape_markdown(new_message)}`.\n"
-                    changes_made = True
-
-                if changes_made:
-                    await interaction.followup.send(content=msg)
-                else:
-                    await interaction.followup.send(content=f"No changes made to job `{escape_markdown(self.job_id)}`.", ephemeral=True)
-
-            async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
-                """A callback that is called when on_submit fails with an error.
-
-                Args:
-                    interaction (discord.Interaction): The Discord interaction where this modal was triggered from.
-                    error (Exception): The raised exception.
-                """
-                # Check if the interaction has already been responded to
-                if not interaction.response.is_done():
-                    await interaction.response.send_message("Oops! Something went wrong.", ephemeral=True)
-                else:
-                    try:
-                        await interaction.followup.send("Oops! Something went wrong.", ephemeral=True)
-                    except discord.HTTPException:
-                        logger.warning("Failed to send error message via followup")
-
-                logger.exception(f"Error in ReminderModifyModal: {error}")
-                traceback.print_exception(type(error), error, error.__traceback__)
-
         job: Job | None = scheduler.get_job(job_id)
         if not job:
             await interaction.response.send_message(f"Failed to get job for '{job_id}'", ephemeral=True)
             return
 
-        await interaction.response.send_modal(ReminderModifyModal(job))  # pyright: ignore[reportArgumentType]
+        await interaction.response.send_modal(ReminderModifyModal(job))
 
     async def handle_pause_unpause(self, interaction: discord.Interaction, job_id: str) -> None:
         """Handle pausing or unpausing a reminder job.

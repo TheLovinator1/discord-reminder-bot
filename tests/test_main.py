@@ -12,7 +12,7 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from discord_reminder_bot import main
-from discord_reminder_bot.main import calculate, parse_time
+from discord_reminder_bot.helpers import calculate, parse_time
 
 if TYPE_CHECKING:
     from apscheduler.job import Job
