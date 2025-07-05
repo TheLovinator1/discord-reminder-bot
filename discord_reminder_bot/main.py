@@ -6,6 +6,7 @@ import os
 import platform
 import sys
 import tempfile
+import traceback
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -498,7 +499,127 @@ class ReminderListView(discord.ui.View):
             interaction (discord.Interaction): The interaction that triggered this modification.
             job_id (str): The ID of the job to modify.
         """
-        await interaction.response.send_message(f"Modify job `{escape_markdown(job_id)}` - Not yet implemented.", ephemeral=True)
+
+        class ReminderModifyModal(discord.ui.Modal, title="Modify reminder"):
+            """Modal for modifying a APScheduler job."""
+
+            def __init__(self, job: Job) -> None:
+                """Initialize the modal for modifying a reminder.
+
+                Args:
+                    job (Job): The APScheduler job to modify.
+                """
+                super().__init__(title="Modify Reminder")
+                self.job = job
+                self.job_id = job.id
+
+                self.message_input = discord.ui.TextInput(
+                    label="Reminder message",
+                    default=job.kwargs.get("message", ""),
+                    placeholder="What do you want to be reminded of?",
+                    max_length=200,
+                )
+                self.time_input = discord.ui.TextInput(
+                    label="New time",
+                    placeholder="e.g. tomorrow at 3 PM",
+                    required=True,
+                )
+
+                self.add_item(self.message_input)
+                self.add_item(self.time_input)
+
+            async def on_submit(self, interaction: discord.Interaction) -> None:
+                """Called when the modal is submitted.
+
+                Args:
+                    interaction (discord.Interaction): The Discord interaction where this modal was triggered from.
+                """
+                old_message: str = self.job.kwargs.get("message", "")
+                old_time: datetime.datetime = self.job.next_run_time
+                old_time_countdown: str = calculate(self.job)
+
+                new_message: str = self.message_input.value
+                new_time_str: str = self.time_input.value
+
+                parsed_time: datetime.datetime | None = parse_time(new_time_str)
+                if not parsed_time:
+                    await interaction.response.send_message(f"Invalid time format: `{new_time_str}`", ephemeral=True)
+                    return
+
+                job_to_modify: Job | None = scheduler.get_job(self.job_id)
+                if not job_to_modify:
+                    await interaction.response.send_message(
+                        f"Failed to get job.\n{new_message=}\n{new_time_str=}\n{parsed_time=}",
+                        ephemeral=True,
+                    )
+                    return
+
+                # Defer now that we've validated the input to avoid timeout
+                await interaction.response.defer(ephemeral=True)
+
+                job = scheduler.modify_job(self.job_id)
+                msg: str = f"Modified job `{escape_markdown(self.job_id)}`:\n"
+                changes_made = False
+
+                if parsed_time != old_time:
+                    logger.info(f"Rescheduling job {self.job_id}")
+                    rescheduled_job = scheduler.reschedule_job(self.job_id, trigger="date", run_date=parsed_time)
+
+                    logger.debug(f"Rescheduled job {self.job_id} from {old_time} to {parsed_time}")
+
+                    msg += (
+                        f"Old time: `{old_time.strftime('%Y-%m-%d %H:%M:%S')}` (In {old_time_countdown})\n"
+                        f"New time: `{parsed_time.strftime('%Y-%m-%d %H:%M:%S')}`. (In {calculate(rescheduled_job)})\n"
+                    )
+                    changes_made = True
+
+                if new_message != old_message:
+                    old_kwargs = job.kwargs.copy()
+                    scheduler.modify_job(
+                        self.job_id,
+                        kwargs={
+                            **old_kwargs,
+                            "message": new_message,
+                        },
+                    )
+
+                    logger.debug(f"Modified job {self.job_id} with new message: {new_message}")
+                    logger.debug(f"Old kwargs: {old_kwargs}, New kwargs: {job.kwargs}")
+
+                    msg += f"Old message: `{escape_markdown(old_message)}`\n"
+                    msg += f"New message: `{escape_markdown(new_message)}`.\n"
+                    changes_made = True
+
+                if changes_made:
+                    await interaction.followup.send(content=msg)
+                else:
+                    await interaction.followup.send(content=f"No changes made to job `{escape_markdown(self.job_id)}`.", ephemeral=True)
+
+            async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+                """A callback that is called when on_submit fails with an error.
+
+                Args:
+                    interaction (discord.Interaction): The Discord interaction where this modal was triggered from.
+                    error (Exception): The raised exception.
+                """
+                # Check if the interaction has already been responded to
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("Oops! Something went wrong.", ephemeral=True)
+                else:
+                    try:
+                        await interaction.followup.send("Oops! Something went wrong.", ephemeral=True)
+                    except discord.HTTPException:
+                        logger.warning("Failed to send error message via followup")
+
+                logger.exception(f"Error in ReminderModifyModal: {error}")
+                traceback.print_exception(type(error), error, error.__traceback__)
+
+        job: Job | None = scheduler.get_job(job_id)
+        if not job:
+            await interaction.response.send_message(f"Failed to get job for '{job_id}'", ephemeral=True)
+            return
+
+        await interaction.response.send_modal(ReminderModifyModal(job))  # pyright: ignore[reportArgumentType]
 
     async def handle_pause_unpause(self, interaction: discord.Interaction, job_id: str) -> None:
         """Handle pausing or unpausing a reminder job.
