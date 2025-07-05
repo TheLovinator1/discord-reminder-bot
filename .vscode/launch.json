@@ -5,8 +5,7 @@
             "name": "Python Debugger: Start bot",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/discord_reminder_bot/main.py",
-            "console": "integratedTerminal",
+            "module": "discord_reminder_bot.main"
         }
     ]
 }
