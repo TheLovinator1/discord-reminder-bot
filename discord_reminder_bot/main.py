@@ -52,21 +52,20 @@ sentry_sdk.init(
 )
 
 
-def generate_state(state: dict[str, Any]) -> str:
+def generate_state(state: dict[str, Any], job: Job) -> str:
     """Format the __getstate__ dictionary for Discord markdown.
 
     Args:
         state (dict): The __getstate__ dictionary.
+        job (Job): The APScheduler job.
 
     Returns:
         str: The formatted string.
     """
     if not state:
+        logger.error(f"No state found for {job.id}")
         return "No state found.\n"
 
-    # discord.app_commands.errors.CommandInvokeError: Command 'remove' raised an exception: TypeError: Object of type IntervalTrigger is not JSON serializable
-
-    # Convert the IntervalTrigger to a string representation
     for key, value in state.items():
         if isinstance(value, IntervalTrigger):
             state[key] = "IntervalTrigger"
@@ -88,16 +87,17 @@ def generate_state(state: dict[str, Any]) -> str:
     return msg
 
 
-def generate_markdown_state(state: dict[str, Any]) -> str:
+def generate_markdown_state(state: dict[str, Any], job: Job) -> str:
     """Format the __getstate__ dictionary for Discord markdown.
 
     Args:
         state (dict): The __getstate__ dictionary.
+        job (Job): The APScheduler job.
 
     Returns:
         str: The formatted string.
     """
-    msg: str = generate_state(state)
+    msg: str = generate_state(state=state, job=job)
     return "```json\n" + msg + "\n```"
 
 
@@ -263,7 +263,7 @@ class RemindBotClient(discord.Client):
         Args:
             intents: The intents to use.
         """
-        super().__init__(intents=intents)
+        super().__init__(intents=intents, max_messages=None)
         self.tree = discord.app_commands.CommandTree(self)
 
     async def on_error(self, event_method: str, *args: list[Any], **kwargs: dict[str, Any]) -> None:
@@ -272,7 +272,12 @@ class RemindBotClient(discord.Client):
         sentry_sdk.capture_exception()  # TODO(TheLovinator): Add more context to the error  # noqa: TD003
 
     async def on_ready(self) -> None:
-        """Log when the bot is ready."""
+        """Called when the client is done preparing the data received from Discord. Usually after login is successful and the Client.guilds and co. are filled up.
+
+        Warning:
+            This function is not guaranteed to be the first event called. Likewise, this function is not guaranteed to only be called once.
+            discord.py implements reconnection logic and thus will end up calling this event whenever a RESUME request fails.
+        """
         logger_format = (
             "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | {extra[session_id]} | "
             "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
@@ -301,10 +306,11 @@ class RemindBotClient(discord.Client):
             except (AttributeError, LookupError):
                 logger.exception("Failed to loop through jobs")
 
-        await self.tree.sync(guild=None)
+        await self.tree.sync()
+        logger.info("Command tree synced.")
 
         if not scheduler.running:
-            logger.info("Starting the scheduler...")
+            logger.info("Starting scheduler.")
             scheduler.start()
         else:
             logger.error("Scheduler is already running.")
@@ -336,7 +342,7 @@ def format_job_for_ui(job: Job) -> str:
         if channel and isinstance(channel, discord.abc.GuildChannel | discord.Thread):
             msg += f"Channel: #{channel.name}\n"
 
-    msg += f"\nData:\n{generate_state(job.__getstate__())}\n"
+    msg += f"\nData:\n{generate_state(job.__getstate__(), job)}\n"
 
     logger.debug(f"Formatted job for UI: {msg}")
     return msg
@@ -1245,7 +1251,7 @@ class RemindGroup(discord.app_commands.Group):
             scheduler.remove_job(job_id)
             logger.info(f"Removed job {job_id}. {job.__getstate__()}")
             await interaction.followup.send(
-                content=f"Reminder with ID {job_id} removed successfully.\n{generate_markdown_state(job.__getstate__())}",
+                content=f"Reminder with ID {job_id} removed successfully.\n{generate_markdown_state(job.__getstate__(), job=job)}",
             )
         except JobLookupError as e:
             logger.exception(f"Failed to remove job {job_id}")
