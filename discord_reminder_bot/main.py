@@ -26,7 +26,7 @@ from loguru import logger
 
 from discord_reminder_bot.helpers import calculate, generate_markdown_state, generate_state, get_human_readable_time, parse_time
 from discord_reminder_bot.modals import CronReminderModifyModal, DateReminderModifyModal, IntervalReminderModifyModal
-from discord_reminder_bot.settings import scheduler
+from discord_reminder_bot.settings import export_reminder_jobs_to_markdown, get_markdown_contents_from_markdown_file, scheduler
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -44,9 +44,21 @@ def my_listener(event: JobExecutionEvent) -> None:
     Args:
         event: The event that occurred.
     """
+    if event.code == events.EVENT_JOB_ADDED:
+        export_reminder_jobs_to_markdown()
+
     if event.code == events.EVENT_JOB_MISSED:
         scheduled_time: str = event.scheduled_run_time.strftime("%Y-%m-%d %H:%M:%S")
-        msg: str = f"Job {event.job_id} was missed! Was scheduled at {scheduled_time}"
+
+        # Get data from markdown file that was created by export_reminder_jobs_to_markdown()
+        job_data: str = get_markdown_contents_from_markdown_file(event.job_id)
+        if not job_data:
+            msg: str = f"Job {event.job_id} was missed! Was scheduled at {scheduled_time}"
+            logger.warning(msg)
+        else:
+            msg: str = f"Job {event.job_id} was missed! Was scheduled at {scheduled_time}\nData:\n```json\n{job_data}\n```"
+            logger.warning(msg)
+
         send_webhook(message=msg)
 
     if event.exception:
@@ -119,6 +131,8 @@ class RemindBotClient(discord.Client):
             scheduler.start()
         else:
             logger.error("Scheduler is already running.")
+
+        export_reminder_jobs_to_markdown()
 
 
 def format_job_for_ui(job: Job) -> str:
