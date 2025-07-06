@@ -149,6 +149,17 @@ def format_job_for_ui(job: Job) -> str:
 
     msg += f"\nData:\n{generate_state(job.__getstate__(), job)}\n"
 
+    if isinstance(job.trigger, apscheduler.triggers.interval.IntervalTrigger):
+        msg += (
+            "\nNote: This is an interval job. Due to UI limitations, you can only modify the message, not the trigger settings.\n"
+            "To change the trigger settings, please delete and recreate the job.\n"
+        )
+    elif isinstance(job.trigger, apscheduler.triggers.cron.CronTrigger):
+        msg += (
+            "\nNote: This is a cron job. Due to UI limitations, you can only modify the message, not the trigger settings.\n"
+            "To change the trigger settings, please delete and recreate the job.\n"
+        )
+
     logger.debug(f"Formatted job for UI: {msg}")
     return msg
 
@@ -326,6 +337,8 @@ class ReminderListView(discord.ui.View):
             f"Job Trigger: `{job.trigger}`",
             ephemeral=True,
         )
+
+        await self.refresh(interaction)
 
     async def handle_pause_unpause(self, interaction: discord.Interaction, job_id: str) -> None:
         """Handle pausing or unpausing a reminder job.
