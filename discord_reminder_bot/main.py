@@ -9,6 +9,11 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import apscheduler
+import apscheduler.triggers
+import apscheduler.triggers.cron
+import apscheduler.triggers.date
+import apscheduler.triggers.interval
 import discord
 import sentry_sdk
 from apscheduler import events
@@ -20,7 +25,7 @@ from discord_webhook import DiscordWebhook
 from loguru import logger
 
 from discord_reminder_bot.helpers import calculate, generate_markdown_state, generate_state, get_human_readable_time, parse_time
-from discord_reminder_bot.modals import ReminderModifyModal
+from discord_reminder_bot.modals import CronReminderModifyModal, DateReminderModifyModal, IntervalReminderModifyModal
 from discord_reminder_bot.settings import scheduler
 
 if TYPE_CHECKING:
@@ -303,7 +308,24 @@ class ReminderListView(discord.ui.View):
             await interaction.response.send_message(f"Failed to get job for '{job_id}'", ephemeral=True)
             return
 
-        await interaction.response.send_modal(ReminderModifyModal(job))
+        # Check if the job is a date-based job
+        if isinstance(job.trigger, apscheduler.triggers.date.DateTrigger):
+            await interaction.response.send_modal(DateReminderModifyModal(job))
+            return
+        if isinstance(job.trigger, apscheduler.triggers.cron.CronTrigger):
+            await interaction.response.send_modal(CronReminderModifyModal(job))
+            return
+        if isinstance(job.trigger, apscheduler.triggers.interval.IntervalTrigger):
+            await interaction.response.send_modal(IntervalReminderModifyModal(job))
+            return
+
+        logger.error(f"Job {job_id} is not a date-based job, cron job, or interval job. Cannot modify.")
+        await interaction.response.send_message(
+            f"Job is not a date-based job, cron job, or interval job. Cannot modify.\n"
+            f"Job ID: `{escape_markdown(job_id)}`\n"
+            f"Job Trigger: `{job.trigger}`",
+            ephemeral=True,
+        )
 
     async def handle_pause_unpause(self, interaction: discord.Interaction, job_id: str) -> None:
         """Handle pausing or unpausing a reminder job.
