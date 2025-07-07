@@ -35,14 +35,14 @@ jobs:
 
       - uses: actions/checkout@09d2acae674a48949e3602304ab46fd20ae0c42f
 
-      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
+      - uses: astral-sh/setup-uv@d4219d1620c011976ed77813dca7d21d6f676d73
         with:
           python-version: 3.13
 
       - run: uv sync --all-extras --dev
       - run: uv run pytest
 
-      - uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392
+      - uses: docker/setup-qemu-action@05340d1c670183e7caabdb33ae9f1c80fae3b0c2
         with:
           platforms: all
 
