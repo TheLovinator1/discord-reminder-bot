@@ -50,16 +50,18 @@ def my_listener(event: JobExecutionEvent) -> None:
     if event.code == events.EVENT_JOB_MISSED:
         scheduled_time: str = event.scheduled_run_time.strftime("%Y-%m-%d %H:%M:%S")
 
+        markdown_time: str = f"(<t:{int(event.scheduled_run_time.timestamp())}:R>)" if event.scheduled_run_time else ""
+
         # Get data from markdown file that was created by export_reminder_jobs_to_markdown()
         job_data: str = get_markdown_contents_from_markdown_file(event.job_id)
         if not job_data:
-            msg: str = f"Job {event.job_id} was missed! Was scheduled at {scheduled_time}"
+            msg: str = f"Job {event.job_id} was missed! Was scheduled at {scheduled_time} {markdown_time}\n"
             logger.warning(msg)
         else:
-            msg: str = f"Job {event.job_id} was missed! Was scheduled at {scheduled_time}\nData:\n```json\n{job_data}\n```"
+            msg: str = f"Job {event.job_id} was missed! Was scheduled at {scheduled_time} {markdown_time}\nData:\n```json\n{job_data}\n```"
             logger.warning(msg)
 
-        send_webhook(message=msg)
+        send_webhook(custom_url="", message=msg)
 
     if event.exception:
         with sentry_sdk.push_scope() as scope:
@@ -68,7 +70,10 @@ def my_listener(event: JobExecutionEvent) -> None:
             scope.set_extra("event_code", event.code)
             sentry_sdk.capture_exception(event.exception)
 
-        send_webhook(f"discord-reminder-bot failed to send message to Discord\n{event}")
+        send_webhook(
+            custom_url="",
+            message=f"discord-reminder-bot failed to send message to Discord\n{event.exception}\n{event.traceback}",
+        )
 
 
 class RemindBotClient(discord.Client):
@@ -1180,7 +1185,7 @@ remind_group = RemindGroup()
 bot.tree.add_command(remind_group)
 
 
-def send_webhook(custom_url: str = "", message: str = "") -> None:
+def send_webhook(*, custom_url: str, message: str) -> None:
     """Send a webhook to Discord.
 
     Args:
