@@ -19,6 +19,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-install-project
 
 ENV DATA_DIR=/home/botuser/data
-ENV SQLITE_LOCATION=/home/botuser/data/jobs.sqlite
+ENV SQLITE_LOCATION=/data/jobs.sqlite
 VOLUME ["/home/botuser/data/"]
 CMD ["uv", "run", "python", "-m", "discord_reminder_bot.main"]
