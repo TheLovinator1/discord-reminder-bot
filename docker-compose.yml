@@ -1,6 +1,6 @@
 services:
   discord-reminder-bot:
-    image: thelovinator/discord-reminder-bot
+    image: ghcr.io/thelovinator1/discord-reminder-bot:latest
     env_file:
       - .env
     container_name: discord-reminder-bot
