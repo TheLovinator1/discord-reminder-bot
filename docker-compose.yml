@@ -9,6 +9,7 @@ services:
       - TIMEZONE=${TIMEZONE}
       - LOG_LEVEL=${LOG_LEVEL}
       - SQLITE_LOCATION=/data/jobs.sqlite
+      - DATA_DIR=/data
     restart: unless-stopped
     volumes:
       - data_folder:/home/botuser/data/

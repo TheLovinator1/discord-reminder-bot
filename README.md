@@ -31,30 +31,18 @@ using [Docker](https://hub.docker.com/r/thelovinator/discord-reminder-bot).
 ### Install directly on your computer
 
 - Install the latest version of needed software:
-  - [Python](https://www.python.org/)
-    - You should use the latest version.
-    - You want to add Python to your PATH.
-    - Windows: Find `App execution aliases` and disable python.exe and python3.exe
-  - [Poetry](https://python-poetry.org/docs/master/#installation)
-    - Windows: You have to add `%appdata%\Python\Scripts` to your PATH for Poetry to work.
+  - `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
 - Download project from GitHub with Git or download
   the [ZIP](https://github.com/TheLovinator1/discord-reminder-bot/archive/refs/heads/master.zip).
   - If you want to update the bot, you can run `git pull` in the project folder or download the ZIP again.
 - Rename .env.example to .env and open it in a text editor (e.g., VSCode, Notepad++, Notepad).
   - If you can't see the file extension:
-    - Windows 10: Click the View Tab in File Explorer and click the box next to File name extensions.
     - Windows 11: Click View -> Show -> File name extensions.
 - Open a terminal in the repository folder.
-  - Windows 10: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and select `Open PowerShell window here`
   - Windows 11: <kbd>Shift</kbd> + <kbd>right-click</kbd> in the folder and Show more options
       and `Open PowerShell window here`
-- Install requirements:
-  - Type `poetry install` into the PowerShell window. Make sure you are
-      in the repository folder with the [pyproject.toml](pyproject.toml) file.
-    - You may have to restart your terminal if it can't find the `poetry` command. Also double check it is in
-          your PATH.
 - Start the bot:
-  - Type `poetry run bot` into the PowerShell window.
+  - Type `uv run .\discord_reminder_bot\main.py` into the PowerShell window.
     - You can stop the bot with <kbd>Ctrl</kbd> + <kbd>c</kbd>.
 
 Note: You will need to run `poetry install` again if poetry.lock has been modified.
