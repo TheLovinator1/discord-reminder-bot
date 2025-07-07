@@ -7,6 +7,7 @@ services:
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
       - TIMEZONE=${TIMEZONE}
+      - WEBHOOK_URL=${WEBHOOK_URL}
     restart: unless-stopped
     volumes:
       - data_folder:/home/botuser/data/
