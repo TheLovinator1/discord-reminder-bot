@@ -4,6 +4,7 @@ import asyncio
 import datetime
 import json
 import os
+import platform
 import sys
 import tempfile
 from functools import partial
@@ -24,6 +25,9 @@ from discord.abc import PrivateChannel
 from discord.utils import escape_markdown
 from discord_webhook import DiscordWebhook
 from loguru import logger
+from sentry_sdk.integrations.asyncio import AsyncioIntegration
+from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
+from sentry_sdk.integrations.sys_exit import SysExitIntegration
 
 from discord_reminder_bot.helpers import calculate, generate_markdown_state, generate_state, get_human_readable_time, parse_time
 from discord_reminder_bot.modals import CronReminderModifyModal, DateReminderModifyModal, IntervalReminderModifyModal
@@ -65,7 +69,7 @@ def my_listener(event: JobExecutionEvent) -> None:
         send_webhook(custom_url="", message=msg)
 
     if event.exception:
-        with sentry_sdk.push_scope() as scope:
+        with sentry_sdk.new_scope() as scope:
             scope.set_extra("job_id", event.job_id)
             scope.set_extra("scheduled_run_time", event.scheduled_run_time.isoformat() if event.scheduled_run_time else "None")
             scope.set_extra("event_code", event.code)
@@ -102,7 +106,16 @@ class RemindBotClient(discord.Client):
     async def on_error(self, event_method: str, *args: list[Any], **kwargs: dict[str, Any]) -> None:
         """Log errors that occur in the bot."""
         logger.exception(f"An error occurred in {event_method} with args: {args} and kwargs: {kwargs}")
-        sentry_sdk.capture_exception()  # TODO(TheLovinator): Add more context to the error  # noqa: TD003
+
+        with sentry_sdk.new_scope() as scope:
+            scope.set_extra("event_method", event_method)
+            scope.set_extra("args", args)
+            scope.set_extra("kwargs", kwargs)
+            scope.set_extra("bot_is_ready", self.is_ready())
+            scope.set_extra("bot_is_closed", self.is_closed())
+            if hasattr(self, "ws") and self.ws:
+                scope.set_extra("session_id", self.ws.session_id)
+            sentry_sdk.capture_exception()
 
     async def on_ready(self) -> None:
         """Called when the client is done preparing the data received from Discord. Usually after login is successful and the Client.guilds and co. are filled up.
@@ -124,6 +137,23 @@ class RemindBotClient(discord.Client):
 
     async def setup_hook(self) -> None:
         """Setup the bot."""
+        default_sentry_dsn: str = "https://c4c61a52838be9b5042144420fba5aaa@o4505228040339456.ingest.us.sentry.io/4508707268984832"
+        sentry_sdk.init(
+            dsn=os.getenv("SENTRY_DSN", default_sentry_dsn),
+            environment=platform.node() or "Unknown",
+            traces_sample_rate=1.0,
+            profile_session_sample_rate=1.0,
+            send_default_pii=True,
+            _experiments={
+                "enable_logs": True,
+            },
+            integrations=[
+                AsyncioIntegration(),
+                LoguruIntegration(sentry_logs_level=LoggingLevels.WARNING.value),
+                SysExitIntegration(capture_successful_exits=True),
+            ],
+        )
+
         scheduler.add_listener(my_listener, EVENT_JOB_MISSED | EVENT_JOB_ERROR)
         jobs: list[Job] = scheduler.get_jobs()
         if jobs:

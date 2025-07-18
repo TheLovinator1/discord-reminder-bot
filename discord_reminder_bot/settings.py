@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import os
-import platform
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pytz
-import sentry_sdk
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
@@ -15,14 +13,6 @@ from loguru import logger
 from discord_reminder_bot.helpers import generate_state
 
 load_dotenv(verbose=True)
-
-default_sentry_dsn: str = "https://c4c61a52838be9b5042144420fba5aaa@o4505228040339456.ingest.us.sentry.io/4508707268984832"
-sentry_sdk.init(
-    dsn=os.getenv("SENTRY_DSN", default_sentry_dsn),
-    environment=platform.node() or "Unknown",
-    traces_sample_rate=1.0,
-    send_default_pii=True,
-)
 
 
 def get_scheduler() -> AsyncIOScheduler:
