@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from discord.guild import GuildChannel
     from discord.interactions import InteractionChannel
     from requests import Response
+    from sentry_sdk.types import Hint, Log
 
 
 def my_listener(event: JobExecutionEvent) -> None:
@@ -138,6 +139,27 @@ class RemindBotClient(discord.Client):
     async def setup_hook(self) -> None:
         """Setup the bot."""
         default_sentry_dsn: str = "https://c4c61a52838be9b5042144420fba5aaa@o4505228040339456.ingest.us.sentry.io/4508707268984832"
+
+        def before_send_log(log: Log, _hint: Hint) -> Log | None:
+            """Filter out unwanted log messages before sending to Sentry.
+
+            Args:
+                log: The log object containing message and metadata.
+                _hint: Additional context about the log.
+
+            Returns:
+                The log object if it should be sent to Sentry, None to discard it.
+            """
+            ignored_log_messages: list[str] = [
+                "has connected to Gateway",
+                "has successfully RESUMED session",
+            ]
+
+            if log.get("body") and any(noisy_log in log["body"] for noisy_log in ignored_log_messages):
+                return None
+
+            return log
+
         sentry_sdk.init(
             dsn=os.getenv("SENTRY_DSN", default_sentry_dsn),
             environment=platform.node() or "Unknown",
@@ -146,6 +168,7 @@ class RemindBotClient(discord.Client):
             send_default_pii=True,
             _experiments={
                 "enable_logs": True,
+                "before_send_log": before_send_log,
             },
             integrations=[
                 AsyncioIntegration(),
@@ -1389,3 +1412,4 @@ if __name__ == "__main__":
 
     logger.info("Starting bot.")
     bot.run(bot_token)
+    logger.info("Bot has been stopped.")
