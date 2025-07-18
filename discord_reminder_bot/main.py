@@ -1234,14 +1234,18 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
     """
     logger.info(f"Sending message to channel '<#{channel_id}>' with message: '{message}'")
 
+    # Wait 3 seconds to ensure the bot is ready
+    logger.debug("Waiting for 3 seconds to ensure the bot is ready before sending the message.")
+    await asyncio.sleep(3)
+
     # Early validation of bot state
     if not bot.is_ready():
-        error_msg = f"Bot is not ready! Cannot send message to channel {channel_id}"
+        error_msg = f"Bot is not ready! Cannot send message to channel {channel_id}\nMessage: {message}\nAuthor ID: {author_id}"
         logger.error(error_msg)
         raise RuntimeError(error_msg)
 
     if bot.is_closed():
-        error_msg = f"Bot is closed! Cannot send message to channel {channel_id}"
+        error_msg = f"Bot is closed! Cannot send message to channel {channel_id}\nMessage: {message}\nAuthor ID: {author_id}"
         logger.error(error_msg)
         raise RuntimeError(error_msg)
 
@@ -1263,7 +1267,7 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
 
     # Channels we can't send messages to
     if isinstance(channel, discord.ForumChannel | discord.CategoryChannel | PrivateChannel):
-        logger.warning(f"We haven't implemented sending messages to this channel type {type(channel)}")
+        logger.error(f"We haven't implemented sending messages to this channel type {type(channel)}")
         return
 
     try:
@@ -1345,44 +1349,6 @@ def _debug_bot_state() -> None:
             logger.warning(f"Could not inspect bot HTTP _global_over: {debug_error}")
     else:
         logger.error("Bot HTTP client is None or missing")
-
-
-async def safe_send_to_discord(channel_id: int, message: str, author_id: int) -> None:
-    """Safely send a message to Discord with additional error handling.
-
-    This wrapper adds extra protection against bot state issues that cause
-    '_MissingSentinel' object has no attribute 'is_set' errors.
-
-    Args:
-        channel_id: The Discord channel ID.
-        message: The message.
-        author_id: User we should mention in the message.
-
-    Raises:
-        RuntimeError: If the bot HTTP client is in an invalid state.
-        AttributeError: If there are unexpected attribute errors.
-    """
-    try:
-        # Add a small delay to ensure bot is fully ready
-        await asyncio.sleep(0.1)
-
-        await send_to_discord(channel_id, message, author_id)
-    except AttributeError as e:
-        if "'_MissingSentinel' object has no attribute 'is_set'" in str(e):
-            logger.error("Encountered _MissingSentinel error - bot HTTP client is in invalid state")
-            logger.error(f"Error details: {e}")
-            logger.error("This likely indicates the bot was not properly initialized or disconnected")
-            # Try to get more context about the bot state
-            _debug_bot_state()
-            error_msg = f"Bot HTTP client in invalid state: {e}"
-            raise RuntimeError(error_msg) from e
-
-        logger.error(f"Unexpected AttributeError in send_to_discord: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error in safe_send_to_discord: {type(e).__name__}: {e}")
-        logger.error(f"Channel ID: {channel_id}, Author ID: {author_id}")
-        raise
 
 
 if __name__ == "__main__":
