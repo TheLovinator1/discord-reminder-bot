@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import datetime
 import json
 import os
@@ -68,11 +69,21 @@ def my_listener(event: JobExecutionEvent) -> None:
             scope.set_extra("job_id", event.job_id)
             scope.set_extra("scheduled_run_time", event.scheduled_run_time.isoformat() if event.scheduled_run_time else "None")
             scope.set_extra("event_code", event.code)
+            scope.set_extra("bot_is_ready", bot.is_ready() if "bot" in globals() else "Unknown")
+            scope.set_extra("bot_is_closed", bot.is_closed() if "bot" in globals() else "Unknown")
             sentry_sdk.capture_exception(event.exception)
+
+        # Create detailed error message with bot state information
+        bot_state_info = ""
+        if "bot" in globals():
+            bot_state_info = f"\nBot State: ready={bot.is_ready()}, closed={bot.is_closed()}, user={bot.user}"
+            if hasattr(bot, "http") and bot.http:
+                global_over = getattr(bot.http, "_global_over", None)
+                bot_state_info += f"\nHTTP State: _global_over type={type(global_over)}"
 
         send_webhook(
             custom_url="",
-            message=f"discord-reminder-bot failed to send message to Discord\n{event.exception}\n{event.traceback}",
+            message=f"discord-reminder-bot failed to send message to Discord\nJob ID: {event.job_id}\nScheduled Time: {event.scheduled_run_time.isoformat() if event.scheduled_run_time else 'None'}{bot_state_info}\n{event.exception}\n{event.traceback}",
         )
 
 
@@ -1217,19 +1228,58 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
         channel_id: The Discord channel ID.
         message: The message.
         author_id: User we should mention in the message.
+
+    Raises:
+        RuntimeError: If the bot is not ready or is closed.
     """
     logger.info(f"Sending message to channel '<#{channel_id}>' with message: '{message}'")
 
-    channel: GuildChannel | discord.Thread | PrivateChannel | None = bot.get_channel(channel_id)
-    if channel is None:
-        channel = await bot.fetch_channel(channel_id)
+    # Early validation of bot state
+    if not bot.is_ready():
+        error_msg = f"Bot is not ready! Cannot send message to channel {channel_id}"
+        logger.error(error_msg)
+        raise RuntimeError(error_msg)
+
+    if bot.is_closed():
+        error_msg = f"Bot is closed! Cannot send message to channel {channel_id}"
+        logger.error(error_msg)
+        raise RuntimeError(error_msg)
+
+    # Debug bot state before attempting to fetch channel
+    _debug_bot_state()
+
+    try:
+        channel: GuildChannel | discord.Thread | PrivateChannel | None = bot.get_channel(channel_id)
+        logger.debug(f"bot.get_channel({channel_id}) returned: {channel}")
+
+        if channel is None:
+            logger.info(f"Channel {channel_id} not in cache, attempting to fetch from API")
+            channel = await bot.fetch_channel(channel_id)
+            logger.debug(f"bot.fetch_channel({channel_id}) returned: {channel}")
+    except Exception as e:
+        logger.error(f"Failed to get/fetch channel {channel_id}: {type(e).__name__}: {e}")
+        logger.error(f"Bot state during error - is_ready: {bot.is_ready()}, is_closed: {bot.is_closed()}")
+        raise
 
     # Channels we can't send messages to
     if isinstance(channel, discord.ForumChannel | discord.CategoryChannel | PrivateChannel):
         logger.warning(f"We haven't implemented sending messages to this channel type {type(channel)}")
         return
 
-    await channel.send(f"<@{author_id}>\n{message}")
+    try:
+        logger.debug(f"Attempting to send message to channel {channel} (type: {type(channel)})")
+        message_content = f"<@{author_id}>\n{message}"
+        logger.debug(f"Message content length: {len(message_content)} characters")
+
+        sent_message = await channel.send(message_content)
+        logger.info(f"Successfully sent message to channel {channel_id}, message ID: {sent_message.id}")
+    except Exception as e:
+        logger.error(f"Failed to send message to channel {channel_id}: {type(e).__name__}: {e}")
+        logger.error(f"Channel: {channel}, Channel type: {type(channel)}")
+        logger.error(f"Bot state during send error - is_ready: {bot.is_ready()}, is_closed: {bot.is_closed()}")
+        if hasattr(channel, "guild"):
+            logger.error(f"Guild: {channel.guild}, Guild available: {getattr(channel.guild, 'available', 'Unknown')}")
+        raise
 
 
 async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
@@ -1270,6 +1320,69 @@ async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
         await member.send(message)
     except discord.HTTPException:
         logger.exception(f"Failed to send message '{message}' to user '{user_id}' in guild '{guild_id}'")
+
+
+def _debug_bot_state() -> None:
+    """Debug helper function to log bot state information."""
+    logger.debug(f"Bot is_ready: {bot.is_ready()}")
+    logger.debug(f"Bot is_closed: {bot.is_closed()}")
+    logger.debug(f"Bot user: {bot.user}")
+    logger.debug(f"Bot guilds count: {len(bot.guilds) if bot.guilds else 'None'}")
+
+    # Check bot's http client state
+    if hasattr(bot, "http") and bot.http:
+        logger.debug(f"Bot HTTP client state: connector_initialized={hasattr(bot.http, 'connector')}")
+        try:
+            # Safely check _global_over attribute which is causing the error
+            global_over = getattr(bot.http, "_global_over", None)
+            logger.debug(f"Bot HTTP _global_over type: {type(global_over)}")
+            logger.debug(f"Bot HTTP _global_over: {global_over}")
+            if global_over is not None and hasattr(global_over, "is_set"):
+                logger.debug(f"Bot HTTP _global_over.is_set(): {global_over.is_set()}")
+            else:
+                logger.warning("Bot HTTP _global_over missing is_set method - this is likely the cause of the error")
+        except (AttributeError, TypeError) as debug_error:
+            logger.warning(f"Could not inspect bot HTTP _global_over: {debug_error}")
+    else:
+        logger.error("Bot HTTP client is None or missing")
+
+
+async def safe_send_to_discord(channel_id: int, message: str, author_id: int) -> None:
+    """Safely send a message to Discord with additional error handling.
+
+    This wrapper adds extra protection against bot state issues that cause
+    '_MissingSentinel' object has no attribute 'is_set' errors.
+
+    Args:
+        channel_id: The Discord channel ID.
+        message: The message.
+        author_id: User we should mention in the message.
+
+    Raises:
+        RuntimeError: If the bot HTTP client is in an invalid state.
+        AttributeError: If there are unexpected attribute errors.
+    """
+    try:
+        # Add a small delay to ensure bot is fully ready
+        await asyncio.sleep(0.1)
+
+        await send_to_discord(channel_id, message, author_id)
+    except AttributeError as e:
+        if "'_MissingSentinel' object has no attribute 'is_set'" in str(e):
+            logger.error("Encountered _MissingSentinel error - bot HTTP client is in invalid state")
+            logger.error(f"Error details: {e}")
+            logger.error("This likely indicates the bot was not properly initialized or disconnected")
+            # Try to get more context about the bot state
+            _debug_bot_state()
+            error_msg = f"Bot HTTP client in invalid state: {e}"
+            raise RuntimeError(error_msg) from e
+
+        logger.error(f"Unexpected AttributeError in send_to_discord: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in safe_send_to_discord: {type(e).__name__}: {e}")
+        logger.error(f"Channel ID: {channel_id}, Author ID: {author_id}")
+        raise
 
 
 if __name__ == "__main__":
