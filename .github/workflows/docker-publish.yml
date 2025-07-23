@@ -33,7 +33,7 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/checkout@09d2acae674a48949e3602304ab46fd20ae0c42f
+      - uses: actions/checkout@8edcb1bdb4e267140fa742c62e395cd74f332709
 
       - uses: astral-sh/setup-uv@23482a31a88a7c77bb3f00e70b97338bc9ca49f6
         with:
