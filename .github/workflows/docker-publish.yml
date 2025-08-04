@@ -20,13 +20,13 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: docker/login-action@ef38ec311a7df3f01475313e7c5bb584b74b112a
+      - uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1
         if: github.event_name != 'pull_request'
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - uses: docker/login-action@ef38ec311a7df3f01475313e7c5bb584b74b112a
+      - uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
