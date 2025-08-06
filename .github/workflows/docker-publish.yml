@@ -46,7 +46,7 @@ jobs:
         with:
           platforms: all
 
-      - uses: docker/setup-buildx-action@ae7d6893e8453cb836c63c002c65291c0f4533fd
+      - uses: docker/setup-buildx-action@c65d441f3804c7219af6268d5ca10f8b1b13a854
 
       - uses: docker/build-push-action@v6
         with:
