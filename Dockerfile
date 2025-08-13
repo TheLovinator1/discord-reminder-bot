@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # check=error=true;experimental=all
 
-FROM python:3.13-slim@sha256:6f79e7a10bb7d0b0a50534a70ebc78823f941fba26143ecd7e6c5dca9d7d7e8a
+FROM python:3.13-slim@sha256:faa4eb619170e3235375f94b2f3d6b0103ddf2c7e1c8b78c3676827f38d9166f
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
