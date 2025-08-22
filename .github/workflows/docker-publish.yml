@@ -35,7 +35,7 @@ jobs:
 
       - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493
 
-      - uses: astral-sh/setup-uv@4959332f0f014c5280e7eac8b70c90cb574c9f9b
+      - uses: astral-sh/setup-uv@4e1e303f7dafb1a3ec7770a507052543f593ad96
         with:
           python-version: 3.13
 
