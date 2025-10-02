@@ -5,27 +5,14 @@ description = "Discord bot that allows you to set date, cron and interval remind
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    # The Discord bot library uses discord.py
-    "discord-py[speed]>=2.5.0", # https://github.com/Rapptz/discord.py
-
-    # For parsing dates and times in /remind commands
-    "dateparser>=1.0.0", # https://github.com/scrapinghub/dateparser
-
-    # For sending webhook messages to Discord
-    "discord-webhook>=1.3.1", # https://github.com/lovvskillz/python-discord-webhook
-
-    # For scheduling reminders, sqlalchemy is needed for storing reminders in a database
-    "apscheduler>=3.11.0", # https://github.com/agronholm/apscheduler
-    "sqlalchemy>=2.0.37",  # https://github.com/sqlalchemy/sqlalchemy
-
-    # For loading environment variables from a .env file
-    "python-dotenv>=1.0.1", # https://github.com/theskumar/python-dotenv
-
-    # For error tracking
-    "sentry-sdk>=2.20.0", # https://github.com/getsentry/sentry-python
-
-    # For logging
-    "loguru>=0.7.3", # https://github.com/Delgan/loguru
+    "apscheduler",
+    "dateparser",
+    "discord-py[speed]",
+    "discord-webhook",
+    "loguru",
+    "python-dotenv",
+    "sentry-sdk",
+    "sqlalchemy",
 ]
 
 [dependency-groups]
