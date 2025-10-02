@@ -1,6 +1,7 @@
 {
     "cSpell.words": [
         "aiohttp",
+        "ambiguious",
         "apscheduler",
         "asctime",
         "asyncio",
@@ -24,14 +25,17 @@
         "levelname",
         "loguru",
         "Lovinator",
+        "McCabe",
         "pycodestyle",
         "pydocstyle",
         "pyproject",
         "pypy",
+        "pytest",
         "PYTHONDONTWRITEBYTECODE",
         "PYTHONUNBUFFERED",
         "pyupgrade",
         "sqlalchemy",
+        "strptime",
         "thelovinator",
         "uvloop"
     ],
