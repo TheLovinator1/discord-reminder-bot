@@ -11,8 +11,6 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import apscheduler
-import apscheduler.triggers
 import apscheduler.triggers.cron
 import apscheduler.triggers.date
 import apscheduler.triggers.interval
