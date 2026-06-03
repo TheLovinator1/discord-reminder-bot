@@ -149,6 +149,16 @@ class RemindBotClient(discord.Client):
 
         logger.info(f"Logged in as {self.user} ({self.user.id if self.user else 'Unknown'})")
 
+        # Start the scheduler only after the bot is fully ready.
+        # Starting it in setup_hook would run missed jobs before the bot can send messages.
+        if not scheduler.running:
+            logger.info("Starting scheduler.")
+            scheduler.start()
+        else:
+            logger.error("Scheduler is already running.")
+
+        export_reminder_jobs_to_markdown()
+
     async def setup_hook(self) -> None:
         """Setup the bot."""
         self._init_sentry()
@@ -170,14 +180,6 @@ class RemindBotClient(discord.Client):
 
         await self.tree.sync()
         logger.info("Command tree synced.")
-
-        if not scheduler.running:
-            logger.info("Starting scheduler.")
-            scheduler.start()
-        else:
-            logger.error("Scheduler is already running.")
-
-        export_reminder_jobs_to_markdown()
 
     def _init_sentry(self) -> None:
         """Initialize Sentry SDK with sensitive data filtering.
