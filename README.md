@@ -66,8 +66,14 @@ Docker Hub: [thelovinator/discord-reminder-bot](https://hub.docker.com/r/thelovi
     - You can stop the bot with <kbd>Ctrl</kbd> + <kbd>c</kbd>.
     - If you want to run the bot in the background, you can run `docker-compose up -d`.
 
+## Error Tracking & Privacy
+
+This bot uses Sentry for error monitoring. Sensitive data (message text, channel/user/guild/author IDs) is redacted before being sent.
+
+To disable, set `SENTRY_DSN=` to empty in .env. To use your own project, set `SENTRY_DSN=https://your-dsn@sentry.io/project`.
+
 ## Help
 
-- Email: tlovinator@gmail.com
+- Email: `tlovinator@gmail.com`
 - Discord: TheLovinator#9276
 - Send an issue: [discord-reminder-bot/issues](https://github.com/TheLovinator1/discord-reminder-bot/issues)

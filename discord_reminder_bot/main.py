@@ -24,7 +24,6 @@ from discord.utils import escape_markdown
 from discord_webhook import DiscordWebhook
 from loguru import logger
 from sentry_sdk.integrations.asyncio import AsyncioIntegration
-from sentry_sdk.integrations.loguru import LoggingLevels, LoguruIntegration
 from sentry_sdk.integrations.sys_exit import SysExitIntegration
 
 from discord_reminder_bot.helpers import calculate, generate_markdown_state, generate_state, get_human_readable_time, parse_time
@@ -39,7 +38,7 @@ if TYPE_CHECKING:
     from discord.guild import GuildChannel
     from discord.interactions import InteractionChannel
     from requests import Response
-    from sentry_sdk.types import Hint, Log
+    from sentry_sdk.types import Event, Hint
 
 
 def my_listener(event: JobExecutionEvent) -> None:
@@ -136,44 +135,7 @@ class RemindBotClient(discord.Client):
 
     async def setup_hook(self) -> None:
         """Setup the bot."""
-        default_sentry_dsn: str = "https://c4c61a52838be9b5042144420fba5aaa@o4505228040339456.ingest.us.sentry.io/4508707268984832"
-
-        def before_send_log(log: Log, _hint: Hint) -> Log | None:
-            """Filter out unwanted log messages before sending to Sentry.
-
-            Args:
-                log: The log object containing message and metadata.
-                _hint: Additional context about the log.
-
-            Returns:
-                The log object if it should be sent to Sentry, None to discard it.
-            """
-            ignored_log_messages: list[str] = [
-                "has connected to Gateway",
-                "has successfully RESUMED session",
-            ]
-
-            if log.get("body") and any(noisy_log in log["body"] for noisy_log in ignored_log_messages):
-                return None
-
-            return log
-
-        sentry_sdk.init(
-            dsn=os.getenv("SENTRY_DSN", default_sentry_dsn),
-            environment=platform.node() or "Unknown",
-            traces_sample_rate=1.0,
-            profile_session_sample_rate=1.0,
-            send_default_pii=True,
-            _experiments={
-                "enable_logs": True,
-                "before_send_log": before_send_log,
-            },
-            integrations=[
-                AsyncioIntegration(),
-                LoguruIntegration(sentry_logs_level=LoggingLevels.WARNING.value),
-                SysExitIntegration(capture_successful_exits=True),
-            ],
-        )
+        self._init_sentry()
 
         scheduler.add_listener(my_listener, EVENT_JOB_MISSED | EVENT_JOB_ERROR)
         jobs: list[Job] = scheduler.get_jobs()
@@ -200,6 +162,70 @@ class RemindBotClient(discord.Client):
             logger.error("Scheduler is already running.")
 
         export_reminder_jobs_to_markdown()
+
+    def _init_sentry(self) -> None:
+        """Initialize Sentry SDK with sensitive data filtering.
+
+        Strips potentially sensitive fields (reminder messages, user IDs, channel IDs, guild IDs)
+        from event extra data before sending to Sentry.
+        """
+        default_sentry_dsn: str = "https://c4c61a52838be9b5042144420fba5aaa@o4505228040339456.ingest.us.sentry.io/4508707268984832"
+
+        sensitive_fields: set[str] = {"message", "channel_id", "author_id", "user_id", "guild_id"}
+
+        def _redact_event_extra(event: Event) -> None:
+            """Remove sensitive keys from event extra data in-place."""
+            extra: dict[str, object] | None = event.get("extra")  # type: ignore[assignment]
+            if extra:
+                for key in list(extra):
+                    if key in sensitive_fields:
+                        extra[key] = "[redacted]"
+
+        def _redact_thread_vars(event: Event) -> None:
+            """Redact sensitive variable values in thread frames."""
+            threads_data: dict[str, Any] | None = event.get("threads")  # type: ignore[assignment]
+            if not threads_data:
+                return
+            values: list[Any] | None = threads_data.get("values")
+            if not isinstance(values, list):
+                return
+            for frame in values:
+                if not isinstance(frame, dict):
+                    continue
+                vars_ = frame.get("vars")
+                if not isinstance(vars_, dict):
+                    continue
+                for key in list(vars_):
+                    if key in sensitive_fields:
+                        vars_[key] = "[redacted]"
+
+        def before_send(event: Event, _hint: Hint) -> Event | None:
+            """Strip sensitive data from Sentry events before sending.
+
+            Args:
+                event: The Sentry event dictionary.
+                _hint: Additional context about the event.
+
+            Returns:
+                The sanitized event, or None to discard it.
+            """
+            _redact_event_extra(event)
+            _redact_thread_vars(event)
+
+            return event
+
+        sentry_sdk.init(
+            dsn=os.getenv("SENTRY_DSN", default_sentry_dsn),
+            before_send=before_send,
+            environment=platform.node() or "Unknown",
+            send_default_pii=True,
+            integrations=[
+                AsyncioIntegration(),
+                SysExitIntegration(capture_successful_exits=True),
+            ],
+        )
+
+        logger.info(f"Sentry initialized with DSN: {default_sentry_dsn[:30]}...")
 
 
 def format_job_for_ui(job: Job) -> str:
