@@ -42,7 +42,7 @@ jobs:
       - run: uv sync --all-extras --dev
       - run: uv run pytest
 
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
         with:
           platforms: all
 
