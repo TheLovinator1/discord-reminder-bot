@@ -432,7 +432,6 @@ class TestSendToDiscordChannelNotFound:
             patch("discord_reminder_bot.main.bot") as mock_bot,
             patch("discord_reminder_bot.main._remove_jobs_by_channel") as mock_remove,
             patch("discord_reminder_bot.main.logger"),
-            patch("discord_reminder_bot.main.asyncio.sleep"),
         ):
             mock_bot.is_ready.return_value = True
             mock_bot.is_closed.return_value = False
@@ -452,7 +451,6 @@ class TestSendToDiscordChannelNotFound:
             patch("discord_reminder_bot.main.bot") as mock_bot,
             patch("discord_reminder_bot.main._remove_jobs_by_channel") as mock_remove,
             patch("discord_reminder_bot.main.logger"),
-            patch("discord_reminder_bot.main.asyncio.sleep"),
         ):
             mock_bot.is_ready.return_value = True
             mock_bot.is_closed.return_value = False
@@ -472,7 +470,6 @@ class TestSendToDiscordChannelNotFound:
             patch("discord_reminder_bot.main.bot") as mock_bot,
             patch("discord_reminder_bot.main._remove_jobs_by_channel") as mock_remove,
             patch("discord_reminder_bot.main.logger"),
-            patch("discord_reminder_bot.main.asyncio.sleep"),
         ):
             mock_bot.is_ready.return_value = True
             mock_bot.is_closed.return_value = False
@@ -798,3 +795,160 @@ class TestFindJobDataByChannelInMarkdown:
             result = _find_job_data_by_channel_in_markdown(111)
             # Should return one of them (order depends on filesystem)
             assert result is not None
+
+
+class TestSendWebhook:
+    """Tests for the send_webhook function.
+
+    Verifies that the function handles the optional ``custom_url`` parameter
+    correctly, falling back to ``WEBHOOK_URL`` env var when not provided.
+    """
+
+    WEBHOOK_ENV_VAR: str = "WEBHOOK_URL"
+
+    @patch("discord_reminder_bot.main.os.getenv")
+    @patch("discord_reminder_bot.main.DiscordWebhook")
+    @patch("discord_reminder_bot.main.logger")
+    def test_without_custom_url_uses_env_var(
+        self,
+        mock_logger: MagicMock,
+        mock_webhook_cls: MagicMock,
+        mock_getenv: MagicMock,
+    ) -> None:
+        """When custom_url is not provided, the WEBHOOK_URL env var should be used."""
+        mock_getenv.return_value = "https://discord.com/api/webhooks/env"
+        mock_instance = MagicMock()
+        mock_webhook_cls.return_value = mock_instance
+
+        from discord_reminder_bot.main import send_webhook
+
+        send_webhook(message="test message")
+
+        mock_getenv.assert_called_with(self.WEBHOOK_ENV_VAR)
+        mock_webhook_cls.assert_called_once_with(
+            url="https://discord.com/api/webhooks/env",
+            content="test message",
+            rate_limit_retry=True,
+        )
+        mock_instance.execute.assert_called_once()
+
+    @patch("discord_reminder_bot.main.os.getenv")
+    @patch("discord_reminder_bot.main.DiscordWebhook")
+    @patch("discord_reminder_bot.main.logger")
+    def test_with_custom_url(
+        self,
+        mock_logger: MagicMock,
+        mock_webhook_cls: MagicMock,
+        mock_getenv: MagicMock,
+    ) -> None:
+        """When custom_url is provided, it should be used instead of the env var."""
+        mock_instance = MagicMock()
+        mock_webhook_cls.return_value = mock_instance
+
+        from discord_reminder_bot.main import send_webhook
+
+        send_webhook(custom_url="https://discord.com/api/webhooks/custom", message="test message")
+
+        # getenv should still be called but the result should be ignored
+        mock_webhook_cls.assert_called_once_with(
+            url="https://discord.com/api/webhooks/custom",
+            content="test message",
+            rate_limit_retry=True,
+        )
+        mock_instance.execute.assert_called_once()
+
+    @patch("discord_reminder_bot.main.os.getenv")
+    @patch("discord_reminder_bot.main.DiscordWebhook")
+    @patch("discord_reminder_bot.main.logger")
+    def test_no_webhook_url_configured(
+        self,
+        mock_logger: MagicMock,
+        mock_webhook_cls: MagicMock,
+        mock_getenv: MagicMock,
+    ) -> None:
+        """When no URL is available from either source, the function should skip silently."""
+        mock_getenv.return_value = None
+
+        from discord_reminder_bot.main import send_webhook
+
+        send_webhook(message="test message")
+
+        mock_webhook_cls.assert_not_called()
+        mock_logger.info.assert_any_call(
+            "No webhook URL configured (WEBHOOK_URL env var not set). Skipping webhook.",
+        )
+
+    @patch("discord_reminder_bot.main.os.getenv")
+    @patch("discord_reminder_bot.main.DiscordWebhook")
+    @patch("discord_reminder_bot.main.logger")
+    def test_empty_message_warning(
+        self,
+        mock_logger: MagicMock,
+        mock_webhook_cls: MagicMock,
+        mock_getenv: MagicMock,
+    ) -> None:
+        """When message is empty, a warning should be logged and fallback message used."""
+        mock_getenv.return_value = "https://discord.com/api/webhooks/env"
+        mock_instance = MagicMock()
+        mock_webhook_cls.return_value = mock_instance
+
+        from discord_reminder_bot.main import send_webhook
+
+        send_webhook(message="")
+
+        mock_logger.warning.assert_called_with("No message provided.")
+        mock_webhook_cls.assert_called_once_with(
+            url="https://discord.com/api/webhooks/env",
+            content="No message provided.",
+            rate_limit_retry=True,
+        )
+
+    @patch("discord_reminder_bot.main.os.getenv")
+    @patch("discord_reminder_bot.main.DiscordWebhook")
+    @patch("discord_reminder_bot.main.logger")
+    def test_custom_url_overrides_env_var(
+        self,
+        mock_logger: MagicMock,
+        mock_webhook_cls: MagicMock,
+        mock_getenv: MagicMock,
+    ) -> None:
+        """custom_url should take precedence over WEBHOOK_URL env var."""
+        mock_getenv.return_value = "https://discord.com/api/webhooks/env"
+
+        mock_instance = MagicMock()
+        mock_webhook_cls.return_value = mock_instance
+
+        from discord_reminder_bot.main import send_webhook
+
+        send_webhook(custom_url="https://discord.com/api/webhooks/custom", message="override test")
+
+        mock_webhook_cls.assert_called_once_with(
+            url="https://discord.com/api/webhooks/custom",
+            content="override test",
+            rate_limit_retry=True,
+        )
+
+    @patch("discord_reminder_bot.main.os.getenv")
+    @patch("discord_reminder_bot.main.DiscordWebhook")
+    @patch("discord_reminder_bot.main.logger")
+    def test_custom_url_none_explicit(
+        self,
+        mock_logger: MagicMock,
+        mock_webhook_cls: MagicMock,
+        mock_getenv: MagicMock,
+    ) -> None:
+        """Passing custom_url=None explicitly should behave the same as omitting it."""
+        mock_getenv.return_value = "https://discord.com/api/webhooks/env"
+        mock_instance = MagicMock()
+        mock_webhook_cls.return_value = mock_instance
+
+        from discord_reminder_bot.main import send_webhook
+
+        send_webhook(custom_url=None, message="explicit none")
+
+        mock_getenv.assert_called_with(self.WEBHOOK_ENV_VAR)
+        mock_webhook_cls.assert_called_once_with(
+            url="https://discord.com/api/webhooks/env",
+            content="explicit none",
+            rate_limit_retry=True,
+        )

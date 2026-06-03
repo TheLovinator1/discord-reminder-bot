@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import datetime
 import json
 import os
@@ -41,6 +40,19 @@ if TYPE_CHECKING:
     from sentry_sdk.types import Event, Hint
 
 
+logger_configured: bool = False
+"""Flag to track whether the logger has been configured. This is necessary because discord.py may call on_ready multiple times due to its reconnection logic, and we want to avoid adding multiple handlers to the logger which would cause duplicate log entries."""
+
+REMINDER_LIST_VIEW_TIMEOUT: int = 180
+"""The timeout for the reminder list view in seconds. After this time, the buttons will be disabled to prevent interactions with stale data."""
+
+RESTORE_FILE_TIMEOUT: int = 60
+"""Timeout for the /restore command."""
+
+MINIMUM_INTERVAL_SECONDS: int = 30
+"""The minimum number of seconds allowed for interval reminders. This is to prevent users from creating interval reminders that run too frequently and risk spamming channels or hitting rate limits."""
+
+
 def my_listener(event: JobExecutionEvent) -> None:
     """Listener for job events.
 
@@ -64,7 +76,7 @@ def my_listener(event: JobExecutionEvent) -> None:
         )
         logger.warning(msg)
 
-        send_webhook(custom_url="", message=msg)
+        send_webhook(message=msg)
 
     if event.exception:
         with sentry_sdk.new_scope() as scope:
@@ -84,7 +96,6 @@ def my_listener(event: JobExecutionEvent) -> None:
                 bot_state_info += f"\nHTTP State: _global_over type={type(global_over)}"
 
         send_webhook(
-            custom_url="",
             message=f"discord-reminder-bot failed to send message to Discord\nJob ID: {event.job_id}\nScheduled Time: {event.scheduled_run_time.isoformat() if event.scheduled_run_time else 'None'}{bot_state_info}\n{event.exception}\n{event.traceback}",
         )
 
@@ -122,6 +133,8 @@ class RemindBotClient(discord.Client):
             This function is not guaranteed to be the first event called. Likewise, this function is not guaranteed to only be called once.
             discord.py implements reconnection logic and thus will end up calling this event whenever a RESUME request fails.
         """
+        global logger_configured  # noqa: PLW0603
+
         logger_format = (
             "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | {extra[session_id]} | "
             "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
@@ -129,8 +142,11 @@ class RemindBotClient(discord.Client):
         )
         logger.configure(extra={"session_id": self.ws.session_id})
 
-        logger.remove()
-        logger.add(sys.stderr, format=logger_format)
+        if not logger_configured:
+            logger.remove()
+            logger.add(sys.stderr, format=logger_format)
+            logger_configured = True
+
         logger.info(f"Logged in as {self.user} ({self.user.id if self.user else 'Unknown'})")
 
     async def setup_hook(self) -> None:
@@ -282,7 +298,7 @@ class ReminderListView(discord.ui.View):
             interaction (discord.Interaction): The interaction that triggered this view.
             jobs_per_page (int): The number of jobs to display per page. Defaults to 1.
         """
-        super().__init__(timeout=180)
+        super().__init__(timeout=REMINDER_LIST_VIEW_TIMEOUT)
         self.jobs: list[Job] = jobs
         self.interaction: discord.Interaction[discord.Client] = interaction
         self.jobs_per_page: int = jobs_per_page
@@ -409,8 +425,8 @@ class ReminderListView(discord.ui.View):
                 self.current_page -= 1
         except JobLookupError:
             await interaction.followup.send(f"Job `{escape_markdown(job_id)}` not found.", ephemeral=True)
-        except Exception as e:  # noqa: BLE001
-            logger.exception(f"Failed to delete job {job_id}: {e}")
+        except discord.HTTPException:
+            logger.exception(f"Failed to delete job {job_id}")
             await interaction.followup.send(f"Failed to delete job `{escape_markdown(job_id)}`.", ephemeral=True)
         await self.refresh(interaction)
 
@@ -494,8 +510,8 @@ class ReminderListView(discord.ui.View):
             await interaction.followup.send(msg, ephemeral=True)
         except JobLookupError:
             await interaction.followup.send(f"Job `{escape_markdown(job_id)}` not found.", ephemeral=True)
-        except Exception as e:  # noqa: BLE001
-            logger.exception(f"Failed to pause/unpause job {job_id}: {e}")
+        except discord.HTTPException:
+            logger.exception(f"Failed to pause/unpause job {job_id}")
             await interaction.followup.send(f"Failed to pause/unpause job `{escape_markdown(job_id)}`.", ephemeral=True)
         await self.refresh(interaction)
 
@@ -993,8 +1009,8 @@ class RemindGroup(discord.app_commands.Group):
         logger.info(f"Arguments: {locals()}")
 
         # Only allow intervals of 30 seconds or more so we don't spam the channel
-        if weeks == days == hours == minutes == 0 and seconds < 30:
-            await interaction.followup.send(content="Interval must be at least 30 seconds.", ephemeral=True)
+        if weeks == days == hours == minutes == 0 and seconds < MINIMUM_INTERVAL_SECONDS:
+            await interaction.followup.send(content=f"Interval must be at least {MINIMUM_INTERVAL_SECONDS} seconds.", ephemeral=True)
             return
 
         # Check if we have access to the specified channel or the current channel
@@ -1178,9 +1194,13 @@ class RemindGroup(discord.app_commands.Group):
         # Wait for the reply
         while True:
             try:
-                reply: discord.Message | None = await bot.wait_for("message", timeout=60, check=lambda m: m.author == interaction.user)
+                reply: discord.Message | None = await bot.wait_for(
+                    "message",
+                    timeout=RESTORE_FILE_TIMEOUT,
+                    check=lambda m: m.author == interaction.user,
+                )
             except TimeoutError:
-                edit_msg = "~~Please reply to this message with the backup file.~~\nTimed out after 60 seconds."
+                edit_msg = f"~~Please reply to this message with the backup file.~~\nTimed out after {RESTORE_FILE_TIMEOUT} seconds."
                 await interaction.edit_original_response(content=edit_msg)
                 return
 
@@ -1333,7 +1353,7 @@ remind_group = RemindGroup()
 bot.tree.add_command(remind_group)
 
 
-def send_webhook(*, custom_url: str, message: str) -> None:
+def send_webhook(*, custom_url: str | None = None, message: str) -> None:
     """Send a webhook to Discord.
 
     Args:
@@ -1343,13 +1363,13 @@ def send_webhook(*, custom_url: str, message: str) -> None:
     logger.info(f"Sending webhook to '{custom_url}' with message: '{message}'")
 
     if not message:
-        logger.error("No message provided.")
+        logger.warning("No message provided.")
         message = "No message provided."
 
-    webhook_url: str = os.getenv("WEBHOOK_URL", default="")
-    url: str = custom_url or webhook_url
+    webhook_url: str | None = os.getenv("WEBHOOK_URL")
+    url: str | None = custom_url or webhook_url
     if not url:
-        logger.error("No webhook URL provided.")
+        logger.info("No webhook URL configured (WEBHOOK_URL env var not set). Skipping webhook.")
         return
 
     webhook: DiscordWebhook = DiscordWebhook(url=url, content=message, rate_limit_retry=True)
@@ -1373,10 +1393,6 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
         RuntimeError: If the bot is not ready or is closed.
     """
     logger.info(f"Sending message to channel '<#{channel_id}>' with message: '{message}'")
-
-    # Wait 3 seconds to ensure the bot is ready
-    logger.debug("Waiting for 3 seconds to ensure the bot is ready before sending the message.")
-    await asyncio.sleep(3)
 
     # Early validation of bot state
     if not bot.is_ready():
@@ -1529,7 +1545,7 @@ def _notify_channel_job_removed(*, channel_id: int, author_id: int, message: str
         message_preview: str = (message or "")[:80]
         msg += f'\nMessage: "{message_preview}"\nAuthor: <@{author_id}>'
 
-    send_webhook(custom_url="", message=msg)
+    send_webhook(message=msg)
     logger.info(f"Sent webhook for removed job {job_id_str} in deleted channel {channel_id}.")
 
 
@@ -1598,6 +1614,8 @@ def _remove_jobs_by_channel(channel_id: int) -> None:
             else:
                 removed_details.append(f'- {job.id}: "{message_preview}"')
             logger.info(f"Removed job {job.id} for deleted channel {channel_id}")
+
+    if removed:
         export_reminder_jobs_to_markdown()
 
     if not removed:
@@ -1608,7 +1626,7 @@ def _remove_jobs_by_channel(channel_id: int) -> None:
         f"Channel <#{channel_id}> was deleted or is no longer accessible.\n"
         f"Removed {removed} job(s) targeting that channel:\n" + "\n".join(removed_details)
     )
-    send_webhook(custom_url="", message=webhook_msg)
+    send_webhook(message=webhook_msg)
     logger.info(f"Removed {removed} job(s) for channel {channel_id}. Webhook sent.")
 
 
