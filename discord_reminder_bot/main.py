@@ -57,12 +57,12 @@ def my_listener(event: JobExecutionEvent) -> None:
 
         # Get data from markdown file that was created by export_reminder_jobs_to_markdown()
         job_data: str = get_markdown_contents_from_markdown_file(event.job_id)
-        if not job_data:
-            msg: str = f"Job {event.job_id} was missed! Was scheduled at {scheduled_time} {markdown_time}\n"
-            logger.warning(msg)
-        else:
-            msg: str = f"Job {event.job_id} was missed! Was scheduled at {scheduled_time} {markdown_time}\nData:\n```json\n{job_data}\n```"
-            logger.warning(msg)
+        msg: str = _format_job_notification(
+            job_id=event.job_id,
+            job_data=job_data,
+            prefix=f"was missed! Was scheduled at {scheduled_time} {markdown_time}",
+        )
+        logger.warning(msg)
 
         send_webhook(custom_url="", message=msg)
 
@@ -447,6 +447,40 @@ class ReminderListView(discord.ui.View):
 
         await self.refresh(interaction)
 
+    async def _pause_unpause_job(self, job_id: str) -> str:
+        """Pause or unpause a job and return the status message.
+
+        Args:
+            job_id: The ID of the job to pause or unpause.
+
+        Returns:
+            The status message describing what was done.
+
+        Raises:
+            JobLookupError: If the job cannot be found in the scheduler.
+        """
+        job: Job | None = scheduler.get_job(job_id)
+        if not job:
+            msg = f"Job `{escape_markdown(job_id)}` not found."
+            raise JobLookupError(msg)
+
+        if job.next_run_time is None:
+            scheduler.resume_job(job_id)
+            msg = f"Reminder `{escape_markdown(job_id)}` unpaused."
+        else:
+            scheduler.pause_job(job_id)
+            msg = f"Reminder `{escape_markdown(job_id)}` paused."
+
+        # Update only the affected job in self.jobs
+        updated_job = scheduler.get_job(job_id)
+        if updated_job:
+            for i, j in enumerate(self.jobs):
+                if j.id == job_id:
+                    self.jobs[i] = updated_job
+                    break
+
+        return msg
+
     async def handle_pause_unpause(self, interaction: discord.Interaction, job_id: str) -> None:
         """Handle pausing or unpausing a reminder job.
 
@@ -456,26 +490,7 @@ class ReminderListView(discord.ui.View):
         """
         await interaction.response.defer(ephemeral=True)
         try:
-            job: Job | None = scheduler.get_job(job_id)
-            if not job:
-                await interaction.followup.send(f"Job `{escape_markdown(job_id)}` not found.", ephemeral=True)
-                return
-
-            if job.next_run_time is None:
-                scheduler.resume_job(job_id)
-                msg = f"Reminder `{escape_markdown(job_id)}` unpaused."
-            else:
-                scheduler.pause_job(job_id)
-                msg = f"Reminder `{escape_markdown(job_id)}` paused."
-
-            # Update only the affected job in self.jobs
-            updated_job = scheduler.get_job(job_id)
-            if updated_job:
-                for i, j in enumerate(self.jobs):
-                    if j.id == job_id:
-                        self.jobs[i] = updated_job
-                        break
-
+            msg = await self._pause_unpause_job(job_id)
             await interaction.followup.send(msg, ephemeral=True)
         except JobLookupError:
             await interaction.followup.send(f"Job `{escape_markdown(job_id)}` not found.", ephemeral=True)
@@ -516,6 +531,66 @@ class RemindGroup(discord.app_commands.Group):
         """Initialize the remind group."""
         super().__init__(name="remind", description="Group for remind commands")
         """Group for remind commands."""
+
+    @staticmethod
+    def _find_job(job_id: str) -> Job | None:
+        """Look up a job in the scheduler.
+
+        Args:
+            job_id: The ID of the job to find.
+
+        Returns:
+            The job if found, None otherwise.
+        """
+        return scheduler.get_job(job_id)
+
+    @staticmethod
+    def _remove_job(job_id: str) -> Job:
+        """Remove a job and return it for response formatting.
+
+        Args:
+            job_id: The ID of the job to remove.
+
+        Returns:
+            The removed job.
+
+        Raises:
+            JobLookupError: If the job is not found.
+        """
+        job: Job | None = scheduler.get_job(job_id)
+        if not job:
+            msg = f"Reminder with ID {job_id} not found."
+            raise JobLookupError(msg)
+        scheduler.remove_job(job_id)
+        logger.info(f"Removed job {job_id}. {job.__getstate__()}")
+        return job
+
+    @staticmethod
+    async def _pause_or_unpause_job(job_id: str, *, pause: bool) -> bool:
+        """Pause or unpause a job and return whether the operation succeeded.
+
+        Args:
+            job_id: The ID of the job to pause or unpause.
+            pause: True to pause, False to unpause.
+
+        Returns:
+            True if a follow-up response should be sent.
+
+        Raises:
+            JobLookupError: If the job is not found.
+        """
+        job: Job | None = scheduler.get_job(job_id)
+        if not job:
+            msg = f"Reminder with ID {job_id} not found."
+            raise JobLookupError(msg)
+
+        if pause:
+            scheduler.pause_job(job_id)
+            logger.info(f"Paused job {job_id}.")
+        else:
+            scheduler.resume_job(job_id)
+            logger.info(f"Unpaused job {job_id}.")
+        return True
 
     # /remind add
     @discord.app_commands.command(name="add", description="Add a new reminder")
@@ -1191,12 +1266,7 @@ class RemindGroup(discord.app_commands.Group):
         logger.debug(f"Arguments: {locals()}")
 
         try:
-            job: Job | None = scheduler.get_job(job_id)
-            if not job:
-                await interaction.followup.send(content=f"Reminder with ID {job_id} not found.", ephemeral=True)
-                return
-            scheduler.remove_job(job_id)
-            logger.info(f"Removed job {job_id}. {job.__getstate__()}")
+            job: Job = self._remove_job(job_id)
             await interaction.followup.send(
                 content=f"Reminder with ID {job_id} removed successfully.\n{generate_markdown_state(job.__getstate__(), job=job)}",
             )
@@ -1221,13 +1291,8 @@ class RemindGroup(discord.app_commands.Group):
         logger.debug(f"Arguments: {locals()}")
 
         try:
-            job: Job | None = scheduler.get_job(job_id)
-            if not job:
-                await interaction.followup.send(content=f"Reminder with ID {job_id} not found.", ephemeral=True)
-                return
-            scheduler.pause_job(job_id)
-            logger.info(f"Paused job {job_id}.")
-            await interaction.followup.send(content=f"Reminder with ID {job_id} paused successfully.")
+            if await self._pause_or_unpause_job(job_id, pause=True):
+                await interaction.followup.send(content=f"Reminder with ID {job_id} paused successfully.")
         except JobLookupError as e:
             logger.exception(f"Failed to pause job {job_id}")
             await interaction.followup.send(content=f"Failed to pause reminder with ID {job_id}. {e}", ephemeral=True)
@@ -1249,13 +1314,8 @@ class RemindGroup(discord.app_commands.Group):
         logger.debug(f"Arguments: {locals()}")
 
         try:
-            job: Job | None = scheduler.get_job(job_id)
-            if not job:
-                await interaction.followup.send(content=f"Reminder with ID {job_id} not found.", ephemeral=True)
-                return
-            scheduler.resume_job(job_id)
-            logger.info(f"Unpaused job {job_id}.")
-            await interaction.followup.send(content=f"Reminder with ID {job_id} unpaused successfully.")
+            if await self._pause_or_unpause_job(job_id, pause=False):
+                await interaction.followup.send(content=f"Reminder with ID {job_id} unpaused successfully.")
         except JobLookupError as e:
             logger.exception(f"Failed to unpause job {job_id}")
             await interaction.followup.send(content=f"Failed to unpause reminder with ID {job_id}. {e}", ephemeral=True)
@@ -1301,6 +1361,9 @@ def send_webhook(*, custom_url: str, message: str) -> None:
 async def send_to_discord(channel_id: int, message: str, author_id: int) -> None:
     """Send a message to Discord.
 
+    Removes the job if the channel is not found or the bot has no access
+    (e.g. the channel was deleted or the bot was kicked).
+
     Args:
         channel_id: The Discord channel ID.
         message: The message.
@@ -1326,21 +1389,27 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
         logger.error(error_msg)
         raise RuntimeError(error_msg)
 
-    # Debug bot state before attempting to fetch channel
-    _debug_bot_state()
-
     try:
-        channel: GuildChannel | discord.Thread | PrivateChannel | None = bot.get_channel(channel_id)
-        logger.debug(f"bot.get_channel({channel_id}) returned: {channel}")
-
-        if channel is None:
-            logger.info(f"Channel {channel_id} not in cache, attempting to fetch from API")
-            channel = await bot.fetch_channel(channel_id)
-            logger.debug(f"bot.fetch_channel({channel_id}) returned: {channel}")
+        channel = await _get_channel_or_fetch(channel_id)
+    except discord.NotFound:
+        logger.warning(f"Channel {channel_id} not found (deleted or invalid). Removing jobs for this channel.")
+        _notify_channel_job_removed(channel_id=channel_id, author_id=author_id, message=message)
+        _remove_jobs_by_channel(channel_id)
+        return
+    except discord.Forbidden:
+        logger.warning(f"Bot does not have access to channel {channel_id}. The job will be retried on next trigger.")
+        return
     except Exception as e:
         logger.error(f"Failed to get/fetch channel {channel_id}: {type(e).__name__}: {e}")
         logger.error(f"Bot state during error - is_ready: {bot.is_ready()}, is_closed: {bot.is_closed()}")
         raise
+
+    # If the channel is None even after fetching, we cannot proceed
+    if channel is None:
+        logger.error(f"Channel {channel_id} returned None from get/fetch. Removing jobs for this channel.")
+        _notify_channel_job_removed(channel_id=channel_id, author_id=author_id, message=message)
+        _remove_jobs_by_channel(channel_id)
+        return
 
     # Channels we can't send messages to
     if isinstance(channel, discord.ForumChannel | discord.CategoryChannel | PrivateChannel):
@@ -1354,11 +1423,13 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
 
         sent_message = await channel.send(message_content)
         logger.info(f"Successfully sent message to channel {channel_id}, message ID: {sent_message.id}")
+    except discord.Forbidden:
+        logger.warning(f"Bot does not have permission to send messages in channel {channel_id}. The job will be retried on next trigger.")
     except Exception as e:
         logger.error(f"Failed to send message to channel {channel_id}: {type(e).__name__}: {e}")
         logger.error(f"Channel: {channel}, Channel type: {type(channel)}")
         logger.error(f"Bot state during send error - is_ready: {bot.is_ready()}, is_closed: {bot.is_closed()}")
-        if hasattr(channel, "guild"):
+        if isinstance(channel, discord.abc.GuildChannel | discord.Thread) and channel.guild is not None:
             logger.error(f"Guild: {channel.guild}, Guild available: {getattr(channel.guild, 'available', 'Unknown')}")
         raise
 
@@ -1403,29 +1474,180 @@ async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
         logger.exception(f"Failed to send message '{message}' to user '{user_id}' in guild '{guild_id}'")
 
 
-def _debug_bot_state() -> None:
-    """Debug helper function to log bot state information."""
-    logger.debug(f"Bot is_ready: {bot.is_ready()}")
-    logger.debug(f"Bot is_closed: {bot.is_closed()}")
-    logger.debug(f"Bot user: {bot.user}")
-    logger.debug(f"Bot guilds count: {len(bot.guilds) if bot.guilds else 'None'}")
+def _format_job_notification(*, job_id: str, job_data: str, prefix: str) -> str:
+    """Format a job notification message for a webhook.
 
-    # Check bot's http client state
-    if hasattr(bot, "http") and bot.http:
-        logger.debug(f"Bot HTTP client state: connector_initialized={hasattr(bot.http, 'connector')}")
+    If ``job_data`` is available, it is included in a JSON code block.
+    Otherwise only the basic message is returned.
+
+    Args:
+        job_id: The job ID.
+        job_data: The full job data as a JSON string, or an empty string.
+        prefix: A descriptive prefix, e.g. "was missed! Was scheduled at ...".
+
+    Returns:
+        The formatted message string.
+    """
+    if not job_data:
+        return f"Job {job_id} {prefix}\n"
+    return f"Job {job_id} {prefix}\nData:\n```json\n{job_data}\n```"
+
+
+def _notify_channel_job_removed(*, channel_id: int, author_id: int, message: str) -> None:
+    """Send a webhook about a single job that targeted a deleted channel.
+
+    This is used when the current job has already been removed from the
+    scheduler by APScheduler (one-shot date triggers are removed after
+    execution), so :func:`_remove_jobs_by_channel` won't find it.
+
+    Looks up the job data from the markdown files in ``data/reminder_data/``
+    to retrieve the full job info, since the job is no longer in the scheduler.
+
+    Args:
+        channel_id: The Discord channel ID.
+        author_id: The user ID who created the reminder.
+        message: The reminder message content.
+    """
+    job_data_str: str = _find_job_data_by_channel_in_markdown(channel_id) or ""
+
+    job_id_str: str = "(unknown id)"
+    if job_data_str:
         try:
-            # Safely check _global_over attribute which is causing the error
-            global_over = getattr(bot.http, "_global_over", None)
-            logger.debug(f"Bot HTTP _global_over type: {type(global_over)}")
-            logger.debug(f"Bot HTTP _global_over: {global_over}")
-            if global_over is not None and hasattr(global_over, "is_set"):
-                logger.debug(f"Bot HTTP _global_over.is_set(): {global_over.is_set()}")
+            job_data: dict[str, object] = json.loads(job_data_str)
+            found_id: Any | None = job_data.get("id")
+            if isinstance(found_id, str):
+                job_id_str = found_id
+        except json.JSONDecodeError:
+            pass
+
+    msg: str = _format_job_notification(
+        job_id=job_id_str,
+        job_data=job_data_str,
+        prefix=f"was removed because channel <#{channel_id}> was deleted or is no longer accessible.",
+    )
+    if not job_data_str:
+        message_preview: str = (message or "")[:80]
+        msg += f'\nMessage: "{message_preview}"\nAuthor: <@{author_id}>'
+
+    send_webhook(custom_url="", message=msg)
+    logger.info(f"Sent webhook for removed job {job_id_str} in deleted channel {channel_id}.")
+
+
+def _find_job_data_by_channel_in_markdown(channel_id: int) -> str | None:
+    """Search the reminder markdown files for a job targeting the given channel.
+
+    Looks through ``data/reminder_data/*.md`` for a file whose ``kwargs``
+    contain the matching ``channel_id`` and returns the full file contents.
+    This is used when the job has already been removed from the scheduler
+    (e.g. one-shot date triggers).
+
+    Args:
+        channel_id: The Discord channel ID to search for.
+
+    Returns:
+        The full markdown file contents (JSON) if found, or None if no matching file exists.
+    """
+    data_dir: str = os.getenv("DATA_DIR", default="./data")
+    reminder_dir: Path = Path(data_dir) / "reminder_data"
+    if not reminder_dir.is_dir():
+        return None
+
+    for file_path in reminder_dir.iterdir():
+        if file_path.suffix != ".md":
+            continue
+        try:
+            raw: str = file_path.read_text(encoding="utf-8")
+            data: dict[str, object] = json.loads(raw)
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        kwargs_raw: Any | None = data.get("kwargs")
+        kwargs: dict[str, object] = kwargs_raw if isinstance(kwargs_raw, dict) else {}
+        if kwargs.get("channel_id") == channel_id:
+            return raw
+
+    return None
+
+
+def _remove_jobs_by_channel(channel_id: int) -> None:
+    """Remove all scheduled jobs that target a given channel.
+
+    Called when a channel is deleted, so stale jobs don't keep failing.
+    Sends a webhook notification about the removed jobs.
+
+    Note: One-shot date-triggered jobs are removed from the scheduler by
+    APScheduler immediately after they execute. Callers should use
+    :func:`_notify_channel_job_removed` if the current job has already been
+    removed from the scheduler.
+
+    Args:
+        channel_id: The Discord channel ID whose jobs should be removed.
+    """
+    jobs: list[Job] = scheduler.get_jobs()
+    removed: int = 0
+    removed_details: list[str] = []
+    for job in jobs:
+        if not job.kwargs or job.kwargs.get("channel_id") != channel_id:
+            continue
+        author_id: int | None = job.kwargs.get("author_id")
+        message_preview: str = (job.kwargs.get("message", "") or "")[:80]
+        if _remove_job_safe(job.id):
+            removed += 1
+            if author_id:
+                removed_details.append(f'- {job.id}: "{message_preview}" (author: <@{author_id}>)')
             else:
-                logger.warning("Bot HTTP _global_over missing is_set method - this is likely the cause of the error")
-        except (AttributeError, TypeError) as debug_error:
-            logger.warning(f"Could not inspect bot HTTP _global_over: {debug_error}")
+                removed_details.append(f'- {job.id}: "{message_preview}"')
+            logger.info(f"Removed job {job.id} for deleted channel {channel_id}")
+        export_reminder_jobs_to_markdown()
+
+    if not removed:
+        logger.info(f"No remaining jobs found in scheduler for channel {channel_id}.")
+        return
+
+    webhook_msg: str = (
+        f"Channel <#{channel_id}> was deleted or is no longer accessible.\n"
+        f"Removed {removed} job(s) targeting that channel:\n" + "\n".join(removed_details)
+    )
+    send_webhook(custom_url="", message=webhook_msg)
+    logger.info(f"Removed {removed} job(s) for channel {channel_id}. Webhook sent.")
+
+
+def _remove_job_safe(job_id: str) -> bool:
+    """Try to remove a job, returning False if it's already gone.
+
+    Args:
+        job_id: The ID of the job to remove.
+
+    Returns:
+        True if the job was removed, False if it was already gone.
+    """
+    try:
+        scheduler.remove_job(job_id)
+    except JobLookupError:
+        logger.debug(f"Job {job_id} already removed.")
+        return False
     else:
-        logger.error("Bot HTTP client is None or missing")
+        return True
+
+
+async def _get_channel_or_fetch(channel_id: int) -> GuildChannel | discord.Thread | PrivateChannel | None:
+    """Get a channel from cache or fetch it from the API.
+
+    Args:
+        channel_id: The ID of the channel to get.
+
+    Returns:
+        The channel if found, None otherwise.
+    """
+    channel: GuildChannel | discord.Thread | PrivateChannel | None = bot.get_channel(channel_id)
+    logger.debug(f"bot.get_channel({channel_id}) returned: {channel}")
+
+    if channel is None:
+        logger.info(f"Channel {channel_id} not in cache, attempting to fetch from API")
+        channel = await bot.fetch_channel(channel_id)
+        logger.debug(f"bot.fetch_channel({channel_id}) returned: {channel}")
+
+    return channel
 
 
 if __name__ == "__main__":

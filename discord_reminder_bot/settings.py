@@ -20,11 +20,11 @@ def get_scheduler() -> AsyncIOScheduler:
 
     Uses the SQLITE_LOCATION environment variable for the SQLite database location.
 
-    Raises:
-        ValueError: If the timezone is missing or invalid.
-
     Returns:
         AsyncIOScheduler: The scheduler instance.
+
+    Raises:
+        ValueError: If the timezone is missing or invalid.
     """
     config_timezone: str | None = os.getenv("TIMEZONE")
     if not config_timezone:
@@ -62,11 +62,14 @@ def export_reminder_jobs_to_markdown() -> None:
         file_path: Path = Path(data_dir) / "reminder_data" / f"{job.id}.md"
         file_path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            if file_path.exists():
-                existing_content = file_path.read_text(encoding="utf-8")
-                if existing_content == job_state:
-                    logger.debug(f"No changes for {file_path}, skipping write.")
-                    continue
+            if file_path.exists() and file_path.read_text(encoding="utf-8") == job_state:
+                logger.debug(f"No changes for {file_path}, skipping write.")
+                continue
+        except OSError as e:
+            logger.error(f"Failed to save data to {file_path}: {e}")
+            continue
+
+        try:
             file_path.write_text(job_state, encoding="utf-8")
             logger.info(f"Data saved to {file_path}")
         except OSError as e:
