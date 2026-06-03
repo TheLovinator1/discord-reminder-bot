@@ -685,8 +685,8 @@ class RemindGroup(discord.app_commands.Group):
             return
 
         channel = interaction.channel
-        if not isinstance(channel, discord.TextChannel):
-            await interaction.followup.send(content="This command can only be used in a text channel.", ephemeral=True)
+        if not isinstance(channel, discord.TextChannel | discord.Thread):
+            await interaction.followup.send(content="This command can only be used in a text channel or thread.", ephemeral=True)
             return
 
         logger.info(f"Listing reminders for {user} ({user.id}) in {interaction.channel}")
@@ -700,7 +700,7 @@ class RemindGroup(discord.app_commands.Group):
 
         # Filter jobs by guild
         guild_jobs: list[Job] = []
-        channels_in_this_guild: list[int] = [c.id for c in guild.channels] if guild else []
+        channels_in_this_guild: list[int] = [c.id for c in guild.channels] + [t.id for t in guild.threads] if guild else []
         for job in all_jobs:
             guild_id_from_kwargs = int(job.kwargs.get("guild_id", 0))
             if guild_id_from_kwargs and guild_id_from_kwargs != guild.id:
