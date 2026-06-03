@@ -24,8 +24,11 @@ using [Docker](https://hub.docker.com/r/thelovinator/discord-reminder-bot).
 - Copy the bot token and paste it into the `BOT_TOKEN` environment variable.
 - Go to the OAuth2 page -> URL Generator
   - Select the `bot` and `applications.commands` scope.
-  - Select the bot permissions that you want the bot to have. Select `Administrator`. (TODO: Add a list of permissions
-      that are needed)
+  - Select the bot permissions that you want the bot to have. Required permissions:
+    - `Send Messages` — to send reminder messages
+    - `Read Messages/View Channels` — to read channel information
+    - `Create Scheduled Events` — for the `/remind event` command
+    - `Use Slash Commands` — to allow command usage
   - Copy the generated URL and open it in your browser. You can now invite the bot to your server.
 
 ### Install directly on your computer
@@ -45,7 +48,7 @@ using [Docker](https://hub.docker.com/r/thelovinator/discord-reminder-bot).
   - Type `uv run .\discord_reminder_bot\main.py` into the PowerShell window.
     - You can stop the bot with <kbd>Ctrl</kbd> + <kbd>c</kbd>.
 
-Note: You will need to run `poetry install` again if poetry.lock has been modified.
+Note: If the dependencies have changed (e.g., after a `git pull`), run `uv sync` to update them.
 
 Note: It can take up to one hour for the slash commands to be visible in the Discord server.
 
