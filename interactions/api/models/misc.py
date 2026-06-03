@@ -23,3 +23,27 @@ class Snowflake:
     def __int__(self) -> int:
         """Return the snowflake as an integer."""
         return int(self._snowflake)
+
+    def __eq__(self, other: object) -> bool:
+        """Compare the snowflake with another value.
+
+        Supports comparison with int, str, and other Snowflake objects.
+
+        Args:
+            other: The value to compare with.
+
+        Returns:
+            True if the snowflake values match, False otherwise.
+        """
+        if isinstance(other, Snowflake):
+            return self._snowflake == other._snowflake
+        if isinstance(other, int | str):
+            return self._snowflake == str(other)
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        """Return a hash based on the integer value.
+
+        Allows Snowflake objects to be used in sets and as dict keys.
+        """
+        return int(self._snowflake)
