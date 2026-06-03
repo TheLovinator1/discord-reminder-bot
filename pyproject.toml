@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest"]
+dev = ["pytest", "pytest-asyncio"]
 
 [tool.ruff]
 preview = true
@@ -64,9 +64,12 @@ lint.ignore = [
 "**/test_*.py" = [
     "ARG",     # Unused function args -> fixtures nevertheless are functionally relevant...
     "FBT",     # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    "PLC0415", # Imports inside test functions to avoid eager module loading with patches
+    "PLC2701", # Private name imports from modules being tested
     "PLR2004", # Magic value used in comparison, ...
     "S101",    # asserts allowed in tests...
     "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
+    "SLF001",  # Accessing private members of the module under test
 ]
 
 [tool.pytest.ini_options]
