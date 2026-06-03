@@ -13,6 +13,7 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from loguru import logger
 
+from discord_reminder_bot._config import get_scheduler_timezone
 from interactions.api.models.misc import Snowflake
 
 
@@ -34,7 +35,7 @@ def calculate(job: Job) -> str:
             logger.debug(f"No next run time found for '{job.id}', probably paused? {job.__getstate__()}")
             return "Paused"
 
-        trigger_time = job.trigger.get_next_fire_time(None, datetime.datetime.now(tz=job._scheduler.timezone))  # noqa: SLF001
+        trigger_time = job.trigger.get_next_fire_time(None, datetime.datetime.now(tz=get_scheduler_timezone()))
 
     logger.debug(f"{type(job.trigger)=}, {trigger_time=}")
 
@@ -63,7 +64,7 @@ def get_human_readable_time(job: Job) -> str:
             logger.debug(f"No next run time found for '{job.id}', probably paused? {job.__getstate__()}")
             return "Paused"
 
-        trigger_time = job.trigger.get_next_fire_time(None, datetime.datetime.now(tz=job._scheduler.timezone))  # noqa: SLF001
+        trigger_time = job.trigger.get_next_fire_time(None, datetime.datetime.now(tz=get_scheduler_timezone()))
 
     if not trigger_time:
         logger.debug("No trigger time found")
