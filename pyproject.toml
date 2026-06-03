@@ -80,4 +80,6 @@ log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 filterwarnings = [
     "ignore:Parsing dates involving a day of month without a year specified is ambiguious:DeprecationWarning:dateparser\\.utils\\.strptime",
     "ignore::DeprecationWarning:aiohttp.cookiejar",
+    # discord.py 2.7.1 uses positional count arg in re.sub; Python 3.14+ requires keyword
+    "ignore:'count' is passed as positional argument:DeprecationWarning:discord.utils",
 ]

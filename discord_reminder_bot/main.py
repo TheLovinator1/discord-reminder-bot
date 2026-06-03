@@ -668,6 +668,7 @@ class RemindGroup(discord.app_commands.Group):
                     "user_id": user.id,
                     "guild_id": guild.id,
                     "message": message,
+                    "_scheduled_time": parsed_time.isoformat(),
                 },
             )
             logger.info(f"User reminder job created: {user_reminder} for {user.id} at {parsed_time}")
@@ -683,14 +684,16 @@ class RemindGroup(discord.app_commands.Group):
                 return
 
         # Create channel reminder job
+        channel_parsed_time: datetime.datetime | None = parse_time(date_to_parse=time)
         channel_job: Job = scheduler.add_job(
             func=send_to_discord,
             trigger="date",
-            run_date=parse_time(date_to_parse=time),
+            run_date=channel_parsed_time,
             kwargs={
                 "channel_id": channel_id,
                 "message": message,
                 "author_id": interaction.user.id,
+                "_scheduled_time": channel_parsed_time.isoformat() if channel_parsed_time else None,
             },
         )
         logger.info(f"Channel reminder job created: {channel_job} for {channel_id}")
@@ -1380,7 +1383,28 @@ def send_webhook(*, custom_url: str | None = None, message: str) -> None:
     logger.info(f"Webhook response: {webhook_response}")
 
 
-async def send_to_discord(channel_id: int, message: str, author_id: int) -> None:
+def _format_late_notice(scheduled_time: str | None) -> str:
+    """Return a late-notice suffix if the reminder was scheduled more than 60 s ago.
+
+    Args:
+        scheduled_time: An ISO-formatted datetime string, or ``None``.
+
+    Returns:
+        An empty string (on time) or a Markdown italic notice (late).
+    """
+    if not scheduled_time:
+        return ""
+    try:
+        scheduled_dt = datetime.datetime.fromisoformat(scheduled_time)
+        now = datetime.datetime.now(tz=scheduled_dt.tzinfo)
+        if (now - scheduled_dt).total_seconds() > 60:
+            return f"\n*(Ran late! Was meant for <t:{int(scheduled_dt.timestamp())}:R>)*"
+    except (ValueError, TypeError):
+        logger.warning(f"Failed to parse scheduled_time: {scheduled_time}")
+    return ""
+
+
+async def send_to_discord(channel_id: int, message: str, author_id: int, _scheduled_time: str | None = None) -> None:
     """Send a message to Discord.
 
     Removes the job if the channel is not found or the bot has no access
@@ -1390,6 +1414,8 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
         channel_id: The Discord channel ID.
         message: The message.
         author_id: User we should mention in the message.
+        _scheduled_time: The ISO-formatted time the job was originally scheduled for.
+            Used to add a late notice if the bot was offline.
 
     Raises:
         RuntimeError: If the bot is not ready or is closed.
@@ -1434,9 +1460,11 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
         logger.error(f"We haven't implemented sending messages to this channel type {type(channel)}")
         return
 
+    late_notice: str = _format_late_notice(_scheduled_time)
+
     try:
         logger.debug(f"Attempting to send message to channel {channel} (type: {type(channel)})")
-        message_content = f"<@{author_id}>\n{message}"
+        message_content = f"<@{author_id}>\n{late_notice}{message}"
         logger.debug(f"Message content length: {len(message_content)} characters")
 
         sent_message = await channel.send(message_content)
@@ -1452,13 +1480,15 @@ async def send_to_discord(channel_id: int, message: str, author_id: int) -> None
         raise
 
 
-async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
+async def send_to_user(user_id: int, guild_id: int, message: str, _scheduled_time: str | None = None) -> None:
     """Send a message to a user via DM.
 
     Args:
         user_id: The user ID to send the message to.
         guild_id: The guild ID to get the user from.
         message: The message to send.
+        _scheduled_time: The ISO-formatted time the job was originally scheduled for.
+            Used to add a late notice if the bot was offline.
     """
     logger.info(f"Sending message to user {user_id} in guild {guild_id}")
     try:
@@ -1486,8 +1516,10 @@ async def send_to_user(user_id: int, guild_id: int, message: str) -> None:
         logger.exception(f"Fetching the member failed. Guild: {guild_id}, User: {user_id}")
         return
 
+    late_notice: str = _format_late_notice(_scheduled_time)
+
     try:
-        await member.send(message)
+        await member.send(f"{late_notice}{message}")
     except discord.HTTPException:
         logger.exception(f"Failed to send message '{message}' to user '{user_id}' in guild '{guild_id}'")
 

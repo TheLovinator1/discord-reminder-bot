@@ -26,7 +26,11 @@ def get_scheduler() -> AsyncIOScheduler:
     logger.info(f"Using SQLite database at: {sqlite_location}")
 
     jobstores: dict[str, SQLAlchemyJobStore] = {"default": SQLAlchemyJobStore(url=f"sqlite://{sqlite_location}")}
-    job_defaults: dict[str, bool] = {"coalesce": True}
+    misfire_grace_time: int = int(os.getenv("MISFIRE_GRACE_TIME", default="3600"))
+    job_defaults: dict[str, bool | int] = {
+        "coalesce": True,  # Only run once if an interval reminder is missed, otherwise it will send all the missed reminders during the interval when the bot was offline
+        "misfire_grace_time": misfire_grace_time,  # If a reminder is missed, it will still be sent if it was missed within the last hour (3600 seconds)
+    }
     return AsyncIOScheduler(jobstores=jobstores, timezone=get_scheduler_timezone(), job_defaults=job_defaults)
 
 
